@@ -1,0 +1,244 @@
+uniquely identified by bits 25 - 27 (001), and further classified by the next four bits
+cccc0010000Snnnndddd ssssssss mmmm //AND 8 bit shift imm and
+cccc0010001Snnnndddd ssssssss mmmm //EOR 8 bit shift imm exclusive or
+cccc0010010Snnnndddd ssssssss mmmm //SUB 8 bit shift imm subtract
+cccc0010011Snnnndddd ssssssss mmmm //RSB 8 bit shift imm reverse subtract
+cccc0010100Snnnndddd ssssssss mmmm //ADD 8 bit shift imm addition
+cccc0010101Snnnndddd ssssssss mmmm //ADC 8 bit shift imm add with carry
+cccc0010110Snnnndddd ssssssss mmmm //SBC 8 bit shift imm subtract with carry
+cccc0010111Snnnndddd ssssssss mmmm //RSC 8 bit shift imm reverse subtract with carry
+cccc0011000Snnnndddd ssssssss mmmm //TST 8 bit shift imm test bits
+cccc0011001Snnnndddd ssssssss mmmm //TEQ 8 bit shift imm test bitwise equality
+cccc0011010Snnnndddd ssssssss mmmm //CMP 8 bit shift imm compare
+cccc0011011Snnnndddd ssssssss mmmm //CMN 8 bit shift imm compare negative
+cccc0011100Snnnndddd ssssssss mmmm //ORR 8 bit shift imm or
+cccc0011101Snnnndddd ssssssss mmmm //MOV 8 bit shift imm move register or constant
+cccc0011110Snnnndddd ssssssss mmmm //BIC 8 bit shift imm bit clear
+cccc0011111Snnnndddd ssssssss mmmm //MVN 8 bit shift imm move negative register
+
+__________________________________________________________________________________________________________________________________________________________
+identified by 000
+narrow this group of instructions by seeing if there is a 1 at the fourth bit, and then a 0 at the sixth
+cccc0000000Snnnndddd ssss0ss1 mmmm //AND shift by bottom byte specified in register by shift type
+cccc0000001Snnnndddd ssss0ss1 mmmm //EOR shift by bottom byte specified in register by shift type
+cccc0000010Snnnndddd ssss0ss1 mmmm //SUB shift by bottom byte specified in register by shift type
+cccc0000011Snnnndddd ssss0ss1 mmmm //RSB shift by bottom byte specified in register by shift type
+cccc0000100Snnnndddd ssss0ss1 mmmm //ADD shift by bottom byte specified in register by shift type
+cccc0000101Snnnndddd ssss0ss1 mmmm //ADC shift by bottom byte specified in register by shift type
+cccc0000110Snnnndddd ssss0ss1 mmmm //SBC shift by bottom byte specified in register by shift type
+cccc0000111Snnnndddd ssss0ss1 mmmm //RSC shift by bottom byte specified in register by shift type
+cccc0001000Snnnndddd ssss0ss1 mmmm //TST shift by bottom byte specified in register by shift type
+cccc0001001Snnnndddd ssss0ss1 mmmm //TEQ shift by bottom byte specified in register by shift type
+cccc0001010Snnnndddd ssss0ss1 mmmm //CMP shift by bottom byte specified in register by shift type
+cccc0001011Snnnndddd ssss0ss1 mmmm //CMN shift by bottom byte specified in register by shift type
+cccc0001100Snnnndddd ssss0ss1 mmmm //ORR shift by bottom byte specified in register by shift type
+cccc0001101Snnnndddd ssss0ss1 mmmm //MOV shift by bottom byte specified in register by shift type
+cccc0001110Snnnndddd ssss0ss1 mmmm //BIC shift by bottom byte specified in register by shift type
+cccc0001111Snnnndddd ssss0ss1 mmmm //MVN shift by bottom byte specified in register by shift type
+
+cccc0000000Snnnndddd sssssss0 mmmm //AND 5 bit shift imm with shift type
+cccc0000001Snnnndddd sssssss0 mmmm //EOR 5 bit shift imm with shift type 
+cccc0000010Snnnndddd sssssss0 mmmm //SUB 5 bit shift imm with shift type 
+cccc0000011Snnnndddd sssssss0 mmmm //RSB 5 bit shift imm with shift type 
+cccc0000100Snnnndddd sssssss0 mmmm //ADD 5 bit shift imm with shift type 
+cccc0000101Snnnndddd sssssss0 mmmm //ADC 5 bit shift imm with shift type 
+cccc0000110Snnnndddd sssssss0 mmmm //SBC 5 bit shift imm with shift type 
+cccc0000111Snnnndddd sssssss0 mmmm //RSC 5 bit shift imm with shift type 
+cccc0001000Snnnndddd sssssss0 mmmm //TST 5 bit shift imm with shift type 
+cccc0001001Snnnndddd sssssss0 mmmm //TEQ 5 bit shift imm with shift type 
+cccc0001010Snnnndddd sssssss0 mmmm //CMP 5 bit shift imm with shift type 
+cccc0001011Snnnndddd sssssss0 mmmm //CMN 5 bit shift imm with shift type 
+cccc0001100Snnnndddd sssssss0 mmmm //ORR 5 bit shift imm with shift type 
+cccc0001101Snnnndddd sssssss0 mmmm //MOV 5 bit shift imm with shift type 
+cccc0001110Snnnndddd sssssss0 mmmm //BIC 5 bit shift imm with shift type 
+cccc0001111Snnnndddd sssssss0 mmmm //MVN 5 bit shift imm with shift type 
+
+cccc000000aSddddnnnn ssss1001 mmmm //MUL / MLA multiply / multiply-accumulate
+
+cccc00001uaShhhhllll nnnn1001 mmmm //MULL / MLAL multiply long / multiply-accumulate long
+
+cccc00010b00nnnndddd 00001001 mmmm //LDR / STR load register from memory / store register to memory
+
+cccc0001001011111111 11110001 nnnn //BX / branch and exchange
+
+cccc000pu0wlnnnndddd 00001sh1 mmmm //LDRH / STRH / LDRSB / LDRSH Load register from memory / 
+
+cccc000pu1wlnnnndddd oooo1sh1 oooo //immediate version
+
+__________________________________________________________________________________________________________________________________________________________
+
+cccc01ipubwlnnnndddd oooooooo oooo //LDR / STR
+
+cccc011xxxxxxxxxxxxx xxxxxxx1 xxxx //undefined
+
+cccc100puswlnnnnrrrr rrrrrrrr rrrr //LDM / STM
+
+cccc101loooooooooooo oooooooo oooo //B / BL
+
+//The opcodes are irrelevant for GBA/NDS7 because no coprocessor exists (except for a dummy CP14 unit)
+
+cccc110punwlnnnndddd ppppoooo oooo //coprocessor data transfer
+cccc1110oooorrrrdddd nnnnppp0 rrrr //coprocessor data operation
+cccc1110ooolrrrrdddd nnnnppp1 rrrr //coprocessor register transfer
+
+cccc1111xxxxxxxxxxxx xxxxxxxx xxxx //software interrupt
+
+
+IF INSTRUCTION DOESNT FIT ANY BRANCH
+IT IS UNDEFINED
+
+
+__________________________________________________________________________________________________________________________________________________________
+__________________________________________________________________________________________________________________________________________________________
+__________________________________________________________________________________________________________________________________________________________
+__________________________________________________________________________________________________________________________________________________________
+__________________________________________________________________________________________________________________________________________________________
+__________________________________________________________________________________________________________________________________________________________
+
+
+
+4.3 Branch and Exchange (BX):
+cccc 0001 0010 1111 1111 1111 0001 nnnn
+first bit of rn determines how to decode the subsequent instructions after the branch
+
+4.4 Branch and Branch with Link (B, BL):
+cccc 101L oooo oooo oooo oooo oooo oooo
+like the branch, except the offset (sign-extended, 2s complement) is added to the pc.
+the link bit determines if the old address is saved in the link register R14, allowing for "function" calls
+
+4.13 Software Interrupt (SWI)
+used for calls to the operating system, enters supervisor mode(SVC) in ARM state
+cccc 1111 xxxx xxxx xxxx xxxx xxxx xxxx
+bottom 24 bits ignored by processor
+
+4.17 Undefined Instruction (undefined)
+cccc 011x xxxx xxxx xxxx xxx1 xxxx
+there is no assembler mnemonic for this, so i guess reserved for future use? 
+
+4.5 Data Processing (ALU) (AND, EOR, SUB, RSB, ADD, ADC, SBC, RSC, TST, TEQ, CMP, CMN, ORR, MOV, BIC, MVN):
+cccc 00Io oooS nnnn dddd 2222 2222 2222 (general format)
+the I bit changes the format of operand 2 (the 12 ending bits)
+the 4 bit opcode after the I bit changes the function of the instruction
+
+if I bit is 0, then operand 2 will be composed of a 8 bit shift, and 4 bits for register. these 8 bits are further composed of either...
+-5 bit imm, 2 bit shift type, and a 0
+-4 bit regnum, 0, 2 bit shift type, and a 1 (bottom byte of register used to shift the register)
+if I bit is 1, then operand 2 will be composed of a 4 bit shift, and 8 bit imm
+
+in otherwords, either shift 8 bit imm with 4 bits, or shift a register with 5 bit imm with more control, or with register's bottom byte with more control
+the resulting number is then used with operand 1, nnnn, with an operation dictated by the opcode
+e.g. nnnn AND mmmm mmmm with 4 bit shift
+
+thus, all possible instructions are
+I bit set to 1 (4 bit shift 8 bit imm) ...
+cccc 0010 000S nnnn dddd ssss mmmm mmmm //AND and
+cccc 0010 001S nnnn dddd ssss mmmm mmmm //EOR exclusive or
+cccc 0010 010S nnnn dddd ssss mmmm mmmm //SUB subtract
+cccc 0010 011S nnnn dddd ssss mmmm mmmm //RSB reverse subtract
+cccc 0010 100S nnnn dddd ssss mmmm mmmm //ADD addition
+cccc 0010 101S nnnn dddd ssss mmmm mmmm //ADC add with carry
+cccc 0010 110S nnnn dddd ssss mmmm mmmm //SBC subtract with carry
+cccc 0010 111S nnnn dddd ssss mmmm mmmm //RSC reverse subtract with carry
+cccc 0011 0001 nnnn dddd ssss mmmm mmmm //TST test bits (dddd is either all 0s or 1s)
+cccc 0011 0011 nnnn dddd ssss mmmm mmmm //TEQ test bitwise equality (dddd is either all 0s or 1s)
+cccc 0011 0101 nnnn dddd ssss mmmm mmmm //CMP compare (dddd is either all 0s or 1s)
+cccc 0011 0111 nnnn dddd ssss mmmm mmmm //CMN compare negative (dddd is either all 0s or 1s)
+cccc 0011 100S nnnn dddd ssss mmmm mmmm //ORR or
+cccc 0011 101S 0000 dddd ssss mmmm mmmm //MOV move register or constant
+cccc 0011 110S nnnn dddd ssss mmmm mmmm //BIC bit clear
+cccc 0011 111S 0000 dddd ssss mmmm mmmm //MVN move negative register
+
+I bit set to 0 (5 bit shift register mmmm by shift type tt)
+cccc 0000 000S nnnn dddd ssss stt0 mmmm //AND and
+cccc 0000 001S nnnn dddd ssss stt0 mmmm //EOR exclusive or
+cccc 0000 010S nnnn dddd ssss stt0 mmmm //SUB subtract
+cccc 0000 011S nnnn dddd ssss stt0 mmmm //RSB reverse subtract
+cccc 0000 100S nnnn dddd ssss stt0 mmmm //ADD addition
+cccc 0000 101S nnnn dddd ssss stt0 mmmm //ADC add with carry
+cccc 0000 110S nnnn dddd ssss stt0 mmmm //SBC subtract with carry
+cccc 0000 111S nnnn dddd ssss stt0 mmmm //RSC reverse subtract with carry
+cccc 0001 0001 nnnn dddd ssss stt0 mmmm //TST test bits (dddd is either all 0s or 1s)
+cccc 0001 0011 nnnn dddd ssss stt0 mmmm //TEQ test bitwise equality (dddd is either all 0s or 1s)
+cccc 0001 0101 nnnn dddd ssss stt0 mmmm //CMP compare (dddd is either all 0s or 1s)
+cccc 0001 0111 nnnn dddd ssss stt0 mmmm //CMN compare negative (dddd is either all 0s or 1s)
+cccc 0001 100S nnnn dddd ssss stt0 mmmm //ORR or
+cccc 0001 101S 0000 dddd ssss stt0 mmmm //MOV move register or constant
+cccc 0001 110S nnnn dddd ssss stt0 mmmm //BIC bit clear
+cccc 0001 111S 0000 dddd ssss stt0 mmmm //MVN move negative register
+
+I bit set to 0 (shift register mmmm by bottom byte in register ssss by shift type tt)
+cccc 0000 000S nnnn dddd ssss 0tt1 mmmm //AND and
+cccc 0000 001S nnnn dddd ssss 0tt1 mmmm //EOR exclusive or
+cccc 0000 010S nnnn dddd ssss 0tt1 mmmm //SUB subtract
+cccc 0000 011S nnnn dddd ssss 0tt1 mmmm //RSB reverse subtract
+cccc 0000 100S nnnn dddd ssss 0tt1 mmmm //ADD addition
+cccc 0000 101S nnnn dddd ssss 0tt1 mmmm //ADC add with carry
+cccc 0000 110S nnnn dddd ssss 0tt1 mmmm //SBC subtract with carry
+cccc 0000 111S nnnn dddd ssss 0tt1 mmmm //RSC reverse subtract with carry
+cccc 0001 0001 nnnn dddd ssss 0tt1 mmmm //TST test bits (dddd is either all 0s or 1s)
+cccc 0001 0011 nnnn dddd ssss 0tt1 mmmm //TEQ test bitwise equality (dddd is either all 0s or 1s)
+cccc 0001 0101 nnnn dddd ssss 0tt1 mmmm //CMP compare (dddd is either all 0s or 1s)
+cccc 0001 0111 nnnn dddd ssss 0tt1 mmmm //CMN compare negative (dddd is either all 0s or 1s)
+cccc 0001 100S nnnn dddd ssss 0tt1 mmmm //ORR or
+cccc 0001 101S 0000 dddd ssss 0tt1 mmmm //MOV move register or constant
+cccc 0001 110S nnnn dddd ssss 0tt1 mmmm //BIC bit clear
+cccc 0001 111S 0000 dddd ssss 0tt1 mmmm //MVN move negative register
+
+
+4.5 Multiply and Multiply-Accumulate (MUL, MLA):
+cccc 0000 00as dddd nnnn ssss 1001 mmmm
+the four bytes before s are an opcode...
+0000 -> a = 0 -> MUL
+0001 -> a = 1 -> MLA
+nnnn should be all 0 if MUL (rd = rs * rm, rn is not used)
+otherwise, in MLA, nnnn can be whatever (rd = rs * rm + rn)
+results in a 32 bit number
+
+4.8 Multiply Long and Multiply-Accumulate Long (MULL, MLAL [with signed and unsigned versions i.e. UMULL, UMLAL, SMULL, SMLAL]):
+cccc 0000 1uas hhhh llll ssss 1001 mmmm
+again, the four bytes before s are an opcode...
+0100 -> u = 0, a = 0, -> UMULL
+0101 -> u = 0, a = 1, -> UMLAL
+0110 -> u = 1, a = 0, -> SMULL
+0111 -> u = 1, a = 1, -> SMLAL
+results in a 64 bit number (a long, hence the L in the instructions)
+
+4.6 PSR transfer (MRS, MSR)
+-Move PSR status/flags to register (MRS)
+-Move register to PSR status/flags (MSR)
+fsxc controls which bits are written (s and x flags should never work, those bits in the PSR are reserved)
+the p bit determines if its CPSR or SPRS_current_mode
+
+MRS:
+cccc 0001 0p00 1111 dddd 0000 0000 0000
+MSR RM:
+cccc 0001 0p10 fsxc 1111 0000 0000 mmmm
+MSR IMM:
+cccc 0011 0p10 fsxc 1111 ssss mmmm mmmm
+
+4.9 Single Data Transfer (LDR - load register from mem, STR - store register to mem) 
+cccc 01ip ubwl nnnn dddd oooo oooo oooo
+
+cccc 01i0 ubt0 nnnn dddd oooo oooo oooo (STR - store to memory) writeback enabled
+cccc 01i1 ubw0 nnnn dddd oooo oooo oooo writeback optional
+
+cccc 01i0 ubt1 nnnn dddd oooo oooo oooo (LDR - load from memory) writeback enabled
+cccc 01i1 ubwl nnnn dddd oooo oooo oooo writeback optional
+
+4.10 Halfword and Signed Data Transfer  (LDRH/STRH/LDRSB/LDRSH)
+load unsigned halfword / store halfword / load signed byte / load signed halfword
+cccc 000p uiwl nnnn dddd xxxx xxxx xxxx
+
+the l bit determines whether it is load or store
+the two bits oo determine what kind of load / store (there is only one kind of store)
+when i = 0, register offset is used (else 8 bit imm, 4 from either side of 1oo1)
+
+p = 0 i = 0
+cccc 0000 u00l nnnn dddd 0000 1oo1 mmmm
+p = 0 i = 1
+cccc 0000 u10l nnnn dddd mmmm 1oo1 mmmm
+p = 1 i = 0
+cccc 0001 u0wl nnnn dddd 0000 1oo1 mmmm
+p = 1 i = 1
+cccc 0001 u1wl nnnn dddd mmmm 1oo1 mmmm
+
