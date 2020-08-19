@@ -25,7 +25,7 @@ cccc 1111 xxxx xxxx xxxx xxxx xxxx xxxx
 bottom 24 bits ignored by processor
 
 4.17 Undefined Instruction (undefined)
-cccc 011x xxxx xxxx xxxx xxxx xxx1 xxxx
+cccc 011x xxxx xxxx xxxx xxx1 xxxx
 there is no assembler mnemonic for this, so i guess reserved for future use? 
 
 4.5 Data Processing (ALU) (AND, EOR, SUB, RSB, ADD, ADC, SBC, RSC, TST, TEQ, CMP, CMN, ORR, MOV, BIC, MVN):
@@ -131,12 +131,12 @@ cccc 0011 0p10 fsxc 1111 ssss mmmm mmmm
 
 4.9 Single Data Transfer (LDR - load register from mem, STR - store register to mem) 
 cccc 01ip ubwl nnnn dddd oooo oooo oooo
-ldr - l bit is 1
-str - l bit is 0
 
-cccc 010p ubwl nnnn dddd oooo oooo oooo i = 0
+cccc 01i0 ubt0 nnnn dddd oooo oooo oooo (STR - store to memory) writeback enabled
+cccc 01i1 ubw0 nnnn dddd oooo oooo oooo writeback optional
 
-cccc 011p ubwl nnnn dddd ssss stt0 mmmm i = 1
+cccc 01i0 ubt1 nnnn dddd oooo oooo oooo (LDR - load from memory) writeback enabled
+cccc 01i1 ubwl nnnn dddd oooo oooo oooo writeback optional
 
 4.10 Halfword and Signed Data Transfer  (LDRH/STRH/LDRSB/LDRSH)
 load unsigned halfword / store halfword / load signed byte / load signed halfword
@@ -145,40 +145,15 @@ cccc 000p uiwl nnnn dddd xxxx xxxx xxxx
 the l bit determines whether it is load or store
 the two bits oo determine what kind of load / store (there is only one kind of store)
 when i = 0, register offset is used (else 8 bit imm, 4 from either side of 1oo1)
-when l = 0, oo = 01, 00 is reserved and 10 and 11 are bother armv5
-when l = 1, oo = 01, 10, or 11. 00 is reserved
 
 p = 0 i = 0
 cccc 0000 u00l nnnn dddd 0000 1oo1 mmmm
-
-cccc 0000 u000 nnnn dddd 0000 1011 mmmm
-cccc 0000 u001 nnnn dddd 0000 1011 mmmm
-cccc 0000 u001 nnnn dddd 0000 1101 mmmm
-cccc 0000 u001 nnnn dddd 0000 1111 mmmm
-
 p = 0 i = 1
 cccc 0000 u10l nnnn dddd mmmm 1oo1 mmmm
-
-cccc 0000 u100 nnnn dddd mmmm 1011 mmmm
-cccc 0000 u101 nnnn dddd mmmm 1011 mmmm
-cccc 0000 u101 nnnn dddd mmmm 1101 mmmm
-cccc 0000 u101 nnnn dddd mmmm 1111 mmmm
-
 p = 1 i = 0
 cccc 0001 u0wl nnnn dddd 0000 1oo1 mmmm
-
-cccc 0001 u0w0 nnnn dddd 0000 1011 mmmm
-cccc 0001 u0w1 nnnn dddd 0000 1011 mmmm
-cccc 0001 u0w1 nnnn dddd 0000 1101 mmmm
-cccc 0001 u0w1 nnnn dddd 0000 1111 mmmm
-
 p = 1 i = 1
 cccc 0001 u1wl nnnn dddd mmmm 1oo1 mmmm
-
-cccc 0001 u1w0 nnnn dddd mmmm 1011 mmmm
-cccc 0001 u1w1 nnnn dddd mmmm 1011 mmmm
-cccc 0001 u1w1 nnnn dddd mmmm 1101 mmmm
-cccc 0001 u1w1 nnnn dddd mmmm 1111 mmmm
 
 4.11 Block Data Transfer (LDM, STM)
 cccc 100p uswl nnnn rrrr rrrr rrrr rrrr
@@ -313,6 +288,7 @@ the second instruction — lr = (pc + 2) | 1. the or 1 is there to keep the cpu 
 THUMB.17: software interrupt and breakpoint
 1101 1111 nnnn nnnn
 enters SVC mode and switches to ARM state, and saves next instr addr in lr and load SWI vector addr in pc
+<<<<<<< HEAD
 n - comment field for exception handler 
 
 
@@ -325,61 +301,64 @@ ________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
-[ 'cccc 0000 000S nnnn dddd ssss 0tt1 mmmm |AND and' ]
+instructions here are grouped up by their first four bits (after the condition bits), and further sorted
+
+
 [ 'cccc 0000 000S nnnn dddd ssss stt0 mmmm |AND and' ]
-[ 'cccc 0000 00as dddd nnnn ssss 1001 mmmm |MULTIPLY AND MULTIPLY-ACCUMULATE (would intersect with ldrh/etc., but opcode 00 is reserved)' ]
-[ 'cccc 0000 001S nnnn dddd ssss 0tt1 mmmm |EOR exclusive or' ]
-[ 'cccc 0000 1uas hhhh llll ssss 1001 mmmm |MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG (would intersect with ldrh/etc., but opcode 00 is reserved)' ]
 [ 'cccc 0000 001S nnnn dddd ssss stt0 mmmm |EOR exclusive or' ]
-[ 'cccc 0000 010S nnnn dddd ssss 0tt1 mmmm |SUB subtract' ]
 [ 'cccc 0000 010S nnnn dddd ssss stt0 mmmm |SUB subtract' ]
 [ 'cccc 0000 011S nnnn dddd ssss stt0 mmmm |RSB reverse subtract' ]
-[ 'cccc 0000 011S nnnn dddd ssss 0tt1 mmmm |RSB reverse subtract' ]
-[ 'cccc 0000 100S nnnn dddd ssss 0tt1 mmmm |ADD addition' ]
 [ 'cccc 0000 100S nnnn dddd ssss stt0 mmmm |ADD addition' ]
-[ 'cccc 0000 u001 nnnn dddd 0000 1101 mmmm |p=0 i=0 LDRSB' ]
-[ 'cccc 0000 101S nnnn dddd ssss 0tt1 mmmm |ADC add with carry' ]
 [ 'cccc 0000 101S nnnn dddd ssss stt0 mmmm |ADC add with carry' ]
 [ 'cccc 0000 110S nnnn dddd ssss stt0 mmmm |SBC subtract with carry' ]
+[ 'cccc 0000 111S nnnn dddd ssss stt0 mmmm |RSC reverse subtract with carry' ]
+[ 'cccc 0000 000S nnnn dddd ssss 0tt1 mmmm |AND and' ]
+[ 'cccc 0000 001S nnnn dddd ssss 0tt1 mmmm |EOR exclusive or' ]
+[ 'cccc 0000 010S nnnn dddd ssss 0tt1 mmmm |SUB subtract' ]
+[ 'cccc 0000 011S nnnn dddd ssss 0tt1 mmmm |RSB reverse subtract' ]
+[ 'cccc 0000 100S nnnn dddd ssss 0tt1 mmmm |ADD addition' ]
+[ 'cccc 0000 101S nnnn dddd ssss 0tt1 mmmm |ADC add with carry' ]
 [ 'cccc 0000 110S nnnn dddd ssss 0tt1 mmmm |SBC subtract with carry' ]
 [ 'cccc 0000 111S nnnn dddd ssss 0tt1 mmmm |RSC reverse subtract with carry' ]
-[ 'cccc 0000 111S nnnn dddd ssss stt0 mmmm |RSC reverse subtract with carry' ]
-[ 'cccc 0000 u101 nnnn dddd mmmm 1101 mmmm |p=0 i=1 LDRSB' ]
-[ 'cccc 0000 u101 nnnn dddd mmmm 1011 mmmm |p=0 i=1 LDRH' ]
-[ 'cccc 0000 u001 nnnn dddd 0000 1111 mmmm |p=0 i=0 LDRSH' ]
-[ 'cccc 0000 u101 nnnn dddd mmmm 1111 mmmm |p=0 i=1 LDRSH' ]
+[ 'cccc 0000 1uas hhhh llll ssss 1001 mmmm |MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG' ]
+[ 'cccc 0000 00as dddd nnnn ssss 1001 mmmm |MULTIPLY AND MULTIPLY-ACCUMULATE' ]
 [ 'cccc 0000 u000 nnnn dddd 0000 1011 mmmm |p=0 i=0 STRH' ]
+[ 'cccc 0000 u101 nnnn dddd mmmm 1011 mmmm |p=0 i=1 LDRH' ]
 [ 'cccc 0000 u100 nnnn dddd mmmm 1011 mmmm |p=0 i=1 STRH' ]
 [ 'cccc 0000 u001 nnnn dddd 0000 1011 mmmm |p=0 i=0 LDRH' ]
+[ 'cccc 0000 u001 nnnn dddd 0000 1101 mmmm |p=0 i=0 LDRSB' ]
+[ 'cccc 0000 u101 nnnn dddd mmmm 1101 mmmm |p=0 i=1 LDRSB' ]
+[ 'cccc 0000 u001 nnnn dddd 0000 1111 mmmm |p=0 i=0 LDRSH' ]
+[ 'cccc 0000 u101 nnnn dddd mmmm 1111 mmmm |p=0 i=1 LDRSH' ]
 
-[ 'cccc 0001 0p10 fsxc 1111 0000 0000 mmmm |MSR register' ]
-[ 'cccc 0001 0b00 nnnn dddd 0000 1001 mmmm |SWP' ]
 [ 'cccc 0001 0p00 1111 dddd 0000 0000 0000 |MRS' ]
-[ 'cccc 0001 0001 nnnn dddd ssss 0tt1 mmmm |TST test bits (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 0001 nnnn dddd ssss stt0 mmmm |TST test bits (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 0010 1111 1111 1111 0001 nnnn |BRANCH AND EXCHANGE' ]
-[ 'cccc 0001 0011 nnnn dddd ssss 0tt1 mmmm |TEQ test bitwise equality (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 0011 nnnn dddd ssss stt0 mmmm |TEQ test bitwise equality (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 u0w1 nnnn dddd 0000 1011 mmmm |p=1 i=0 LDRH' ]
-[ 'cccc 0001 100S nnnn dddd ssss stt0 mmmm |ORR or' ]
-[ 'cccc 0001 100S nnnn dddd ssss 0tt1 mmmm |ORR or' ]
-[ 'cccc 0001 0101 nnnn dddd ssss stt0 mmmm |CMP compare (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 101S 0000 dddd ssss 0tt1 mmmm |MOV move register or constant' ]
-[ 'cccc 0001 0101 nnnn dddd ssss 0tt1 mmmm |CMP compare (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 101S 0000 dddd ssss stt0 mmmm |MOV move register or constant' ]
-[ 'cccc 0001 110S nnnn dddd ssss 0tt1 mmmm |BIC bit clear' ]
+[ 'cccc 0001 0p10 fsxc 1111 0000 0000 mmmm |MSR register' ]
 [ 'cccc 0001 110S nnnn dddd ssss stt0 mmmm |BIC bit clear' ]
-[ 'cccc 0001 111S 0000 dddd ssss 0tt1 mmmm |MVN move negative register' ]
+[ 'cccc 0001 0101 nnnn dddd ssss stt0 mmmm |CMP compare (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 0001 nnnn dddd ssss stt0 mmmm |TST test bits (dddd is either all 0s or 1s)' ]
 [ 'cccc 0001 0111 nnnn dddd ssss stt0 mmmm |CMN compare negative (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 0111 nnnn dddd ssss 0tt1 mmmm |CMN compare negative (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 101S 0000 dddd ssss stt0 mmmm |MOV move register or constant' ]
+[ 'cccc 0001 0011 nnnn dddd ssss stt0 mmmm |TEQ test bitwise equality (dddd is either all 0s or 1s)' ]
 [ 'cccc 0001 111S 0000 dddd ssss stt0 mmmm |MVN move negative register' ]
+[ 'cccc 0001 100S nnnn dddd ssss stt0 mmmm |ORR or' ]
+[ 'cccc 0001 0010 1111 1111 1111 0001 nnnn |BRANCH AND EXCHANGE' ]
+[ 'cccc 0001 111S 0000 dddd ssss 0tt1 mmmm |MVN move negative register' ]
+[ 'cccc 0001 0101 nnnn dddd ssss 0tt1 mmmm |CMP compare (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 0111 nnnn dddd ssss 0tt1 mmmm |CMN compare negative (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 0001 nnnn dddd ssss 0tt1 mmmm |TST test bits (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 0011 nnnn dddd ssss 0tt1 mmmm |TEQ test bitwise equality (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 100S nnnn dddd ssss 0tt1 mmmm |ORR or' ]
+[ 'cccc 0001 110S nnnn dddd ssss 0tt1 mmmm |BIC bit clear' ]
+[ 'cccc 0001 101S 0000 dddd ssss 0tt1 mmmm |MOV move register or constant' ]
+[ 'cccc 0001 0b00 nnnn dddd 0000 1001 mmmm |SWP' ]
 [ 'cccc 0001 u1w1 nnnn dddd mmmm 1011 mmmm |p=1 i=1 LDRH' ]
+[ 'cccc 0001 u1w0 nnnn dddd mmmm 1011 mmmm |p=1 i=1 STRH' ]
+[ 'cccc 0001 u0w0 nnnn dddd 0000 1011 mmmm |p=1 i=0 STRH' ]
+[ 'cccc 0001 u0w1 nnnn dddd 0000 1011 mmmm |p=1 i=0 LDRH' ]
+[ 'cccc 0001 u0w1 nnnn dddd 0000 1101 mmmm |p=1 i=0 LDRSB' ]
+[ 'cccc 0001 u1w1 nnnn dddd mmmm 1101 mmmm |p=1 i=1 LDRSB' ]
 [ 'cccc 0001 u1w1 nnnn dddd mmmm 1111 mmmm |p=1 i=1 LDRSH' ]
 [ 'cccc 0001 u0w1 nnnn dddd 0000 1111 mmmm |p=1 i=0 LDRSH' ]
-[ 'cccc 0001 u0w0 nnnn dddd 0000 1011 mmmm |p=1 i=0 STRH' ]
-[ 'cccc 0001 u0w1 nnnn dddd 0000 1101 mmmm |p=1 i=0 LDRSB' ]
-[ 'cccc 0001 u1w0 nnnn dddd mmmm 1011 mmmm |p=1 i=1 STRH' ]
-[ 'cccc 0001 u1w1 nnnn dddd mmmm 1101 mmmm |p=1 i=1 LDRSB' ]
 
 [ 'cccc 0010 000S nnnn dddd ssss mmmm mmmm |AND and' ]
 [ 'cccc 0010 001S nnnn dddd ssss mmmm mmmm |EOR exclusive or' ]
@@ -410,3 +389,14 @@ ________________________________________________________________________________
 [ 'cccc 1110 oooa nnnn dddd pppp iii1 mmmm |MRC / MCR', ]
 [ 'cccc 1111 xxxx xxxx xxxx xxxx xxxx xxxx |SOFTWARE INTERRUPT', ]
 
+
+
+__________________________________________________________________________________________________________________________________________________________
+__________________________________________________________________________________________________________________________________________________________
+__________________________________________________________________________________THUMB_PARSING___________________________________________________________
+__________________________________________________________________________________________________________________________________________________________
+__________________________________________________________________________________________________________________________________________________________
+__________________________________________________________________________________________________________________________________________________________
+=======
+n - comment field for exception handler 
+>>>>>>> parent of 5e5d75a... update instructions.txt
