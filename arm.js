@@ -241,14 +241,39 @@ const arm = function(memory, registers) {
 				break;
 
 				case 2:
+				switch (bitSlice(instr, 21, 23))
+				{
+					case 0: break;	//AND imm
+					case 1: break;	//EOR imm
+					case 2: break;	//SUB imm 
+					case 3: break;	//RSB imm 
+					case 4: break;	//ADD imm 
+					case 5: break;	//ADC imm 
+					case 6: break;	//SBC imm 
+					case 7: break;	//RSC imm 
+				}
 				break;
 
 				case 3:
+				switch (bitSlice(instr, 21, 23))
+				{
+					case 0: break;	//TST imm check if 20th bit zero
+					case 1: break;	//TEQ imm or MSR imm (if 20th bit is 0)
+					case 2: break;	//CMP imm check if 20th bit zero
+					case 3: break;	//CMN imm or MSR imm (if 20th bit is 0)
+					case 4: break;	//ORR imm 
+					case 5: break;	//MOV imm check if some bits are set to zero
+					case 6: break;	//BIC imm 
+					case 7: break;	//MVN imm check if some bits are set to zero
+				}
 				break;
 
-				//LDR / STR
+				//LDR / STR i=0
 				case 4:
 				case 5:
+				break;
+
+				//LDR / STR i=1 check if bit is zero
 				case 6:
 				case 7:
 				break;
@@ -268,8 +293,9 @@ const arm = function(memory, registers) {
 				case 13:
 				break;
 
-				//MRC / MCR	
+				//MRC / MCR	/ CDP
 				case 14:
+				//return 4th is zero ? CDP : MRC / MCR
 				break;
 
 				//SW INTERRUPT
