@@ -155,6 +155,10 @@ cccc 0001 u0wl nnnn dddd 0000 1oo1 mmmm
 p = 1 i = 1
 cccc 0001 u1wl nnnn dddd mmmm 1oo1 mmmm
 
+oo has several opcodes that cant be used (reserved or used in higher version of arm)
+the i bit actually changes the format of the 4 bits before and after 1oo1, so the above
+is kind of wrong, the arm parsing section will clarify
+
 4.11 Block Data Transfer (LDM, STM)
 cccc 100p uswl nnnn rrrr rrrr rrrr rrrr
 
@@ -186,19 +190,48 @@ THUMB INSTRUCTIONS ARE 16 BITS
 
 THUMB.1: move shifted register
 000o offf ffss sddd
-equivalent in ARM is MOV instruction
+
+0000 0fff ffss sddd - LSL IMM5
+0000 1fff ffss sddd - LSR IMM5
+0001 0fff ffss sddd - ASR IMM5
+0001 1fff ffss sddd - reserved
 
 THUMB.2: add/subtract
 0001 1oon nnss sddd
-equivalent in ARM is of course ADD/SUB instruction
+
+0001 100n nnss sddd - ADD REGISTER
+0001 101n nnss sddd - SUBTRACT REGISTER
+0001 110n nnss sddd - ADD IMM3
+0001 111n nnss sddd - SUB IMM3
 
 THUMB.3: move/compare/add/subtract immediate
 001o oddd nnnn nnnn
-eqiuivalent in ARM is MOV/CMP/ADD/SUB
+
+0010 0ddd nnnn nnnn - MOV IMM8
+0010 1ddd nnnn nnnn - CMP IMM8
+0011 0ddd nnnn nnnn - ADD IMM8
+0011 1ddd nnnn nnnn - SUB IMM8
 
 THUMB.4: ALU operations
 0100 00oo ooss sddd
-look at the doc for all opcode meanings
+
+0100 0000 00ss sddd AND
+0100 0000 01ss sddd XOR
+0100 0000 10ss sddd LSL
+0100 0000 11ss sddd LSR
+0100 0001 00ss sddd ASR
+0100 0001 01ss sddd ADC
+0100 0001 10ss sddd SBC
+0100 0001 11ss sddd ROTATE RIGHT
+0100 0010 00ss sddd TST
+0100 0010 01ss sddd NEG
+0100 0010 10ss sddd CMP
+0100 0010 11ss sddd NEGCMP
+0100 0011 00ss sddd OR
+0100 0011 01ss sddd MUL
+0100 0011 10ss sddd BIT CLEAR
+0100 0011 11ss sddd NOT
+
 
 THUMB.5: Hi register operations/branch exchange
 0100 01oo dsss sddd
@@ -222,6 +255,11 @@ loads register ddd with 4 byte word at pc + 8 bit imm nnnn nnnn.
 
 THUMB.7: load/store with register offset
 0101 oo0s ssbb bddd
+
+0101 000s ssbb bddd - STR REG OFFSET
+0101 010s ssbb bddd - STRB REG OFFSET 
+0101 100s ssbb bddd - LDR REG OFFSET
+0101 110s ssbb bddd - LDRB REG OFFSET
 s - offset register
 b - base register
 d - source/dest register
@@ -229,36 +267,69 @@ o - opcode
 
 THUMB.8: load/store sign-extended byte/halfword (with register offset)
 0101 oo1s ssbb bddd
-same as above (different operations of course)
+
+0101 001s ssbb bddd - STRH REG OFFSET
+0101 011s ssbb bddd - LDSB REG OFFSET
+0101 101s ssbb bddd - LDRH REG OFFSET
+0101 111s ssbb bddd - LDSH REG OFFSET
+
 
 THUMB.9: load/store with imm offset
 011o osss ssbb bddd
+
+0110 0sss ssbb bddd - STR IMM OFFSET
+0110 1sss ssbb bddd - LDR IMM OFFSET 
+0111 0sss ssbb bddd - STRB IMM OFFSET
+0111 1sss ssbb bddd - LDRB IMM OFFSET
+
 s - 5 bit offset (unsigned)
 
 THUMB.10: load/store halfword (imm offset)
 1000 osss ssbb bddd
-same as above (but with half words instead of byte)
+
+1000 0sss ssbb bddd - STRH IMM OFFSET
+1000 1sss ssbb bddd - LDRH IMM OFFSET
 
 THUMB.11: load/store SP-relative
 1001 oddd nnnn nnnn
+
+1001 0ddd nnnn nnnn - STR IMM OFFSET(SP)
+1001 1ddd nnnn nnnn - LDR IMM OFFSET(SP)
+
 like load pc-relative, except stackpointer is used (can also store instead of load based on opcode)
 
 THUMB.12: get relative address
 1010 oddd nnnn nnnn
+
+1010 0ddd nnnn nnnn - ADD RD PC IMM
+1010 1ddd nnnn nnnn - ADD RD SP IMM
+
 stores pc (with bit 1 set to 0?) in rd, or sp in rd, with 8 bit imm (10 bit)
 
 THUMB.13: add offset to stack pointer
 1011 0000 onnn nnnn
+
+1011 0000 0nnn nnnn - ADD SP IMM
+1011 0000 1nnn nnnn - ADD SP -IMM
+
 increments/decrements sp by offset
 
 THUMB.14: push/pop registers
 1011 o10p rrrr rrrr
+
+1011 010p rrrr rrrr - PUSH
+1011 110p rrrr rrrr - POP
+
 stores / loads a list of registers (p bit used for subroutines)
 im assuming pushing / popping registers are done in reverse order
 stack is descending (sp is decremented)
 
 THUMB.15: multiple load/store
 1100 obbb rrrr rrrr
+
+1100 0bbb rrrr rrrr - STMIA
+1100 1bbb rrrr rrrr - LDMIA
+
 same as above, except stores at mem addr in rb
 however, looks like you increment (instead of decrement) rb after you store (and load!)
 meaning the load is intended to be used with the original address used to store
@@ -331,34 +402,36 @@ instructions here are grouped up by their first four bits (after the condition b
 [ 'cccc 0000 u001 nnnn dddd 0000 1111 mmmm |p=0 i=0 LDRSH' ]
 [ 'cccc 0000 u101 nnnn dddd mmmm 1111 mmmm |p=0 i=1 LDRSH' ]
 
+
 [ 'cccc 0001 0p00 1111 dddd 0000 0000 0000 |MRS' ]
 [ 'cccc 0001 0p10 fsxc 1111 0000 0000 mmmm |MSR register' ]
-[ 'cccc 0001 110S nnnn dddd ssss stt0 mmmm |BIC bit clear' ]
-[ 'cccc 0001 0101 nnnn dddd ssss stt0 mmmm |CMP compare (dddd is either all 0s or 1s)' ]
 [ 'cccc 0001 0001 nnnn dddd ssss stt0 mmmm |TST test bits (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 0111 nnnn dddd ssss stt0 mmmm |CMN compare negative (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 101S 0000 dddd ssss stt0 mmmm |MOV move register or constant' ]
 [ 'cccc 0001 0011 nnnn dddd ssss stt0 mmmm |TEQ test bitwise equality (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 111S 0000 dddd ssss stt0 mmmm |MVN move negative register' ]
+[ 'cccc 0001 0101 nnnn dddd ssss stt0 mmmm |CMP compare (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 0111 nnnn dddd ssss stt0 mmmm |CMN compare negative (dddd is either all 0s or 1s)' ]
 [ 'cccc 0001 100S nnnn dddd ssss stt0 mmmm |ORR or' ]
-[ 'cccc 0001 0010 1111 1111 1111 0001 nnnn |BRANCH AND EXCHANGE' ]
-[ 'cccc 0001 111S 0000 dddd ssss 0tt1 mmmm |MVN move negative register' ]
-[ 'cccc 0001 0101 nnnn dddd ssss 0tt1 mmmm |CMP compare (dddd is either all 0s or 1s)' ]
-[ 'cccc 0001 0111 nnnn dddd ssss 0tt1 mmmm |CMN compare negative (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 101S 0000 dddd ssss stt0 mmmm |MOV move register or constant' ]
+[ 'cccc 0001 110S nnnn dddd ssss stt0 mmmm |BIC bit clear' ]
+[ 'cccc 0001 111S 0000 dddd ssss stt0 mmmm |MVN move negative register' ]
 [ 'cccc 0001 0001 nnnn dddd ssss 0tt1 mmmm |TST test bits (dddd is either all 0s or 1s)' ]
 [ 'cccc 0001 0011 nnnn dddd ssss 0tt1 mmmm |TEQ test bitwise equality (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 0101 nnnn dddd ssss 0tt1 mmmm |CMP compare (dddd is either all 0s or 1s)' ]
+[ 'cccc 0001 0111 nnnn dddd ssss 0tt1 mmmm |CMN compare negative (dddd is either all 0s or 1s)' ]
 [ 'cccc 0001 100S nnnn dddd ssss 0tt1 mmmm |ORR or' ]
-[ 'cccc 0001 110S nnnn dddd ssss 0tt1 mmmm |BIC bit clear' ]
 [ 'cccc 0001 101S 0000 dddd ssss 0tt1 mmmm |MOV move register or constant' ]
+[ 'cccc 0001 110S nnnn dddd ssss 0tt1 mmmm |BIC bit clear' ]
+[ 'cccc 0001 111S 0000 dddd ssss 0tt1 mmmm |MVN move negative register' ]
+[ 'cccc 0001 0010 1111 1111 1111 0001 nnnn |BRANCH AND EXCHANGE' ]
 [ 'cccc 0001 0b00 nnnn dddd 0000 1001 mmmm |SWP' ]
-[ 'cccc 0001 u1w1 nnnn dddd mmmm 1011 mmmm |p=1 i=1 LDRH' ]
+[ 'cccc 0001 u0w1 nnnn dddd 0000 1011 mmmm |p=1 i=0 LDRH' ]
 [ 'cccc 0001 u1w0 nnnn dddd mmmm 1011 mmmm |p=1 i=1 STRH' ]
 [ 'cccc 0001 u0w0 nnnn dddd 0000 1011 mmmm |p=1 i=0 STRH' ]
-[ 'cccc 0001 u0w1 nnnn dddd 0000 1011 mmmm |p=1 i=0 LDRH' ]
+[ 'cccc 0001 u1w1 nnnn dddd mmmm 1011 mmmm |p=1 i=1 LDRH' ]
 [ 'cccc 0001 u0w1 nnnn dddd 0000 1101 mmmm |p=1 i=0 LDRSB' ]
 [ 'cccc 0001 u1w1 nnnn dddd mmmm 1101 mmmm |p=1 i=1 LDRSB' ]
-[ 'cccc 0001 u1w1 nnnn dddd mmmm 1111 mmmm |p=1 i=1 LDRSH' ]
 [ 'cccc 0001 u0w1 nnnn dddd 0000 1111 mmmm |p=1 i=0 LDRSH' ]
+[ 'cccc 0001 u1w1 nnnn dddd mmmm 1111 mmmm |p=1 i=1 LDRSH' ]
+
 
 [ 'cccc 0010 000S nnnn dddd ssss mmmm mmmm |AND and' ]
 [ 'cccc 0010 001S nnnn dddd ssss mmmm mmmm |EOR exclusive or' ]
@@ -375,12 +448,12 @@ instructions here are grouped up by their first four bits (after the condition b
 [ 'cccc 0011 0p10 fsxc 1111 ssss mmmm mmmm |MSR imm' ]
 [ 'cccc 0011 0001 nnnn dddd ssss mmmm mmmm |TST test bits (dddd is either all 0s or 1s)' ]
 [ 'cccc 0011 0011 nnnn dddd ssss mmmm mmmm |TEQ test bitwise equality (dddd is either all 0s or 1s)' ]
+[ 'cccc 0011 0101 nnnn dddd ssss mmmm mmmm |CMP compare (dddd is either all 0s or 1s)' ]
+[ 'cccc 0011 0111 nnnn dddd ssss mmmm mmmm |CMN compare negative (dddd is either all 0s or 1s)' ]
 [ 'cccc 0011 100S nnnn dddd ssss mmmm mmmm |ORR or' ]
 [ 'cccc 0011 101S 0000 dddd ssss mmmm mmmm |MOV move register or constant' ]
-[ 'cccc 0011 0101 nnnn dddd ssss mmmm mmmm |CMP compare (dddd is either all 0s or 1s)' ]
 [ 'cccc 0011 110S nnnn dddd ssss mmmm mmmm |BIC bit clear' ]
 [ 'cccc 0011 111S 0000 dddd ssss mmmm mmmm |MVN move negative register' ]
-[ 'cccc 0011 0111 nnnn dddd ssss mmmm mmmm |CMN compare negative (dddd is either all 0s or 1s)' ]
 
 [ 'cccc 100p uswl nnnn rrrr rrrr rrrr rrrr |LDM, STM', ]
 [ 'cccc 101L oooo oooo oooo oooo oooo oooo |BRANCH / BRANCH AND LINK', ]
@@ -398,5 +471,3 @@ ________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 =======
-n - comment field for exception handler 
->>>>>>> parent of 5e5d75a... update instructions.txt
