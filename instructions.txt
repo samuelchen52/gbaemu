@@ -463,7 +463,7 @@ instructions here are grouped up by their first four bits (after the condition b
 [ 'cccc 1110 oooa nnnn dddd pppp iii1 mmmm |MRC / MCR', ]
 [ 'cccc 1111 xxxx xxxx xxxx xxxx xxxx xxxx |SOFTWARE INTERRUPT', ]
 
-opcode map -
+ARM opcode map -
 0 - MULL / MLAL
 1 - MUL / MLA
 2 - STRH p=0 i=0 check needed
@@ -638,3 +638,67 @@ instructions here are grouped up by their first three bits (after the condition 
 [ '1111 0nnn nnnn nnnn - LONG BRANCH 1' ]
 [ '1111 1nnn nnnn nnnn - LONG BRANCH 2' ]
 
+
+
+THUMB opcode map -
+0 - LSL IMM5
+1 - LSR IMM5
+2 - ASR IMM5
+3 - ADD REGISTER
+4 - SUBTRACT REGISTER
+5 - ADD IMM3
+6 - SUB IMM3
+7 - MOV IMM8
+8 - CMP IMM8 
+9 - ADD IMM8
+10 - SUB IMM8
+11 - AND
+12 - XOR
+13 - LSL
+14 - LSR
+15 - ASR
+16 - ADC
+17 - SBC
+18 - ROTATE RIGHT
+19 - TST
+20 - NEG
+21 - CMP
+22 - NEGCMP
+23 - OR
+24 - MUL
+25 - BIT CLEAR
+26 - NOT
+27 - ADD check needed
+28 - CMP check needed
+29 - MOV check needed
+30 - BX check needed
+31 - LDR IMM (PC)
+32 - STR REG OFFSET
+33 - STRH REG OFFSET
+34 - STRB REG OFFSET
+35 - LDSB REG OFFSET
+36 - LDR REG OFFSET
+37 - LDRH REG OFFSET
+38 - LDRB REG OFFSET
+39 - LDSH REG OFFSET
+40 - STR IMM OFFSET
+41 - LDR IMM OFFSET
+42 - STRB IMM OFFSET
+43 - LDRB IMM OFFSET
+44 - STRH IMM OFFSET
+45 - LDRH IMM OFFSET
+46 - STR IMM OFFSET (SP)
+47 - LDR IMM OFFSET (SP)
+48 - ADD RD PC IMM
+49 - ADD RD SP IMM
+50 - ADD SP IMM
+51 - ADD SP -IMM
+52 - PUSH
+53 - POP
+54 - STMIA
+55 - LDMIA
+56 - CONDITIONAL BRANCH
+57 - SWP
+58 - UNCONDITIONAL BRANCH
+59 - LONG BRANCH 1
+60 - LONG BRANCH 2
