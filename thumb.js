@@ -1,7 +1,7 @@
-const arm = function(memory, registers)
+const thumb = function(mmu, registers, changeState, changeMode)
 {
-	return 
-	{
+	
+	return {
 		decode : function (instr) {
 			// 1111 1100 0000 0000
 			// 5432 1098 7654 3210
@@ -18,7 +18,7 @@ const arm = function(memory, registers)
 					case 2: return 2; break; //ASR IMM5
 
 					case 3:
-					switch (bitSlice(instr, 9, 12))
+					switch (bitSlice(instr, 9, 10))
 					{
 						case 0: return 3; break; //ADD REGISTER
 
@@ -131,7 +131,7 @@ const arm = function(memory, registers)
 					case 0: return 48; break; //ADD RD PC IMM
 					case 1: return 49; break; //ADD RD SP IMM
 					case 2:
-					return bitSlice(instr, 10, 10) === 0 ? (bit 7 === 0 ? 50 : 51) : 52;
+					return bitSlice(instr, 10, 10) === 0 ? (bitSlice(instr, 7, 7) === 0 ? 50 : 51) : 52;
 					//return if bit 10 === 0 ? (bit 7 === 0 ? ADD SP IMM : ADD SP -IMM) : PUSH
 					break;
 					case 3: return 53; break; //POP
