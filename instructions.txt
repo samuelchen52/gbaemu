@@ -551,22 +551,25 @@ ________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
-instructions here are grouped up by their first three bits (after the condition bits)
 
+THUMB.1
 [ '0000 0fff ffss sddd - LSL IMM5' ]
-[ '0000 1fff ffss sddd - LSR IMM5' ]
+[ '0000 1fff ffss sddd - LSR IMM5' ] 
 [ '0001 0fff ffss sddd - ASR IMM5' ]
 
+THUMB.2
 [ '0001 100n nnss sddd - ADD REGISTER' ]
 [ '0001 101n nnss sddd - SUBTRACT REGISTER' ]
 [ '0001 110n nnss sddd - ADD IMM3' ]
 [ '0001 111n nnss sddd - SUB IMM3' ]
 
+THUMB.3
 [ '0010 0ddd nnnn nnnn - MOV IMM8' ]
 [ '0010 1ddd nnnn nnnn - CMP IMM8' ]
 [ '0011 0ddd nnnn nnnn - ADD IMM8' ]
 [ '0011 1ddd nnnn nnnn - SUB IMM8' ]
 
+THUMB.4
 [ '0100 0000 00ss sddd - AND' ]
 [ '0100 0000 01ss sddd - XOR' ]
 [ '0100 0000 10ss sddd - LSL' ]
@@ -584,6 +587,7 @@ instructions here are grouped up by their first three bits (after the condition 
 [ '0100 0011 10ss sddd - BIT CLEAR' ]
 [ '0100 0011 11ss sddd - NOT' ]
 
+THUMB.5
 [ '0100 0100 10ss sddd - ADD using rd as hi register' ]
 [ '0100 0100 01ss sddd - ADD using rs as hi register' ]
 [ '0100 0100 11ss sddd - ADD both registers are hi' ]
@@ -595,110 +599,123 @@ instructions here are grouped up by their first three bits (after the condition 
 [ '0100 0110 11ss sddd - MOV both registers are hi' ]
 [ '0100 0111 0sss s000 - BX only uses rs' ]
 
+THUMB.6
 [ '0100 1ddd nnnn nnnn - LDR IMM (PC)' ]
 
+THUMB.7
 [ '0101 000s ssbb bddd - STR REG OFFSET' ]
 [ '0101 010s ssbb bddd - STRB REG OFFSET' ]
 [ '0101 100s ssbb bddd - LDR REG OFFSET' ]
 [ '0101 110s ssbb bddd - LDRB REG OFFSET' ]
 
+THUMB.8
 [ '0101 001s ssbb bddd - STRH REG OFFSET' ]
 [ '0101 011s ssbb bddd - LDSB REG OFFSET' ]
 [ '0101 101s ssbb bddd - LDRH REG OFFSET' ]
 [ '0101 111s ssbb bddd - LDSH REG OFFSET' ]
 
+THUMB.9
 [ '0110 0sss ssbb bddd - STR IMM OFFSET' ]
 [ '0110 1sss ssbb bddd - LDR IMM OFFSET ' ]
 [ '0111 0sss ssbb bddd - STRB IMM OFFSET' ]
 [ '0111 1sss ssbb bddd - LDRB IMM OFFSET' ]
 
+THUMB.10
 [ '1000 0sss ssbb bddd - STRH IMM OFFSET' ]
 [ '1000 1sss ssbb bddd - LDRH IMM OFFSET' ]
 
+THUMB.11
 [ '1001 0ddd nnnn nnnn - STR IMM OFFSET(SP)' ]
 [ '1001 1ddd nnnn nnnn - LDR IMM OFFSET(SP)' ]
 
+THUMB.12
 [ '1010 0ddd nnnn nnnn - ADD RD PC IMM' ]
 [ '1010 1ddd nnnn nnnn - ADD RD SP IMM' ]
 
+THUMB.13
 [ '1011 0000 0nnn nnnn - ADD SP IMM' ]
 [ '1011 0000 1nnn nnnn - ADD SP -IMM' ]
 
+THUMB.14
 [ '1011 010p rrrr rrrr - PUSH' ]
 [ '1011 110p rrrr rrrr - POP' ]
 
+THUMB.15
 [ '1100 0bbb rrrr rrrr - STMIA' ]
 [ '1100 1bbb rrrr rrrr - LDMIA' ]
 
+THUMB.16 / THUMB.17 respectively
 [ '1101 oooo ssss ssss - CONDITIONAL BRANCH' ]
 [ '1101 1111 nnnn nnnn - SW INTR' ]
 
+THUMB.18
 [ '1110 0sss ssss ssss - UNCONDITIONAL BRANCH' ]
 
+THUMB.19
 [ '1111 0nnn nnnn nnnn - LONG BRANCH 1' ]
 [ '1111 1nnn nnnn nnnn - LONG BRANCH 2' ]
 
 
 
 THUMB opcode map -
-0 - LSL IMM5
-1 - LSR IMM5
-2 - ASR IMM5
-3 - ADD REGISTER
-4 - SUBTRACT REGISTER
-5 - ADD IMM3
-6 - SUB IMM3
-7 - MOV IMM8
-8 - CMP IMM8 
-9 - ADD IMM8
-10 - SUB IMM8
-11 - AND
-12 - XOR
-13 - LSL
-14 - LSR
-15 - ASR
-16 - ADC
-17 - SBC
-18 - ROTATE RIGHT
-19 - TST
-20 - NEG
-21 - CMP
-22 - NEGCMP
-23 - OR
-24 - MUL
-25 - BIT CLEAR
-26 - NOT
-27 - ADD check needed
-28 - CMP check needed
-29 - MOV check needed
-30 - BX check needed
-31 - LDR IMM (PC)
-32 - STR REG OFFSET
-33 - STRH REG OFFSET
-34 - STRB REG OFFSET
-35 - LDSB REG OFFSET
-36 - LDR REG OFFSET
-37 - LDRH REG OFFSET
-38 - LDRB REG OFFSET
-39 - LDSH REG OFFSET
-40 - STR IMM OFFSET
-41 - LDR IMM OFFSET
-42 - STRB IMM OFFSET
-43 - LDRB IMM OFFSET
-44 - STRH IMM OFFSET
-45 - LDRH IMM OFFSET
-46 - STR IMM OFFSET (SP)
-47 - LDR IMM OFFSET (SP)
-48 - ADD RD PC IMM
-49 - ADD RD SP IMM
-50 - ADD SP IMM
-51 - ADD SP -IMM
-52 - PUSH
-53 - POP
-54 - STMIA
-55 - LDMIA
-56 - CONDITIONAL BRANCH
-57 - SWP
-58 - UNCONDITIONAL BRANCH
-59 - LONG BRANCH 1
-60 - LONG BRANCH 2
+0 - LSL IMM5 (THUMB.1)
+1 - LSR IMM5 (THUMB.1)
+2 - ASR IMM5 (THUMB.1)
+3 - ADD REGISTER (THUMB.2)
+4 - SUBTRACT REGISTER (THUMB.2)
+5 - ADD IMM3 (THUMB.2)
+6 - SUB IMM3 (THUMB.2)
+7 - MOV IMM8 (THUMB.3)
+8 - CMP IMM8 (THUMB.3)
+9 - ADD IMM8 (THUMB.3)
+10 - SUB IMM8 (THUMB.3)
+11 - AND  (THUMB.4)
+12 - XOR (THUMB.4)
+13 - LSL (THUMB.4)
+14 - LSR (THUMB.4)
+15 - ASR (THUMB.4)
+16 - ADC (THUMB.4)
+17 - SBC (THUMB.4)
+18 - ROTATE RIGHT (THUMB.4)
+19 - TST (THUMB.4)
+20 - NEG (THUMB.4)
+21 - CMP (THUMB.4)
+22 - NEGCMP (THUMB.4)
+23 - OR (THUMB.4)
+24 - MUL (THUMB.4)
+25 - BIT CLEAR (THUMB.4)
+26 - NOT (THUMB.4)
+27 - ADD check needed (THUMB.5)
+28 - CMP check needed (THUMB.5)
+29 - MOV check needed (THUMB.5)
+30 - BX check needed (THUMB.5)
+31 - LDR IMM (PC) (THUMB.6)
+32 - STR REG OFFSET (THUMB.7)
+33 - STRH REG OFFSET (THUMB.8)
+34 - STRB REG OFFSET (THUMB.7)
+35 - LDSB REG OFFSET (THUMB.8)
+36 - LDR REG OFFSET (THUMB.7)
+37 - LDRH REG OFFSET (THUMB.8)
+38 - LDRB REG OFFSET (THUMB.7)
+39 - LDSH REG OFFSET (THUMB.8)
+40 - STR IMM OFFSET (THUMB.9)
+41 - LDR IMM OFFSET (THUMB.9)
+42 - STRB IMM OFFSET (THUMB.9)
+43 - LDRB IMM OFFSET (THUMB.9)
+44 - STRH IMM OFFSET (THUMB.10)
+45 - LDRH IMM OFFSET (THUMB.10)
+46 - STR IMM OFFSET (SP) (THUMB.11)
+47 - LDR IMM OFFSET (SP) (THUMB.11)
+48 - ADD RD PC IMM (THUMB.12)
+49 - ADD RD SP IMM (THUMB.12)
+50 - ADD SP IMM (THUMB.13)
+51 - ADD SP -IMM (THUMB.13)
+52 - PUSH (THUMB.14)
+53 - POP (THUMB.14)
+54 - STMIA (THUMB.15)
+55 - LDMIA (THUMB.15)
+56 - CONDITIONAL BRANCH (THUMB.16)
+57 - SWP (THUMB.17)
+58 - UNCONDITIONAL BRANCH (THUMB.18)
+59 - LONG BRANCH 1 (THUMB.19)
+60 - LONG BRANCH 2 (THUMB.19)
