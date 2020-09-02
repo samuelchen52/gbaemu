@@ -183,6 +183,21 @@ function bitSlice (num, startBit, endBit)
 	return (num & sum) >> startBit;
 }
 
+//rotates a 32 bit number right by 0 to 31 bits
+function rotateRight(num, rotateBy)
+{
+	rotateBy %= 32;
+	if (rotateBy !== 0)
+	{
+		let rightBits = bitSlice(num, 0, rotateBy - 1); //take the right bits that will be rotated to the left side
+		return (rightBits << (32 - rotateBy)) + (num >>> rotateBy); //move right bits to the left, move the rest of the bits to the right, then add
+	}
+	else
+	{
+		return num;
+	}
+}
+
 //assumes both instructions same length
 function cmp(instr1, instr2)
 {
