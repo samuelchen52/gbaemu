@@ -207,6 +207,132 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 		registers[rd][modeToRegisterIndex[mode][rd]] = ~registers[rs][modeToRegisterIndex[mode][rs]];
 	}
 
+	//THUMB.5------------------------------------------------------------------------------------------------------
+	const executeOpcode27 = function (instr, mode) { //27 - ADD check needed Rd = Rd+Rs
+		let rs = bitSlice(instr, 3, 6); //msbs and rs are grouped together already
+		let rd = bitSlice(instr, 0, 2) + (bitSlice(instr, 7, 7) << 3); //add the msbd 
+
+		registers[rd][modeToRegisterIndex[mode][rd]] += registers[rs][modeToRegisterIndex[mode][rs]];
+		if (rd === 15)
+		{
+			registers[15][modeToRegisterIndex[mode][15]] &= 0xFFFFFFFE; //forcibly half-word align the address by zeroing out bit 0
+		}
+	}
+
+	const executeOpcode28 = function (instr, mode) { //28 - CMP check needed Void = Rd-Rs  ;CPSR affected
+		let rs = bitSlice(instr, 3, 6); //msbs and rs are grouped together already
+		let rd = bitSlice(instr, 0, 2) + (bitSlice(instr, 7, 7) << 3); //add the msbd 
+
+		//this instruction only changes flags, no change to registers
+	}
+
+	const executeOpcode29 = function (instr, mode) { //29 - MOV check needed Rd = Rs
+		let rs = bitSlice(instr, 3, 6); //msbs and rs are grouped together already
+		let rd = bitSlice(instr, 0, 2) + (bitSlice(instr, 7, 7) << 3); //add the msbd 
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]];
+		if (rd === 15)
+		{
+			registers[15][modeToRegisterIndex[mode][15]] &= 0xFFFFFFFE; //forcibly half-word align the address by zeroing out bit 0
+		}
+	}
+
+	const executeOpcode30 = function (instr, mode) { //30 - BX check needed PC = Rs     ;may switch THUMB/ARM
+		let rs = bitSlice(instr, 3, 6); //msbs and rs are grouped together already
+		// When using R15 (PC) as operand, the value will be the address of the instruction plus 4 (ie. $+4). Except for BX R15: CPU switches to ARM state, and PC is auto-aligned as (($+4) AND NOT 2).
+		// For BX/BLX, when Bit 0 of the value in Rs is zero:
+  	// Processor will be switched into ARM mode!
+  	// If so, Bit 1 of Rs must be cleared (32bit word aligned).
+  	// Thus, BX PC (switch to ARM) may be issued from word-aligned address ?????
+  	// only, the destination is PC+4 (ie. the following halfword is skipped).
+
+		registers[15][modeToRegisterIndex[mode][15]] &= registers[rs][modeToRegisterIndex[mode][rs]];
+		if (bitSlice(rs, 0, 0) === 0) //if bit 0 of rs is 0, switch to arm state
+		{
+			changeMode("ARM");
+			registers[15][modeToRegisterIndex[mode][15]] &= 0xFFFFFFFC; //forcibly word align the address by zeroing out the bits 1 and 0
+		}
+		else
+		{
+			registers[15][modeToRegisterIndex[mode][15]] &= 0xFFFFFFFE; //forcibly half-word align the address by zeroing out bit 0
+		}
+	}
+
+	//THUMB.6------------------------------------------------------------------------------------------------------
+	const executeOpcode31 = function (instr, mode) { //31 - LDR IMM (PC) Rd = WORD[PC+nn]
+		let rd = bitSlice(instr, 8, 10);
+		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
+
+		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem(registers[15][modeToRegisterIndex[mode][15]] + offset, 4);
+	}
+
+	//THUMB.7/8------------------------------------------------------------------------------------------------------
+	const executeOpcode32 = function (instr, mode) { //32 - STR REG OFFSET WORD[Rb+Ro] = Rd
+		let ro = bitSlice(instr, 6, 8);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		mmu.writeMem((registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]]) & 0xFFFFFFFC,
+			registers[rd][modeToRegisterIndex[mode][rd]], 
+			4);
+	}
+
+	const executeOpcode33 = function (instr, mode) { //33 - STRH REG OFFSET HALFWORD[Rb+Ro] = Rd
+		let ro = bitSlice(instr, 6, 8);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		mmu.writeMem((registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]]) & 0xFFFFFFFE,
+			registers[rd][modeToRegisterIndex[mode][rd]], 
+			2);
+	}
+
+	const executeOpcode34 = function (instr, mode) { //34 - STRB REG OFFSET BYTE[Rb+Ro] = Rd
+		let ro = bitSlice(instr, 6, 8);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		mmu.writeMem((registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]]),
+			registers[rd][modeToRegisterIndex[mode][rd]], 
+			1);
+	}
+
+	const executeOpcode35 = function (instr, mode) { //35 - LDSB REG OFFSET Rd = BYTE[Rb+Ro]
+		let rd = bitSlice(instr, 8, 10);
+		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero  
+
+		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem(registers[15][modeToRegisterIndex[mode][15]] + offset, 4);
+	}
+
+	const executeOpcode36 = function (instr, mode) { //36 - LDR REG OFFSET Rd = WORD[Rb+Ro]
+		let ro = bitSlice(instr, 6, 8);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem((registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]]) & 0xFFFFFFFC, 4);
+	}
+
+	const executeOpcode37 = function (instr, mode) { //37 - LDRH REG OFFSET Rd = HALFWORD[Rb+Ro]
+		let rd = bitSlice(instr, 8, 10);
+		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero  
+
+		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem(registers[15][modeToRegisterIndex[mode][15]] + offset, 4);
+	}
+
+	const executeOpcode38 = function (instr, mode) { //38 - LDRB REG OFFSET Rd = BYTE[Rb+Ro]
+		let ro = bitSlice(instr, 6, 8);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem(registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]], 1);
+	}
+
+	const executeOpcode39 = function (instr, mode) { //39 - LDSH REG OFFSET Rd = HALFWORD[Rb+Ro]
+		let rd = bitSlice(instr, 8, 10);
+		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero  
+
+		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem(registers[15][modeToRegisterIndex[mode][15]] + offset, 4);
+	}
 
 
 
