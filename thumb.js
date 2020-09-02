@@ -1,6 +1,215 @@
-const thumb = function(mmu, registers, changeState, changeMode)
-{
+const thumb = function(mmu, registers, changeState, changeMode) {
 	
+	const modeToRegisterIndex = [
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"] or modeENUMS["SYSTEM"];
+      [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0], //modeENUMS["FIQ"];
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,0,1], //modeENUMS["SVC"];
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,0,2], //modeENUMS["ABT"];
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,4,0,3], //modeENUMS["IRQ"];
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,5,0,4], //modeENUMS["UND"];
+  ];
+	// Overflow flag - set if positive + positive = negative, or if negative + negative = positive
+	// Carry flag - set when borrow or carry with most sig bit
+	// Zero flag - set if result is zero
+	// Negative flag - set if most significant bit is 1
+	// THUMB instructions do not execute conditionally (except for branch)
+
+
+	//THUMB.1------------------------------------------------------------------------------------------------------
+	const executeOpcode0 = function (instr, mode) { //0 - LSL IMM5 Rd,Rs,#Offset   (logical/arithmetic shift left)
+		let offset = bitSlice(instr, 6, 10);
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] << offset;
+	}
+
+	const executeOpcode1 = function (instr, mode) { //1 - LSR IMM5 Rd,Rs,#Offset   (logical    shift right)
+		let offset = bitSlice(instr, 6, 10);
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] >>> offset;
+	}
+
+	const executeOpcode2 = function (instr, mode) { //2 - ASR IMM5 Rd,Rs,#Offset   (arithmetic shift right)
+		let offset = bitSlice(instr, 6, 10);
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] >> offset;
+	}
+
+	//THUMB.2------------------------------------------------------------------------------------------------------
+	const executeOpcode3 = function (instr, mode) { //3 - ADD REGISTER Rd=Rs+Rn
+		let rn = bitSlice(instr, 6, 8);
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] + registers[rn][modeToRegisterIndex[mode][rn]];
+	}
+
+	const executeOpcode4 = function (instr, mode) { //4 - SUBTRACT REGISTER Rd=Rs-Rn
+		let rn = bitSlice(instr, 6, 8);
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] - registers[rn][modeToRegisterIndex[mode][rn]];
+	}
+
+	const executeOpcode5 = function (instr, mode) { //5 - ADD IMM3 Rd=Rs+nn
+		let imm = bitSlice(instr, 6, 8);
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] + imm;
+	}
+
+	const executeOpcode6 = function (instr, mode) { //6 - SUB IMM3 Rd=Rs-nn
+		let imm = bitSlice(instr, 6, 8);
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] - imm;
+	}
+
+	//THUMB.3------------------------------------------------------------------------------------------------------
+	const executeOpcode7 = function (instr, mode) { //7 - MOV IMM8 Rd   = #nn
+		let rd = bitSlice(instr, 8, 10);
+		let imm = bitSlice(instr, 0, 7);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = imm;
+	}
+
+	const executeOpcode8 = function (instr, mode) { //8 - CMP IMM8 Void = Rd - #nn
+		let rd = bitSlice(instr, 8, 10);
+		let imm = bitSlice(instr, 0, 7);
+
+		//this instruction only changes flags, no change to registers
+	}
+
+	const executeOpcode9 = function (instr, mode) { //9 - ADD IMM8 Rd   = Rd + #nn
+		let rd = bitSlice(instr, 8, 10);
+		let imm = bitSlice(instr, 0, 7);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] += imm; 
+	}
+
+	const executeOpcode10 = function (instr, mode) { //10 - SUB IMM8 Rd   = Rd - #nn
+		let rd = bitSlice(instr, 8, 10);
+		let imm = bitSlice(instr, 0, 7);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] -= imm;
+	}
+
+	//THUMB.4------------------------------------------------------------------------------------------------------
+	const executeOpcode11 = function (instr, mode) { //11 - AND  Rd = Rd AND Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] &= registers[rs][modeToRegisterIndex[mode][rs]];
+	}
+
+	const executeOpcode12 = function (instr, mode) { //12 - XOR Rd = Rd XOR Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] ^= registers[rs][modeToRegisterIndex[mode][rs]];
+	}
+
+	const executeOpcode13 = function (instr, mode) { //13 - LSL Rd = Rd << (Rs AND 0FFh)
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] <<= (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF);
+	}
+	const executeOpcode14 = function (instr, mode) { //14 - LSR Rd = Rd >> (Rs AND 0FFh)
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] >>>= (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF);
+	}
+	const executeOpcode15 = function (instr, mode) { //15 - ASR Rd = Rd SAR (Rs AND 0FFh)
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] >>= (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF);
+	}
+	const executeOpcode16 = function (instr, mode) { //16 - ADC Rd = Rd + Rs + Cy
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+		let carryFlag = bitSlice(registers[16][0], 29, 29);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] += registers[rs][modeToRegisterIndex[mode][rs]] + carryFlag;
+	} 
+	const executeOpcode17 = function (instr, mode) { //17 - SBC Rd = Rd - Rs - NOT Cy
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+		let negCarryFlag = bitSlice(registers[16][0], 29, 29) === 0 ? 1 : 0;
+
+		registers[rd][modeToRegisterIndex[mode][rd]] -= (registers[rs][modeToRegisterIndex[mode][rs]] + negCarryFlag);
+
+	}
+	const executeOpcode18 = function (instr, mode) { //18 - ROTATE RIGHT Rd = Rd ROR (Rs AND 0FFh)
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = 
+		rotateRight(registers[rd][modeToRegisterIndex[mode][rd]], (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF));
+
+	}
+	const executeOpcode19 = function (instr, mode) { //19 - TST Void = Rd AND Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		//this instruction only changes flags, no change to registers
+	}
+	const executeOpcode20 = function (instr, mode) { //20 - NEG Rd = 0 - Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = 0 - registers[rs][modeToRegisterIndex[mode][rs]];
+	}
+	const executeOpcode21 = function (instr, mode) { //21 - CMP Void = Rd - Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		//this instruction only changes flags, no change to registers
+	}
+	const executeOpcode22 = function (instr, mode) { //22 - NEGCMP Void = Rd + Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		//this instruction only changes flags, no change to registers
+	}
+	const executeOpcode23 = function (instr, mode) { //23 - OR Rd = Rd OR Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] |= registers[rs][modeToRegisterIndex[mode][rs]];
+	}
+	const executeOpcode24 = function (instr, mode) { //24 - MUL Rd = Rd * Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] *= registers[rs][modeToRegisterIndex[mode][rs]];
+	}
+	const executeOpcode25 = function (instr, mode) { //25 - BIT CLEAR Rd = Rd AND NOT Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rd][modeToRegisterIndex[mode][rd]] & (~registers[rs][modeToRegisterIndex[mode][rs]]);
+	}
+	const executeOpcode26 = function (instr, mode) { //26 - NOT Rd = NOT Rs
+		let rs = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = ~registers[rs][modeToRegisterIndex[mode][rs]];
+	}
+
+
+
+
 	return {
 		decode : function (instr) {
 			// 1111 1100 0000 0000
@@ -163,7 +372,71 @@ const thumb = function(mmu, registers, changeState, changeMode)
 			throw Error("encountered undefined instruction!");
 		},
 		execute : function (opcode) {
-			return true;
+
+			switch (opcode)
+			{
+				case 0: executeOpcode0(); break;
+				case 1: executeOpcode1(); break;
+				case 2: executeOpcode2(); break;
+				case 3: executeOpcode3(); break;
+				case 4: executeOpcode4(); break;
+				case 5: executeOpcode5(); break;
+				case 6: executeOpcode6(); break;
+				case 7: executeOpcode7(); break;
+				case 8: executeOpcode8(); break;
+				case 9: executeOpcode9(); break;
+				case 10: executeOpcode10(); break;
+				case 11: executeOpcode11(); break;
+				case 12: executeOpcode12(); break;
+				case 13: executeOpcode13(); break;
+				case 14: executeOpcode14(); break;
+				case 15: executeOpcode15(); break;
+				case 16: executeOpcode16(); break;
+				case 17: executeOpcode17(); break;
+				case 18: executeOpcode18(); break;
+				case 19: executeOpcode19(); break;
+				case 20: executeOpcode20(); break;
+				case 21: executeOpcode21(); break;
+				case 22: executeOpcode22(); break;
+				case 23: executeOpcode23(); break;
+				case 24: executeOpcode24(); break;
+				case 25: executeOpcode25(); break;
+				case 26: executeOpcode26(); break;
+				case 27: executeOpcode27(); break;
+				case 28: executeOpcode28(); break;
+				case 29: executeOpcode29(); break;
+				case 30: executeOpcode30(); break;
+				case 31: executeOpcode31(); break;
+				case 32: executeOpcode32(); break;
+				case 33: executeOpcode33(); break;
+				case 34: executeOpcode34(); break;
+				case 35: executeOpcode35(); break;
+				case 36: executeOpcode36(); break;
+				case 37: executeOpcode37(); break;
+				case 38: executeOpcode38(); break;
+				case 39: executeOpcode39(); break;
+				case 40: executeOpcode40(); break;
+				case 41: executeOpcode41(); break;
+				case 42: executeOpcode42(); break;
+				case 43: executeOpcode43(); break;
+				case 44: executeOpcode44(); break;
+				case 45: executeOpcode45(); break;
+				case 46: executeOpcode46(); break;
+				case 47: executeOpcode47(); break;
+				case 48: executeOpcode48(); break;
+				case 49: executeOpcode49(); break;
+				case 50: executeOpcode50(); break;
+				case 51: executeOpcode51(); break;
+				case 52: executeOpcode52(); break;
+				case 53: executeOpcode53(); break;
+				case 54: executeOpcode54(); break;
+				case 55: executeOpcode55(); break;
+				case 56: executeOpcode56(); break;
+				case 57: executeOpcode57(); break;
+				case 58: executeOpcode58(); break;
+				case 59: executeOpcode59(); break;
+				case 60: executeOpcode60(); break;
+			}
 		}
 	}
 }
