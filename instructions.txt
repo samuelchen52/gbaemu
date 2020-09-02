@@ -542,7 +542,7 @@ ARM opcode map -
 75 - LDC / STC
 76 - CDP
 77 - MRC / MCR
-78 - SWP
+78 - SWI
 
 
 __________________________________________________________________________________________________________________________________________________________
@@ -715,7 +715,7 @@ THUMB opcode map -
 54 - STMIA (THUMB.15)
 55 - LDMIA (THUMB.15)
 56 - CONDITIONAL BRANCH (THUMB.16)
-57 - SWP (THUMB.17)
+57 - SWI (THUMB.17)
 58 - UNCONDITIONAL BRANCH (THUMB.18)
 59 - LONG BRANCH 1 (THUMB.19)
 60 - LONG BRANCH 2 (THUMB.19)
