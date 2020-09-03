@@ -298,10 +298,19 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 	}
 
 	const executeOpcode35 = function (instr, mode) { //35 - LDSB REG OFFSET Rd = BYTE[Rb+Ro]
-		let rd = bitSlice(instr, 8, 10);
-		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero  
+		let ro = bitSlice(instr, 6, 8);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem(registers[15][modeToRegisterIndex[mode][15]] + offset, 4);
+		let byte = mmu.readMem((registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]]), 1);
+		if ((byte & 0x80) === 0x80) //most sig bit is 1
+		{
+			registers[rd][modeToRegisterIndex[mode][rd]] = 0xFFFFFF + byte;
+		}
+		else //most sig bit is 0
+		{
+			registers[rd][modeToRegisterIndex[mode][rd]] = byte;
+		}
 	}
 
 	const executeOpcode36 = function (instr, mode) { //36 - LDR REG OFFSET Rd = WORD[Rb+Ro]
@@ -309,14 +318,15 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem((registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]]) & 0xFFFFFFFC, 4);
+		registers[rd][modeToRegisterIndex[mode][rd]] = mmu.readMem((registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]]) & 0xFFFFFFFC, 4);
 	}
 
 	const executeOpcode37 = function (instr, mode) { //37 - LDRH REG OFFSET Rd = HALFWORD[Rb+Ro]
-		let rd = bitSlice(instr, 8, 10);
-		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero  
+		let ro = bitSlice(instr, 6, 8);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem(registers[15][modeToRegisterIndex[mode][15]] + offset, 4);
+		registers[rd][modeToRegisterIndex[mode][rd]] = mmu.readMem((registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]]) & 0xFFFFFFFE, 2);
 	}
 
 	const executeOpcode38 = function (instr, mode) { //38 - LDRB REG OFFSET Rd = BYTE[Rb+Ro]
@@ -324,16 +334,62 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem(registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]], 1);
+		registers[rd][modeToRegisterIndex[mode][rd]] = mmu.readMem(registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]], 1);
 	}
 
 	const executeOpcode39 = function (instr, mode) { //39 - LDSH REG OFFSET Rd = HALFWORD[Rb+Ro]
-		let rd = bitSlice(instr, 8, 10);
-		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero  
+		let ro = bitSlice(instr, 6, 8);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] += mmu.readMem(registers[15][modeToRegisterIndex[mode][15]] + offset, 4);
+		let halfword = mmu.readMem((registers[rb][modeToRegisterIndex[mode][rb]] + registers[ro][modeToRegisterIndex[mode][ro]]) & 0xFFFFFFFE, 2);
+		if ((byte & 0x8000) === 0x8000) //most sig bit is 1
+		{
+			registers[rd][modeToRegisterIndex[mode][rd]] = 0xFFFF + halfword;
+		}
+		else //most sig bit is 0
+		{
+			registers[rd][modeToRegisterIndex[mode][rd]] = halfword;
+		}
 	}
 
+	//THUMB.9------------------------------------------------------------------------------------------------------
+	const executeOpcode40 = function (instr, mode) { //40 - STR IMM OFFSET WORD[Rb+nn] = Rd
+		let offset = bitSlice(instr, 6, 10);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		mmu.writeMem((registers[rb][modeToRegisterIndex[mode][rb]] + offset) & 0xFFFFFFFC,
+			registers[rd][modeToRegisterIndex[mode][rd]], 
+			4);
+
+	}
+
+	const executeOpcode41 = function (instr, mode) { //41 - LDR IMM OFFSET Rd = WORD[Rb+nn]
+		let offset = bitSlice(instr, 6, 10);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = mmu.readMem((registers[rb][modeToRegisterIndex[mode][rb]] + offset) & 0xFFFFFFFC, 4);
+	}
+
+	const executeOpcode42 = function (instr, mode) { //42 - STRB IMM OFFSET BYTE[Rb+nn] = Rd
+		let offset = bitSlice(instr, 6, 10);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		mmu.writeMem(registers[rb][modeToRegisterIndex[mode][rb]] + offset,
+			registers[rd][modeToRegisterIndex[mode][rd]], 
+			1);
+	}
+
+	const executeOpcode43 = function (instr, mode) { //43 - LDRB IMM OFFSET Rd = BYTE[Rb+nn]
+		let offset = bitSlice(instr, 6, 10);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = mmu.readMem(registers[rb][modeToRegisterIndex[mode][rb]] + offset, 1);
+	}
 
 
 	return {
