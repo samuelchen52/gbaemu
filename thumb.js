@@ -391,7 +391,209 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 		registers[rd][modeToRegisterIndex[mode][rd]] = mmu.readMem(registers[rb][modeToRegisterIndex[mode][rb]] + offset, 1);
 	}
 
+	//THUMB.10------------------------------------------------------------------------------------------------------
+	const executeOpcode44 = function (instr, mode) { //44 - STRH IMM OFFSET HALFWORD[Rb+nn] = Rd
+		let offset = bitSlice(instr, 6, 10);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
 
+		mmu.writeMem((registers[rb][modeToRegisterIndex[mode][rb]] + offset) & 0xFFFFFFFC,
+			registers[rd][modeToRegisterIndex[mode][rd]], 
+			2);
+	}
+
+	const executeOpcode45 = function (instr, mode) { //45 - LDRH IMM OFFSET Rd = HALFWORD[Rb+nn]
+		let offset = bitSlice(instr, 6, 10);
+		let rb = bitSlice(instr, 3, 5);
+		let rd = bitSlice(instr, 0, 2);
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = mmu.readMem((registers[rb][modeToRegisterIndex[mode][rb]] + offset) & 0xFFFFFFFE, 2);
+	}
+
+	//THUMB.11------------------------------------------------------------------------------------------------------
+	const executeOpcode46 = function (instr, mode) { //46 - STR IMM OFFSET (SP) WORD[SP+nn] = Rd
+		let rd = bitSlice(instr, 8, 10);
+		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
+
+		mmu.writeMem((registers[13][modeToRegisterIndex[mode][13]] + offset) & 0xFFFFFFFC,
+			registers[rd][modeToRegisterIndex[mode][rd]], 
+			4);
+	}
+
+	const executeOpcode47 = function (instr, mode) { //47 - LDR IMM OFFSET (SP) Rd = WORD[SP+nn]
+		let rd = bitSlice(instr, 8, 10);
+		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = mmu.readMem((registers[13][modeToRegisterIndex[mode][13]] + offset) & 0xFFFFFFFC, 4);
+	}
+
+	//THUMB.12------------------------------------------------------------------------------------------------------
+	const executeOpcode48 = function (instr, mode) { //48 - ADD RD PC IMM Rd = (($+4) AND NOT 2) + nn
+		let rd = bitSlice(instr, 8, 10);
+		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = (registers[15][modeToRegisterIndex[mode][15]] & 0xFFFFFFFC) + offset;
+	}
+
+	const executeOpcode49 = function (instr, mode) { //49 - ADD RD SP IMM Rd = SP + nn
+		let rd = bitSlice(instr, 8, 10);
+		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
+
+		registers[rd][modeToRegisterIndex[mode][rd]] = registers[13][modeToRegisterIndex[mode][13]] + offset;
+	}
+
+	//THUMB.13------------------------------------------------------------------------------------------------------
+	const executeOpcode50 = function (instr, mode) { //50 - ADD SP IMM SP = SP + nn
+		let offset = bitSlice(instr, 0, 6) << 2; //offset is 9 bits, lower 2 bits are zero, so we shift left two
+
+		registers[13][modeToRegisterIndex[mode][13]] += offset;
+	}
+
+	const executeOpcode51 = function (instr, mode) { //51 - ADD SP -IMM SP = SP - nn
+		let offset = bitSlice(instr, 0, 6) << 2; //offset is 9 bits, lower 2 bits are zero, so we shift left two
+
+		registers[13][modeToRegisterIndex[mode][13]] -= offset;
+	}
+
+	//THUMB.14------------------------------------------------------------------------------------------------------
+	const executeOpcode52 = function (instr, mode) { //52 - PUSH store in memory, decrements SP (R13) STMDB=PUSH
+		let pclrbit = bitSlice(instr, 8, 8);
+		for (let i = 7; i > -1; i --)
+		{
+			if (bitSlice(instr, i, i))
+			{
+				registers[13][modeToRegisterIndex[mode][13]] -= 4;
+				mmu.writeMem(registers[13][modeToRegisterIndex[mode][13]] & 0xFFFFFFFC,
+				registers[i][modeToRegisterIndex[mode][i]], 
+				4);
+			}
+		}
+		if (pclrbit)
+		{
+			registers[13][modeToRegisterIndex[mode][13]] -= 4;
+			mmu.writeMem(registers[14][modeToRegisterIndex[mode][14]] & 0xFFFFFFFC,
+				registers[i][modeToRegisterIndex[mode][i]], 
+				4);
+		}
+	}
+
+	const executeOpcode53 = function (instr, mode) { //53 - POP load from memory, increments SP (R13) LDMIA=POP
+		let pclrbit = bitSlice(instr, 8, 8);
+		if (pclrbit)
+		{
+			registers[15][modeToRegisterIndex[mode][15]] = mmu.readMem(registers[13][modeToRegisterIndex[mode][13]] & 0xFFFFFFFC, 4)
+			registers[13][modeToRegisterIndex[mode][13]] += 4;
+		}
+		for (let i = 0; i < 8; i ++)
+		{
+			if (bitSlice(instr, i, i))
+			{
+				registers[i][modeToRegisterIndex[mode][i]] = mmu.readMem(registers[13][modeToRegisterIndex[mode][13]] & 0xFFFFFFFC, 4)
+				registers[13][modeToRegisterIndex[mode][13]] += 4;
+			}
+		}
+	}
+
+	//THUMB.15------------------------------------------------------------------------------------------------------
+	const executeOpcode54 = function (instr, mode) { //54 - STMIA store in memory, increments Rb
+		let rb = bitSlice(instr, 8, 10);
+		for (let i = 0; i < 8; i ++)
+		{
+			if (bitSlice(instr, i, i))
+			{
+				mmu.writeMem(registers[rb][modeToRegisterIndex[mode][rb]] & 0xFFFFFFFC,
+				registers[i][modeToRegisterIndex[mode][i]], 
+				4);
+				registers[rb][modeToRegisterIndex[mode][rb]] += 4;
+			}
+		}
+	}
+
+	const executeOpcode55 = function (instr, mode) { //55 - LDMIA load from memory, increments Rb
+		let rb = bitSlice(instr, 8, 10);
+		for (let i = 0; i < 8; i ++)
+		{
+			if (bitSlice(instr, i, i))
+			{
+				registers[i][modeToRegisterIndex[mode][i]] = mmu.readMem(registers[rb][modeToRegisterIndex[mode][rb]] & 0xFFFFFFFC, 4)
+				registers[rb][modeToRegisterIndex[mode][rb]] += 4;
+			}
+		}
+	}
+
+	//THUMB.16------------------------------------------------------------------------------------------------------
+	const executeOpcode56 = function (instr, mode) { //56 - CONDITIONAL BRANCH
+		let condition = bitSlice(instr, 8, 11);
+		let offset =  bitSlice(instr, 7, 7) ? (((bitSlice(instr, 0, 7) - 1) ^ 0xFF) * -1) << 1 : bitSlice(instr, 0, 6) << 1;
+		let flags = bitSlice(registers[16][modeToRegisterIndex[mode][16]], 28, 31); //N, C, Z, V
+		let execute = false;
+
+		switch(condition)
+		{
+			case 0: execute = flags & 0x2 ? true : false; //BEQ Z=1
+			break;
+			case 1: execute = flags & 0x2 ? false : true; //BNE Z=0
+			break;
+			case 2: execute = flags & 0x4 ? true : false; //BCS/BHS C=1
+			break;
+			case 3: execute = flags & 0x4 ? false : true; //BCC/BLO C=0
+			break;
+			case 4: execute = flags & 0x8 ? true : false; //BMI N=1
+			break;
+			case 5: execute = flags & 0x8 ? false : true; //BPL N=0
+			break;
+			case 6: execute = flags & 0x1 ? true : false; //BVS V=1
+			break;
+			case 7: execute = flags & 0x1 ? false : true; //BVC V=0
+			break;
+			case 8: execute = (flags & 0x4) && !(flags & 0x2) ? true : false; //BHI C=1, Z=0 
+			break;
+			case 9: execute = !(flags & 0x4) && (flags & 0x2) ? true : false; //BLS C=0, Z=1
+			break;
+			case 10: execute = (flags & 0x8) === (flags & 0x1) ? true : false; //BGE N=V
+			break;
+			case 11: execute = (flags & 0x8) !== (flags & 0x1) ? true : false; //BLT N<>V
+			break;
+			case 12: execute = ((flags & 0x8) === (flags & 0x1)) && !(flags & 0x2) ? true : false; //BGT N=V, Z=0
+			break;
+			case 13: execute = ((flags & 0x8) !== (flags & 0x1)) || (flags & 0x2) ? true : false; //BGT N<>V or Z=1
+			break;
+			case 14: throw Error("invalid opcode (0xE) with THUMB conditional branch");
+			break;
+			case 15: throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
+			break;
+		}
+		registers[15][modeToRegisterIndex[mode][15]] += execute ? offset : 0;
+
+	}
+
+	//THUMB.17------------------------------------------------------------------------------------------------------
+	const executeOpcode57 = function (instr, mode) { //57 - SWI
+		//exception handling not implemented yet
+	}
+
+	//THUMB.18------------------------------------------------------------------------------------------------------
+	const executeOpcode58 = function (instr, mode) { //58 - UNCONDITIONAL BRANCH
+		let offset =  bitSlice(instr, 10, 10) ? (((bitSlice(instr, 0, 10) - 1) ^ 0xFF) * -1) << 1 : bitSlice(instr, 0, 9) << 1;
+		registers[15][modeToRegisterIndex[mode][15]] += offset;
+	}
+
+	//THUMB.19------------------------------------------------------------------------------------------------------
+	const executeOpcode59 = function (instr, mode) { //59 - LONG BRANCH 1
+		let offset = bitSlice(instr, 0, 10) << 12;
+		registers[14][modeToRegisterIndex[mode][14]] = registers[15][modeToRegisterIndex[mode][15]] + offset;
+	}
+
+	//THUMB.19------------------------------------------------------------------------------------------------------
+	const executeOpcode60 = function (instr, mode) { //60 - LONG BRANCH 2
+		let offset = bitSlice(instr, 0, 10) << 1;
+
+		let temp = registers[14][modeToRegisterIndex[mode][14]];
+		registers[14][modeToRegisterIndex[mode][14]] = (registers[15][modeToRegisterIndex[mode][15]] - 2) | 1;
+		registers[15][modeToRegisterIndex[mode][15]] = temp + offset;
+	}
+
+	//ldm, load multiple registers. load registers first then increment.
 	return {
 		decode : function (instr) {
 			// 1111 1100 0000 0000
