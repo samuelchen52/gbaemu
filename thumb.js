@@ -16,7 +16,7 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 
 
 	//THUMB.1------------------------------------------------------------------------------------------------------
-	const executeOpcode0 = function (instr, mode) { //0 - LSL IMM5 Rd,Rs,#Offset   (logical/arithmetic shift left)
+	const executeOpcode0 = function (instr, mode) { //0 - LSL IMM5 Rd,Rs,#Offset 
 		let offset = bitSlice(instr, 6, 10);
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
@@ -24,7 +24,7 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] << offset;
 	}
 
-	const executeOpcode1 = function (instr, mode) { //1 - LSR IMM5 Rd,Rs,#Offset   (logical    shift right)
+	const executeOpcode1 = function (instr, mode) { //1 - LSR IMM5 Rd,Rs,#Offset
 		let offset = bitSlice(instr, 6, 10);
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
@@ -32,7 +32,7 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] >>> offset;
 	}
 
-	const executeOpcode2 = function (instr, mode) { //2 - ASR IMM5 Rd,Rs,#Offset   (arithmetic shift right)
+	const executeOpcode2 = function (instr, mode) { //2 - ASR IMM5 Rd,Rs,#Offset
 		let offset = bitSlice(instr, 6, 10);
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
@@ -525,18 +525,18 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 	const executeOpcode56 = function (instr, mode) { //56 - CONDITIONAL BRANCH
 		let condition = bitSlice(instr, 8, 11);
 		let offset =  bitSlice(instr, 7, 7) ? (((bitSlice(instr, 0, 7) - 1) ^ 0xFF) * -1) << 1 : bitSlice(instr, 0, 6) << 1;
-		let flags = bitSlice(registers[16][modeToRegisterIndex[mode][16]], 28, 31); //N, C, Z, V
+		let flags = bitSlice(registers[16][modeToRegisterIndex[mode][16]], 28, 31); //N, Z, C, V
 		let execute = false;
 
 		switch(condition)
 		{
-			case 0: execute = flags & 0x2 ? true : false; //BEQ Z=1
+			case 0: execute = flags & 0x4 ? true : false; //BEQ Z=1
 			break;
-			case 1: execute = flags & 0x2 ? false : true; //BNE Z=0
+			case 1: execute = flags & 0x4 ? false : true; //BNE Z=0
 			break;
-			case 2: execute = flags & 0x4 ? true : false; //BCS/BHS C=1
+			case 2: execute = flags & 0x2 ? true : false; //BCS/BHS C=1
 			break;
-			case 3: execute = flags & 0x4 ? false : true; //BCC/BLO C=0
+			case 3: execute = flags & 0x2 ? false : true; //BCC/BLO C=0
 			break;
 			case 4: execute = flags & 0x8 ? true : false; //BMI N=1
 			break;
@@ -546,17 +546,17 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 			break;
 			case 7: execute = flags & 0x1 ? false : true; //BVC V=0
 			break;
-			case 8: execute = (flags & 0x4) && !(flags & 0x2) ? true : false; //BHI C=1, Z=0 
+			case 8: execute = (flags & 0x2) && !(flags & 0x4) ? true : false; //BHI C=1, Z=0 
 			break;
-			case 9: execute = !(flags & 0x4) && (flags & 0x2) ? true : false; //BLS C=0, Z=1
+			case 9: execute = !(flags & 0x2) && (flags & 0x4) ? true : false; //BLS C=0, Z=1
 			break;
 			case 10: execute = (flags & 0x8) === (flags & 0x1) ? true : false; //BGE N=V
 			break;
 			case 11: execute = (flags & 0x8) !== (flags & 0x1) ? true : false; //BLT N<>V
 			break;
-			case 12: execute = ((flags & 0x8) === (flags & 0x1)) && !(flags & 0x2) ? true : false; //BGT N=V, Z=0
+			case 12: execute = ((flags & 0x8) === (flags & 0x1)) && !(flags & 0x4) ? true : false; //BGT N=V, Z=0
 			break;
-			case 13: execute = ((flags & 0x8) !== (flags & 0x1)) || (flags & 0x2) ? true : false; //BGT N<>V or Z=1
+			case 13: execute = ((flags & 0x8) !== (flags & 0x1)) || (flags & 0x4) ? true : false; //BGT N<>V or Z=1
 			break;
 			case 14: throw Error("invalid opcode (0xE) with THUMB conditional branch");
 			break;
@@ -584,7 +584,6 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 		registers[14][modeToRegisterIndex[mode][14]] = registers[15][modeToRegisterIndex[mode][15]] + offset;
 	}
 
-	//THUMB.19------------------------------------------------------------------------------------------------------
 	const executeOpcode60 = function (instr, mode) { //60 - LONG BRANCH 2
 		let offset = bitSlice(instr, 0, 10) << 1;
 
@@ -821,6 +820,7 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 				case 59: executeOpcode59(); break;
 				case 60: executeOpcode60(); break;
 			}
+			throw Error("invalid thumb opcode");
 		}
 	}
 }
