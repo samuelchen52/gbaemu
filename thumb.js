@@ -1,4 +1,4 @@
-const thumb = function(mmu, registers, changeState, changeMode) {
+const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 	
 	const modeToRegisterIndex = [
       [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"] or modeENUMS["SYSTEM"];
@@ -21,23 +21,35 @@ const thumb = function(mmu, registers, changeState, changeMode) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] << offset;
+		let result = registers[rs][modeToRegisterIndex[mode][rs]] << offset;
+		
+		setNZCV(bitSlice(result, 31, 31), result === 0, offset === 0 ? undefined : bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 32 - offset, 32 - offset));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
-	const executeOpcode1 = function (instr, mode) { //1 - LSR IMM5 Rd,Rs,#Offset
+	const executeOpcode1 = function (instr, mode) { //1 - LSR IMM5 Rd,Rs,#Offset (shifts in zeroes)
 		let offset = bitSlice(instr, 6, 10);
+				offset = offset ? offset : 32;
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] >>> offset;
+		let result = registers[rs][modeToRegisterIndex[mode][rs]] >>> offset;
+		
+		setNZCV(bitSlice(result, 31, 31), result === 0, bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], offset - 1, offset - 1));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
-	const executeOpcode2 = function (instr, mode) { //2 - ASR IMM5 Rd,Rs,#Offset
+	const executeOpcode2 = function (instr, mode) { //2 - ASR IMM5 Rd,Rs,#Offset (shifts in most significant bit)
 		let offset = bitSlice(instr, 6, 10);
+				offset = offset ? offset : 32;
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] >> offset;
+		let sigbit = bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31 , 31);
+		let result = registers[rs][modeToRegisterIndex[mode][rs]] >>> offset + (sigbit ? (((1 << offset) - 1) << (32 - offset)) : 0); //we shift right by offset bits, then add the sig bits to the left
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], offset - 1, offset - 1));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	//THUMB.2------------------------------------------------------------------------------------------------------
