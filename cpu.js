@@ -92,6 +92,7 @@ const cpu = function (pc, MMU) {
 
     const changeState = function (newState) {
       state = stateENUMS[newState];
+      //have to set the bit 5 of the CPSR
       if (state === undefined) {throw Error("undefined state!"); }
     }
 
@@ -100,8 +101,25 @@ const cpu = function (pc, MMU) {
       if (mode === undefined) {throw Error("undefined mode!"); }
     }
 
-  	const THUMB = thumb(MMU, registers, changeState, changeMode);
-  	const ARM = arm(MMU, registers, changeState, changeMode);
+    //CPSR nzcv xxxx xxxx xxxx xxxx xxxx xxxx xxxx 
+    //if setting the cpsr condition flags, n and z flags are ALWAYS set
+    //thus, we set those based on the result (check if negative and if zero, respectively)
+    //then, if cflag and vflag were passed in, then we set those too
+    const setNZCV = function (nflag, zflag, cflag, vflag) { 
+      //let cflag = for subtraction, x - y -> cflag = y > x ?, for addition, if result < x || result < y
+      //let neg = 0, 1 -> -1 for both negative, 1 for both positive, 0 for 1 neg 1 positive. vflag = sign bit === 1 ? return if 1, : return if -1  
+      let newNZCV = 0;
+      newNZCV = nflag ? 1 : 0;
+      newNZCV = zflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
+      newNZCV = cflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
+      newNZCV = vflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
+
+      registers[16][0] &= 0x00FFFFFF; //set first byte to zero
+      registers[16][0] += (newNZCV << 28); //add new flags to CPSR
+    }
+
+  	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV);
+  	const ARM = arm(MMU, registers, changeState, changeMode, setNZCV);
 
   	return {
       fetch : function() {
