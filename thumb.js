@@ -21,7 +21,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = registers[rs][modeToRegisterIndex[mode][rs]] << offset;
+		let result = (registers[rs][modeToRegisterIndex[mode][rs]] << offset) & 0xFFFFFFFF;
 		
 		setNZCV(bitSlice(result, 31, 31), result === 0, offset === 0 ? undefined : bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 32 - offset, 32 - offset));
 		registers[rd][modeToRegisterIndex[mode][rd]] = result;
@@ -58,7 +58,11 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] + registers[rn][modeToRegisterIndex[mode][rn]];
+		let result = (registers[rs][modeToRegisterIndex[mode][rs]] + registers[rn][modeToRegisterIndex[mode][rn]]) & 0xFFFFFFFF;
+ 		let vflag = bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) + bitSlice(registers[rn][modeToRegisterIndex[mode][rn]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, result < registers[rs][modeToRegisterIndex[mode][rs]], (vflag === 0) || (vflag === 3));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	const executeOpcode4 = function (instr, mode) { //4 - SUBTRACT REGISTER Rd=Rs-Rn
@@ -66,7 +70,11 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] - registers[rn][modeToRegisterIndex[mode][rn]];
+		let result = (registers[rs][modeToRegisterIndex[mode][rs]] - registers[rn][modeToRegisterIndex[mode][rn]]) & 0xFFFFFFFF;
+		let vflag = bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) + (bitSlice(registers[rn][modeToRegisterIndex[mode][rn]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][modeToRegisterIndex[mode][rn]] > registers[rs][modeToRegisterIndex[mode][rs]], (vflag === 0) || (vflag === 3));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	const executeOpcode5 = function (instr, mode) { //5 - ADD IMM3 Rd=Rs+nn
@@ -74,7 +82,11 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] + imm;
+		let result = registers[rs][modeToRegisterIndex[mode][rs]] + imm;
+		let vflag = bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, result < imm, vflag === 0);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	const executeOpcode6 = function (instr, mode) { //6 - SUB IMM3 Rd=Rs-nn
@@ -82,7 +94,11 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rs][modeToRegisterIndex[mode][rs]] - imm;
+		let result = registers[rs][modeToRegisterIndex[mode][rs]] - imm;
+		let vflag = bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) + 1 + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][modeToRegisterIndex[mode][rn]] > registers[rs][modeToRegisterIndex[mode][rs]], vflag === 3);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	//THUMB.3------------------------------------------------------------------------------------------------------
@@ -90,6 +106,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rd = bitSlice(instr, 8, 10);
 		let imm = bitSlice(instr, 0, 7);
 
+		setNZCV(bitSlice(imm, 7, 7), imm === 0);
 		registers[rd][modeToRegisterIndex[mode][rd]] = imm;
 	}
 
@@ -97,21 +114,31 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rd = bitSlice(instr, 8, 10);
 		let imm = bitSlice(instr, 0, 7);
 
-		//this instruction only changes flags, no change to registers
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] - imm;
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, imm > registers[rs][modeToRegisterIndex[mode][rs]], bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) && (!bitSlice(result, 31, 31)));
 	}
 
 	const executeOpcode9 = function (instr, mode) { //9 - ADD IMM8 Rd   = Rd + #nn
 		let rd = bitSlice(instr, 8, 10);
 		let imm = bitSlice(instr, 0, 7);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] += imm; 
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] + imm;
+		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, result < imm, vflag === 0);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	const executeOpcode10 = function (instr, mode) { //10 - SUB IMM8 Rd   = Rd - #nn
 		let rd = bitSlice(instr, 8, 10);
 		let imm = bitSlice(instr, 0, 7);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] -= imm;
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] - imm;
+		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + 1 + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, imm > registers[rd][modeToRegisterIndex[mode][rd]], vflag === 3);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	//THUMB.4------------------------------------------------------------------------------------------------------
@@ -119,104 +146,155 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] &= registers[rs][modeToRegisterIndex[mode][rs]];
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] & registers[rs][modeToRegisterIndex[mode][rs]];
+
+		setNZCV(bitSlice(result, 31, 31), result === 0);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	const executeOpcode12 = function (instr, mode) { //12 - XOR Rd = Rd XOR Rs
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] ^= registers[rs][modeToRegisterIndex[mode][rs]];
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] ^ registers[rs][modeToRegisterIndex[mode][rs]];
+
+		setNZCV(bitSlice(result, 31, 31), result === 0);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	const executeOpcode13 = function (instr, mode) { //13 - LSL Rd = Rd << (Rs AND 0FFh)
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] <<= (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF);
+		let sh = (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF) % 32;
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] << sh) & 0xFFFFFFFF;
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 32 - sh, 32 - sh));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 	const executeOpcode14 = function (instr, mode) { //14 - LSR Rd = Rd >> (Rs AND 0FFh)
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] >>>= (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF);
+		let sh = (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF) % 32;
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] >>> sh;
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], offset - 1, offset - 1));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 	const executeOpcode15 = function (instr, mode) { //15 - ASR Rd = Rd SAR (Rs AND 0FFh)
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] >>= (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF);
+		let sh = (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF);
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] >>> sh) + (sigbit ? (((1 << offset) - 1) << (32 - offset)) : 0);
+		
+		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], offset - 1, offset - 1));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 	const executeOpcode16 = function (instr, mode) { //16 - ADC Rd = Rd + Rs + Cy
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 		let carryFlag = bitSlice(registers[16][0], 29, 29);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] += registers[rs][modeToRegisterIndex[mode][rs]] + carryFlag;
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] + registers[rs][modeToRegisterIndex[mode][rs]] + carryFlag;
+		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, (result < registers[rd][modeToRegisterIndex[mode][rd]]) || (result < registers[rs][modeToRegisterIndex[mode][rs]]), (vflag === 0) || (vflag === 3));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	} 
 	const executeOpcode17 = function (instr, mode) { //17 - SBC Rd = Rd - Rs - NOT Cy
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 		let negCarryFlag = bitSlice(registers[16][0], 29, 29) === 0 ? 1 : 0;
 
-		registers[rd][modeToRegisterIndex[mode][rd]] -= (registers[rs][modeToRegisterIndex[mode][rs]] + negCarryFlag);
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] - registers[rs][modeToRegisterIndex[mode][rs]] - negCarryFlag;
+		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + (bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
+		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rs][modeToRegisterIndex[mode][rs]] + negCarryFlag > registers[rd][modeToRegisterIndex[mode][rd]], (vflag === 0) || (vflag === 3));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 	const executeOpcode18 = function (instr, mode) { //18 - ROTATE RIGHT Rd = Rd ROR (Rs AND 0FFh)
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = 
-		rotateRight(registers[rd][modeToRegisterIndex[mode][rd]], (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF));
+		let ro = (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF) % 32;
+		let result = rotateRight(registers[rd][modeToRegisterIndex[mode][rd]], (registers[rs][modeToRegisterIndex[mode][rs]] & 0xFF));
 
+		setNZCV(bitSlice(result, 31, 31), result === 0, ro === 0 ? undefined : bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], offset - 1, offset - 1));
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 	const executeOpcode19 = function (instr, mode) { //19 - TST Void = Rd AND Rs
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		//this instruction only changes flags, no change to registers
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] & registers[rs][modeToRegisterIndex[mode][rs]];
+
+		setNZCV(bitSlice(result, 31, 31), result === 0);
 	}
 	const executeOpcode20 = function (instr, mode) { //20 - NEG Rd = 0 - Rs
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = 0 - registers[rs][modeToRegisterIndex[mode][rs]];
+		let result = 0 - registers[rs][modeToRegisterIndex[mode][rs]];
+		let vflag = (bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, result !== 0, vflag === 0);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 	const executeOpcode21 = function (instr, mode) { //21 - CMP Void = Rd - Rs
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		//this instruction only changes flags, no change to registers
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] - registers[rs][modeToRegisterIndex[mode][rs]]) & 0xFFFFFFFF;
+		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + (bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rs][modeToRegisterIndex[mode][rs]] > registers[rd][modeToRegisterIndex[mode][rd]], (vflag === 0) || (vflag === 3));
 	}
 	const executeOpcode22 = function (instr, mode) { //22 - NEGCMP Void = Rd + Rs
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		//this instruction only changes flags, no change to registers
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] + registers[rs][modeToRegisterIndex[mode][rs]]) & 0xFFFFFFFF;
+ 		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, result < registers[rd][modeToRegisterIndex[mode][rd]], (vflag === 0) || (vflag === 3));
 	}
 	const executeOpcode23 = function (instr, mode) { //23 - OR Rd = Rd OR Rs
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] |= registers[rs][modeToRegisterIndex[mode][rs]];
+		result |= registers[rs][modeToRegisterIndex[mode][rs]];
+
+		setNZCV(bitSlice(result, 31, 31), result === 0);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 	const executeOpcode24 = function (instr, mode) { //24 - MUL Rd = Rd * Rs
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] *= registers[rs][modeToRegisterIndex[mode][rs]];
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] * registers[rs][modeToRegisterIndex[mode][rs]];
+
+		setNZCV(bitSlice(result, 31, 31), result === 0);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 	const executeOpcode25 = function (instr, mode) { //25 - BIT CLEAR Rd = Rd AND NOT Rs
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = registers[rd][modeToRegisterIndex[mode][rd]] & (~registers[rs][modeToRegisterIndex[mode][rs]]);
+		let result = registers[rd][modeToRegisterIndex[mode][rd]] & (~registers[rs][modeToRegisterIndex[mode][rs]]);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 	const executeOpcode26 = function (instr, mode) { //26 - NOT Rd = NOT Rs
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][modeToRegisterIndex[mode][rd]] = ~registers[rs][modeToRegisterIndex[mode][rs]];
+		let result = ~registers[rs][modeToRegisterIndex[mode][rs]];
+
+		setNZCV(bitSlice(result, 31, 31), result === 0);
+		registers[rd][modeToRegisterIndex[mode][rd]] = result;
 	}
 
 	//THUMB.5------------------------------------------------------------------------------------------------------
@@ -235,7 +313,10 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 6); //msbs and rs are grouped together already
 		let rd = bitSlice(instr, 0, 2) + (bitSlice(instr, 7, 7) << 3); //add the msbd 
 
-		//this instruction only changes flags, no change to registers
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] - registers[rs][modeToRegisterIndex[mode][rs]]) & 0xFFFFFFFF;
+		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + (bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rs][modeToRegisterIndex[mode][rs]] > registers[rd][modeToRegisterIndex[mode][rd]], (vflag === 0) || (vflag === 3));
 	}
 
 	const executeOpcode29 = function (instr, mode) { //29 - MOV check needed Rd = Rs
