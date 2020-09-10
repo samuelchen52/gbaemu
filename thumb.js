@@ -82,7 +82,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = registers[rs][modeToRegisterIndex[mode][rs]] + imm;
+		let result = (registers[rs][modeToRegisterIndex[mode][rs]] + imm) & 0xFFFFFFFF;
 		let vflag = bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 		setNZCV(bitSlice(result, 31, 31), result === 0, result < imm, vflag === 0);
@@ -94,7 +94,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = registers[rs][modeToRegisterIndex[mode][rs]] - imm;
+		let result = (registers[rs][modeToRegisterIndex[mode][rs]] - imm) & 0xFFFFFFFF;
 		let vflag = bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) + 1 + (bitSlice(result, 31, 31) ^ 1);
 
 		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][modeToRegisterIndex[mode][rn]] > registers[rs][modeToRegisterIndex[mode][rs]], vflag === 3);
@@ -123,7 +123,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rd = bitSlice(instr, 8, 10);
 		let imm = bitSlice(instr, 0, 7);
 
-		let result = registers[rd][modeToRegisterIndex[mode][rd]] + imm;
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] + imm) & 0xFFFFFFFF;
 		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 		setNZCV(bitSlice(result, 31, 31), result === 0, result < imm, vflag === 0);
@@ -134,7 +134,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rd = bitSlice(instr, 8, 10);
 		let imm = bitSlice(instr, 0, 7);
 
-		let result = registers[rd][modeToRegisterIndex[mode][rd]] - imm;
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] - imm) & 0xFFFFFFFF;
 		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + 1 + (bitSlice(result, 31, 31) ^ 1);
 
 		setNZCV(bitSlice(result, 31, 31), result === 0, imm > registers[rd][modeToRegisterIndex[mode][rd]], vflag === 3);
@@ -197,7 +197,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rd = bitSlice(instr, 0, 2);
 		let carryFlag = bitSlice(registers[16][0], 29, 29);
 
-		let result = registers[rd][modeToRegisterIndex[mode][rd]] + registers[rs][modeToRegisterIndex[mode][rs]] + carryFlag;
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] + registers[rs][modeToRegisterIndex[mode][rs]] + carryFlag) & 0xFFFFFFFF;
 		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 		setNZCV(bitSlice(result, 31, 31), result === 0, (result < registers[rd][modeToRegisterIndex[mode][rd]]) || (result < registers[rs][modeToRegisterIndex[mode][rs]]), (vflag === 0) || (vflag === 3));
@@ -208,7 +208,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rd = bitSlice(instr, 0, 2);
 		let negCarryFlag = bitSlice(registers[16][0], 29, 29) === 0 ? 1 : 0;
 
-		let result = registers[rd][modeToRegisterIndex[mode][rd]] - registers[rs][modeToRegisterIndex[mode][rs]] - negCarryFlag;
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] - registers[rs][modeToRegisterIndex[mode][rs]] - negCarryFlag) & 0xFFFFFFFF;
 		let vflag = bitSlice(registers[rd][modeToRegisterIndex[mode][rd]], 31, 31) + (bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rs][modeToRegisterIndex[mode][rs]] + negCarryFlag > registers[rd][modeToRegisterIndex[mode][rd]], (vflag === 0) || (vflag === 3));
@@ -236,7 +236,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = 0 - registers[rs][modeToRegisterIndex[mode][rs]];
+		let result = (0 - registers[rs][modeToRegisterIndex[mode][rs]]) & 0xFFFFFFFF;
 		let vflag = (bitSlice(registers[rs][modeToRegisterIndex[mode][rs]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 		setNZCV(bitSlice(result, 31, 31), result === 0, result !== 0, vflag === 0);
@@ -273,7 +273,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV) {
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = registers[rd][modeToRegisterIndex[mode][rd]] * registers[rs][modeToRegisterIndex[mode][rs]];
+		let result = (registers[rd][modeToRegisterIndex[mode][rd]] * registers[rs][modeToRegisterIndex[mode][rs]]) & 0xFFFFFFFF;
 
 		setNZCV(bitSlice(result, 31, 31), result === 0);
 		registers[rd][modeToRegisterIndex[mode][rd]] = result;
