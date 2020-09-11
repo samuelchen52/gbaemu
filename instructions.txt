@@ -392,7 +392,7 @@ instructions here are grouped up by their first four bits (after the condition b
 [ 'cccc 0000 101S nnnn dddd ssss 0tt1 mmmm |ADC add with carry' ]
 [ 'cccc 0000 110S nnnn dddd ssss 0tt1 mmmm |SBC subtract with carry' ]
 [ 'cccc 0000 111S nnnn dddd ssss 0tt1 mmmm |RSC reverse subtract with carry' ]
-[ 'cccc 0000 1uas hhhh llll ssss 1001 mmmm |MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG' ]
+[ 'cccc 0000 10as hhhh llll ssss 1001 mmmm |MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG' ]
 [ 'cccc 0000 00as dddd nnnn ssss 1001 mmmm |MULTIPLY AND MULTIPLY-ACCUMULATE' ]
 [ 'cccc 0000 u000 nnnn dddd 0000 1011 mmmm |p=0 i=0 STRH' ]
 [ 'cccc 0000 u101 nnnn dddd mmmm 1011 mmmm |p=0 i=1 LDRH' ]
@@ -464,85 +464,90 @@ instructions here are grouped up by their first four bits (after the condition b
 [ 'cccc 1111 xxxx xxxx xxxx xxxx xxxx xxxx |SOFTWARE INTERRUPT', ]
 
 ARM opcode map -
-0 - MULL / MLAL
-1 - MUL / MLA
-2 - STRH p=0 i=0 check needed
-3 - LDRH p=0 i=0 check needed
-4 - STRH p=0 i=1
-5 - LDRH p=0 i=1
-6 - LDRSB p=0 i=0 check needed
-7 - LDRSB p=0 i=1
-8 - LDRSH p=0 i=0 check needed
-9 - LDRSH p=0 i=1
-10 - AND 0tt1
-11 - EOR 0tt1
-12 - SUB 0tt1
-13 - RSB 0tt1
-14 - ADD 0tt1
-15 - ADC 0tt1
-16 - SBC 0tt1
-17 - RSC 0tt1
-18 - AND stt0
-19 - EOR stt0
-20 - SUB stt0
-21 - RSB stt0
-22 - ADD stt0
-23 - ADC stt0
-24 - SBC stt0
-25 - RSC stt0
-26 - TST 0tt1 check needed
-27 - TEQ 0tt1
-28 - BRANCH AND EXCHANGE
-29 - CMP 0tt1 check needed
-30 - CMN 0tt1 check needed
-31 - ORR 0tt1
-32 - MOV 0tt1 check needed
-33 - BIC 0tt1
-34 - MVN 0tt1 check needed
-35 - SWP check needed
-36 - STRH p=1 i=0 check needed
-37 - LDRH p=1 i=0 check needed
-38 - STRH p=1 i=1
-39 - LDRH p=1 i=1
-40 - LDRSB p=1 i=0 check needed
-41 - LDRSB p=1 i=1
-42 - LDRSH p=1 i=0 check needed
-43 - LDRSH p=1 i=1
-44 - MRS check needed
-45 - MRS register check needed
-46 - TST stt0
-47 - TEQ stt0
-48 - CMP stt0
-49 - CMN stt0
-50 - ORR stt0
-51 - MOV stt0 check needed
-52 - BIC stt0
-53 - MVN stt0 check needed
-54 - AND imm
-55 - EOR imm
-56 - SUB imm
-57 - RSB imm
-58 - ADD imm
-59 - ADC imm
-60 - SBC imm
-61 - RSC imm
-62 - TST imm
-63 - MSR imm
-64 - TEQ imm
-65 - CMP imm
-66 - CMN imm
-67 - ORR imm
-68 - MOV imm check needed
-69 - BIC imm
-70 - MVN imm check needed
-71 - LDR / STR i=0
-72 - LDR / STR i=1 check needed
-73 - LDM / STM
-74 - B / BL
-75 - LDC / STC
-76 - CDP
-77 - MRC / MCR
-78 - SWI
+0 - MULL / MLAL (MULTIPLY AND MULTIPLY ACCUMULATE [5])
+1 - MUL / MLA (MULTIPLY AND MULTIPLY ACCUMULATE [5])
+2 - STRH p=0 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+3 - LDRH p=0 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+4 - STRH p=0 i=1 (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+5 - LDRH p=0 i=1 (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+6 - LDRSB p=0 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+7 - LDRSB p=0 i=1 (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+8 - LDRSH p=0 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+9 - LDRSH p=0 i=1 (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+10 - AND 0tt1 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+11 - EOR 0tt1 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+12 - SUB 0tt1 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+13 - RSB 0tt1 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+14 - ADD 0tt1 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+15 - ADC 0tt1 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+16 - SBC 0tt1 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+17 - RSC 0tt1 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+18 - AND stt0 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY IMM [4])
+19 - EOR stt0 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY IMM [4])
+20 - SUB stt0 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY IMM [4])
+21 - RSB stt0 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY IMM [4])
+22 - ADD stt0 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY IMM [4])
+23 - ADC stt0 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY IMM [4])
+24 - SBC stt0 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY IMM [4])
+25 - RSC stt0 (DATA PROCESSING OPCODES 0-7 REGISTER SECOND OP, SHIFT BY IMM [4])
+
+26 - TST 0tt1 check needed (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+27 - TEQ 0tt1 (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+28 - BX (BRANCH AND EXCHANGE [2]) 
+29 - CMP 0tt1 check needed (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+30 - CMN 0tt1 check needed (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+31 - ORR 0tt1 (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+32 - MOV 0tt1 check needed (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+33 - BIC 0tt1 (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+34 - MVN 0tt1 check needed (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+35 - SWP check needed (Single Data Swap [10])
+36 - STRH p=1 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+37 - LDRH p=1 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+38 - STRH p=1 i=1 (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+39 - LDRH p=1 i=1 (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+40 - LDRSB p=1 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+41 - LDRSB p=1 i=1 (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+42 - LDRSH p=1 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+43 - LDRSH p=1 i=1 (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
+44 - MRS check needed (PSR Transfer [6])
+45 - MSR register check needed (PSR Transfer [6])
+46 - TST stt0 (DATA PROCESSING OPCODES 8-15 REGISTER SECOND OP, SHIFT BY IMM [4])
+47 - TEQ stt0 (DATA PROCESSING OPCODES 8-15 REGISTER SECOND OP, SHIFT BY IMM [4])
+48 - CMP stt0 (DATA PROCESSING OPCODES 8-15 REGISTER SECOND OP, SHIFT BY IMM [4])
+49 - CMN stt0 (DATA PROCESSING OPCODES 8-15 REGISTER SECOND OP, SHIFT BY IMM [4])
+50 - ORR stt0 (DATA PROCESSING OPCODES 8-15 REGISTER SECOND OP, SHIFT BY IMM [4])
+51 - MOV stt0 check needed (DATA PROCESSING OPCODES 8-15 REGISTER SECOND OP, SHIFT BY IMM [4])
+52 - BIC stt0 (DATA PROCESSING OPCODES 8-15 REGISTER SECOND OP, SHIFT BY IMM [4])
+53 - MVN stt0 check needed (DATA PROCESSING OPCODES 8-15 REGISTER SECOND OP, SHIFT BY IMM [4])
+
+54 - AND imm (DATA PROCESSING OPCODES 0-7 IMM SECOND OP [4])
+55 - EOR imm (DATA PROCESSING OPCODES 0-7 IMM SECOND OP [4])
+56 - SUB imm (DATA PROCESSING OPCODES 0-7 IMM SECOND OP [4])
+57 - RSB imm (DATA PROCESSING OPCODES 0-7 IMM SECOND OP [4])
+58 - ADD imm (DATA PROCESSING OPCODES 0-7 IMM SECOND OP [4])
+59 - ADC imm (DATA PROCESSING OPCODES 0-7 IMM SECOND OP [4])
+60 - SBC imm (DATA PROCESSING OPCODES 0-7 IMM SECOND OP [4])
+61 - RSC imm (DATA PROCESSING OPCODES 0-7 IMM SECOND OP [4])
+
+62 - TST imm (DATA PROCESSING OPCODES 0-15 IMM SECOND OP [4])
+63 - MSR imm (PSR Transfer [6])
+64 - TEQ imm (DATA PROCESSING OPCODES 0-15 IMM SECOND OP [4])
+65 - CMP imm (DATA PROCESSING OPCODES 0-15 IMM SECOND OP [4])
+66 - CMN imm (DATA PROCESSING OPCODES 0-15 IMM SECOND OP [4])
+67 - ORR imm (DATA PROCESSING OPCODES 0-15 IMM SECOND OP [4])
+68 - MOV imm check needed (DATA PROCESSING OPCODES 0-15 IMM SECOND OP [4])
+69 - BIC imm (DATA PROCESSING OPCODES 0-15 IMM SECOND OP [4])
+70 - MVN imm check needed (DATA PROCESSING OPCODES 0-15 IMM SECOND OP [4])
+
+71 - LDR / STR i=0 (Single Data Transfer [7])
+72 - LDR / STR i=1 check needed(Single Data Transfer [7])
+
+73 - LDM / STM (Block Data Transfer [9])
+74 - B / BL (BRANCH AND BRANCH WITH LINK [1])
+75 - LDC / STC (Coproc Instructions [11])
+76 - CDP (Coproc Instructions [11])
+77 - MRC / MCR (Coproc Instructions [11])
+78 - SWI (SOFTWARE INTERRUPT [3])
 
 
 __________________________________________________________________________________________________________________________________________________________
