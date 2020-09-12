@@ -150,6 +150,25 @@ const THUMBopcodes = [
 "LONG BRANCH 2"
 ]
 
+//gets the bytes of a 32 or 16 bit number
+function getBytes (instr, state)
+{
+	let arr = new Uint8Array(4);
+	if (!state) //ARM
+	{
+		arr[0] = (instr & 0xFF000000) >> 24;
+		arr[1] = (instr & 0xFF0000) >> 16;
+		arr[2] = (instr & 0xFF00) >> 8;
+		arr[3] = (instr & 0xFF);
+		return arr[0].toString(16) + " " + arr[1].toString(16) + " " + arr[2].toString(16) + " " + arr[3].toString(16);
+	}
+	else
+	{
+		arr[2] = (instr & 0xFF00) >> 8;
+		arr[3] = (instr & 0xFF);
+		return arr[2].toString(16) + " " + arr[3].toString(16);
+	}
+}
 
 //returns bits from startBit to endBit from a 32 bit number
 function bitSlice (num, startBit, endBit)
@@ -371,110 +390,90 @@ let sigs = instructionVal([
 	//THUMB INSTRUCTIONS!!!!!!!!!!!!!!!
 	///////////////////////////////////
 
-	'0000 0fff ffss sddd - LSL IMM5',
-	'0000 1fff ffss sddd - LSR IMM5',
-	'0001 0fff ffss sddd - ASR IMM5',
+	// '0000 0fff ffss sddd - LSL IMM5',
+	// '0000 1fff ffss sddd - LSR IMM5',
+	// '0001 0fff ffss sddd - ASR IMM5',
 
-	'0001 100n nnss sddd - ADD REGISTER',
-	'0001 101n nnss sddd - SUBTRACT REGISTER',
-	'0001 110n nnss sddd - ADD IMM3',
-	'0001 111n nnss sddd - SUB IMM3',
+	// '0001 100n nnss sddd - ADD REGISTER',
+	// '0001 101n nnss sddd - SUBTRACT REGISTER',
+	// '0001 110n nnss sddd - ADD IMM3',
+	// '0001 111n nnss sddd - SUB IMM3',
 
-	'0010 0ddd nnnn nnnn - MOV IMM8',
-	'0010 1ddd nnnn nnnn - CMP IMM8',
-	'0011 0ddd nnnn nnnn - ADD IMM8',
-	'0011 1ddd nnnn nnnn - SUB IMM8',
+	// '0010 0ddd nnnn nnnn - MOV IMM8',
+	// '0010 1ddd nnnn nnnn - CMP IMM8',
+	// '0011 0ddd nnnn nnnn - ADD IMM8',
+	// '0011 1ddd nnnn nnnn - SUB IMM8',
 
-	'0100 0000 00ss sddd - AND',
-	'0100 0000 01ss sddd - XOR',
-	'0100 0000 10ss sddd - LSL',
-	'0100 0000 11ss sddd - LSR',
-	'0100 0001 00ss sddd - ASR',
-	'0100 0001 01ss sddd - ADC',
-	'0100 0001 10ss sddd - SBC',
-	'0100 0001 11ss sddd - ROTATE RIGHT',
-	'0100 0010 00ss sddd - TST',
-	'0100 0010 01ss sddd - NEG',
-	'0100 0010 10ss sddd - CMP',
-	'0100 0010 11ss sddd - NEGCMP',
-	'0100 0011 00ss sddd - OR',
-	'0100 0011 01ss sddd - MUL',
-	'0100 0011 10ss sddd - BIT CLEAR',
-	'0100 0011 11ss sddd - NOT',
+	// '0100 0000 00ss sddd - AND',
+	// '0100 0000 01ss sddd - XOR',
+	// '0100 0000 10ss sddd - LSL',
+	// '0100 0000 11ss sddd - LSR',
+	// '0100 0001 00ss sddd - ASR',
+	// '0100 0001 01ss sddd - ADC',
+	// '0100 0001 10ss sddd - SBC',
+	// '0100 0001 11ss sddd - ROTATE RIGHT',
+	// '0100 0010 00ss sddd - TST',
+	// '0100 0010 01ss sddd - NEG',
+	// '0100 0010 10ss sddd - CMP',
+	// '0100 0010 11ss sddd - NEGCMP',
+	// '0100 0011 00ss sddd - OR',
+	// '0100 0011 01ss sddd - MUL',
+	// '0100 0011 10ss sddd - BIT CLEAR',
+	// '0100 0011 11ss sddd - NOT',
 
-	'0100 0100 10ss sddd - ADD using rd as hi register',
-	'0100 0100 01ss sddd - ADD using rs as hi register',
-	'0100 0100 11ss sddd - ADD both registers are hi',
-	'0100 0101 10ss sddd - CMP using rd as hi register',
-	'0100 0101 01ss sddd - CMP using rs as hi register',
-	'0100 0101 11ss sddd - CMP both registers are hi',
-	'0100 0110 10ss sddd - MOV using rd as hi register',
-	'0100 0110 01ss sddd - MOV using rs as hi register',
-	'0100 0110 11ss sddd - MOV both registers are hi',
-	'0100 0111 0sss s000 - BX only uses rs',
+	// '0100 0100 10ss sddd - ADD using rd as hi register',
+	// '0100 0100 01ss sddd - ADD using rs as hi register',
+	// '0100 0100 11ss sddd - ADD both registers are hi',
+	// '0100 0101 10ss sddd - CMP using rd as hi register',
+	// '0100 0101 01ss sddd - CMP using rs as hi register',
+	// '0100 0101 11ss sddd - CMP both registers are hi',
+	// '0100 0110 10ss sddd - MOV using rd as hi register',
+	// '0100 0110 01ss sddd - MOV using rs as hi register',
+	// '0100 0110 11ss sddd - MOV both registers are hi',
+	// '0100 0111 0sss s000 - BX only uses rs',
 
-	'0100 1ddd nnnn nnnn - LDR IMM (PC)',
+	// '0100 1ddd nnnn nnnn - LDR IMM (PC)',
 
-	'0101 000s ssbb bddd - STR REG OFFSET',
-	'0101 010s ssbb bddd - STRB REG OFFSET',
-	'0101 100s ssbb bddd - LDR REG OFFSET',
-	'0101 110s ssbb bddd - LDRB REG OFFSET',
+	// '0101 000s ssbb bddd - STR REG OFFSET',
+	// '0101 010s ssbb bddd - STRB REG OFFSET',
+	// '0101 100s ssbb bddd - LDR REG OFFSET',
+	// '0101 110s ssbb bddd - LDRB REG OFFSET',
 
-	'0101 001s ssbb bddd - STRH REG OFFSET',
-	'0101 011s ssbb bddd - LDSB REG OFFSET',
-	'0101 101s ssbb bddd - LDRH REG OFFSET',
-	'0101 111s ssbb bddd - LDSH REG OFFSET',
+	// '0101 001s ssbb bddd - STRH REG OFFSET',
+	// '0101 011s ssbb bddd - LDSB REG OFFSET',
+	// '0101 101s ssbb bddd - LDRH REG OFFSET',
+	// '0101 111s ssbb bddd - LDSH REG OFFSET',
 
-	'0110 0sss ssbb bddd - STR IMM OFFSET',
-	'0110 1sss ssbb bddd - LDR IMM OFFSET ',
-	'0111 0sss ssbb bddd - STRB IMM OFFSET',
-	'0111 1sss ssbb bddd - LDRB IMM OFFSET',
+	// '0110 0sss ssbb bddd - STR IMM OFFSET',
+	// '0110 1sss ssbb bddd - LDR IMM OFFSET ',
+	// '0111 0sss ssbb bddd - STRB IMM OFFSET',
+	// '0111 1sss ssbb bddd - LDRB IMM OFFSET',
 
-	'1000 0sss ssbb bddd - STRH IMM OFFSET',
-	'1000 1sss ssbb bddd - LDRH IMM OFFSET',
+	// '1000 0sss ssbb bddd - STRH IMM OFFSET',
+	// '1000 1sss ssbb bddd - LDRH IMM OFFSET',
 
-	'1001 0ddd nnnn nnnn - STR IMM OFFSET(SP)',
-	'1001 1ddd nnnn nnnn - LDR IMM OFFSET(SP)',
+	// '1001 0ddd nnnn nnnn - STR IMM OFFSET(SP)',
+	// '1001 1ddd nnnn nnnn - LDR IMM OFFSET(SP)',
 
-	'1010 0ddd nnnn nnnn - ADD RD PC IMM',
-	'1010 1ddd nnnn nnnn - ADD RD SP IMM',
+	// '1010 0ddd nnnn nnnn - ADD RD PC IMM',
+	// '1010 1ddd nnnn nnnn - ADD RD SP IMM',
 
-	'1011 0000 0nnn nnnn - ADD SP IMM',
-	'1011 0000 1nnn nnnn - ADD SP -IMM',
+	// '1011 0000 0nnn nnnn - ADD SP IMM',
+	// '1011 0000 1nnn nnnn - ADD SP -IMM',
 
-	'1011 010p rrrr rrrr - PUSH',
-	'1011 110p rrrr rrrr - POP',
+	// '1011 010p rrrr rrrr - PUSH',
+	// '1011 110p rrrr rrrr - POP',
 
-	'1100 0bbb rrrr rrrr - STMIA',
-	'1100 1bbb rrrr rrrr - LDMIA',
+	// '1100 0bbb rrrr rrrr - STMIA',
+	// '1100 1bbb rrrr rrrr - LDMIA',
 
-	'1101 oooo ssss ssss - CONDITIONAL BRANCH',
-	'1101 1111 nnnn nnnn - SW INTR',
+	// '1101 oooo ssss ssss - CONDITIONAL BRANCH',
+	// '1101 1111 nnnn nnnn - SW INTR',
 
-	'1110 0sss ssss ssss - UNCONDITIONAL BRANCH',
+	// '1110 0sss ssss ssss - UNCONDITIONAL BRANCH',
 
-	'1111 0nnn nnnn nnnn - LONG BRANCH 1',
-	'1111 1nnn nnnn nnnn - LONG BRANCH 2',
+	// '1111 0nnn nnnn nnnn - LONG BRANCH 1',
+	// '1111 1nnn nnnn nnnn - LONG BRANCH 2',
 	
 	]);
-
-// quicksort(sigs, 0, sigs.length - 1, function(arr1, arr2)
-// 	{
-// 		if (parseInt(arr2[0].substring(10, 13).replace(/\D/g,'')) >= parseInt(arr1[0].substring(10, 13).replace(/\D/g,'')))
-// 		{
-// 			return 1;
-// 		}
-// 		else
-// 		{
-// 			return 0;
-// 		}
-// 	});
-// for (let i = 0; i < sigs.length; i++)
-// {
-// 	if (sigs[i].length > 1)
-// 	{
-// 		console.log(sigs[i]);
-// 	}
-// 	//console.log(sigs[i]);
-// }
 

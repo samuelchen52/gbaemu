@@ -122,7 +122,7 @@ const mmu = function(memory) {
 			switch(numBytes)
 			{
 				case 1: //byte
-				memRegion[memAddr & 0x00FFFFFF] = val;
+				memRegion[memAddr & 0x00FFFFFF] = val & 0xFF;
 				return;
 				break;
 

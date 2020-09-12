@@ -1,10 +1,9 @@
-const arm = function(memory, registers) {
+const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 
 
 
 
-	return 
-	{
+	return {
 		decode : function (instr) {
 			//3322 2222 2222 1111 1111 1100 0000 0000
 			//1098 7654 3210 9876 5432 1098 7654 3210

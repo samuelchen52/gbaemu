@@ -58,42 +58,72 @@
 const cpu = function (pc, MMU) {
 
   	const stateENUMS = {ARM : 0, THUMB : 1};
-    const modeENUMS = {USER : 0, SYSTEM : 0, FIQ : 1, SVC : 2, ABT : 3, IRQ : 4, UND : 5};
+    const modeENUMS = {USER : 0, SYSTEM : 0, FIQ : 1, SVC : 2, ABT : 3, IRQ : 4, UND : 5}; //value also corresponds to row in register indices
+    const valToMode = []; //modes indexed by their value in the CPSR
+    valToMode[31] = "SYSTEM";
+    valToMode[16] = "USER";
+    valToMode[17] = "FIQ";
+    valToMode[19] = "SVC";
+    valToMode[23] = "ABT";
+    valToMode[18] = "IRQ";
+    valToMode[27] = "UND";
 
   	let state = stateENUMS["THUMB"];
   	let mode = modeENUMS["USER"];
-  	//USER and SYSTEM share the same set of registers (these two are basically the same mode, register-wise)
 
 
+    const registerIndices = [
+    //                     1 1 1 1 1 1
+    //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"]
+      [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0], //modeENUMS["FIQ"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,0,1], //modeENUMS["SVC"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,0,2], //modeENUMS["ABT"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,4,0,3], //modeENUMS["IRQ"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,5,0,4], //modeENUMS["UND"]
+    ];
   	//availability of registers depends on the current mode
   	//in THUMB state, only a subset of the registers are available 
   	const registers = [
-  		Uint32Array(1), //R0         ^       ^
-      Uint32Array(1), //R1         |       |
-      Uint32Array(1), //R2         |       |
-      Uint32Array(1), //R3         |       |
-      Uint32Array(1), //R4         |       |
-      Uint32Array(1), //R5         |       |
-      Uint32Array(1), //R6         |       |     
-      Uint32Array(1), //R7 shared (LO) registers R0 - R7 (in both ARM and THUMB state) 
-  		Uint32Array(2), //R8 		     ^			 ^
-  		Uint32Array(2), //R9   		   |			 |
-  		Uint32Array(2), //R10  		   |			 |
-  		Uint32Array(2), //R11  		   |			 |
-  		Uint32Array(2), //R12, shared among all modes except FIQ mode, unavailable in THUMB STATE
-  		Uint32Array(6), //R13, every mode has banked registers for this register (stack pointer in the THUMB state)
-  		Uint32Array(6), //R14, every mode has banked registers for this register  (link register)
-  		Uint32Array(6), //R15, every mode has banked registers for this register  (program counter)
-  		Uint32Array(1), //CPSR, shared (current program status register)
-  		Uint32Array(5) //SPSR, every mode has banked registers for this register (saved process status register) besides USER/SYSTEM
+  		new Uint32Array(1), //R0         ^       ^
+      new Uint32Array(1), //R1         |       |
+      new Uint32Array(1), //R2         |       |
+      new Uint32Array(1), //R3         |       |
+      new Uint32Array(1), //R4         |       |
+      new Uint32Array(1), //R5         |       |
+      new Uint32Array(1), //R6         |       |     
+      new Uint32Array(1), //R7 shared (LO) registers R0 - R7 (in both ARM and THUMB state) 
+  		new Uint32Array(2), //R8 		     ^			 ^
+  		new Uint32Array(2), //R9   		   |			 |
+  		new Uint32Array(2), //R10  		   |			 |
+  		new Uint32Array(2), //R11  		   |			 |
+  		new Uint32Array(2), //R12, shared among all modes except FIQ mode, unavailable in THUMB STATE
+  		new Uint32Array(6), //R13, every mode has banked registers for this register (stack pointer in the THUMB state)
+  		new Uint32Array(6), //R14, every mode has banked registers for this register  (link register)
+  		new Uint32Array(6), //R15, every mode has banked registers for this register  (program counter)
+  		new Uint32Array(1), //CPSR, shared (current program status register)
+  		new Uint32Array(5) //SPSR, every mode has banked registers for this register (saved process status register) besides USER/SYSTEM
   	];
   	
   	registers[15][mode] = pc; //set initial pc
+    registers[16][0] += 32 + 16; //set THUMB bit and set USER mode in CPSR
+
+
 
     const changeState = function (newState) {
-      state = stateENUMS[newState];
-      //have to set the bit 5 of the CPSR
-      if (state === undefined) {throw Error("undefined state!"); }
+      if (stateENUMS[newState] === undefined) 
+      {
+        throw Error("undefined state!"); 
+      }
+      else
+      {
+        registers[16][0] &= 0xFFFFFFDF;
+        if (stateENUMS[newState])
+        {
+          registers[16][0] += 32;
+        }
+        state = stateENUMS[newState];
+      }
     }
 
     const changeMode = function (newMode) {
@@ -102,24 +132,20 @@ const cpu = function (pc, MMU) {
     }
 
     //CPSR nzcv xxxx xxxx xxxx xxxx xxxx xxxx xxxx 
-    //if setting the cpsr condition flags, n and z flags are ALWAYS set
-    //thus, we set those based on the result (check if negative and if zero, respectively)
-    //then, if cflag and vflag were passed in, then we set those too
     const setNZCV = function (nflag, zflag, cflag, vflag) { 
-      //let cflag = for subtraction, x - y -> cflag = y > x ?, for addition, if result < x || result < y
-      //let neg = 0, 1 -> -1 for both negative, 1 for both positive, 0 for 1 neg 1 positive. vflag = sign bit === 1 ? return if 1, : return if -1  
       let newNZCV = 0;
+
       newNZCV = nflag ? 1 : 0;
       newNZCV = zflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
-      newNZCV = cflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
-      newNZCV = vflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
+      newNZCV = cflag === undefined ? ((newNZCV << 1) + bitSlice(registers[16][0], 29, 29)) : (cflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
+      newNZCV = vflag === undefined ? ((newNZCV << 1) + bitSlice(registers[16][0], 28, 28)) : (vflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
 
       registers[16][0] &= 0x00FFFFFF; //set first byte to zero
       registers[16][0] += (newNZCV << 28); //add new flags to CPSR
     }
 
-  	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV);
-  	const ARM = arm(MMU, registers, changeState, changeMode, setNZCV);
+  	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV, registerIndices);
+  	const ARM = arm(MMU, registers, changeState, changeMode, setNZCV, registerIndices);
 
   	return {
       fetch : function() {
@@ -146,14 +172,14 @@ const cpu = function (pc, MMU) {
   			}
   			return opcode;
   		},
-  		execute : function (instr, opcode, mode) {
+  		execute : function (instr, opcode) {
   			if (state === stateENUMS["ARM"])
   			{
-  				//ARM.execute(opcode);
+  				//ARM.execute(instr, opcode, modeToVal[mode]);
   			}
   			else //state === stateEnums["THUMB"]
   			{
-  				//THUMB.execute(opcode);
+  				THUMB.execute(instr, opcode, mode);
   			}
   			//decode
   			registers[15][mode] += (state === stateENUMS["ARM"] ? 4 : 2); //increment pc
@@ -162,6 +188,14 @@ const cpu = function (pc, MMU) {
 
       getState : function() {
         return state;
+      },
+
+      getMode : function() {
+        return mode;
+      },
+
+      getRegisters : function() {
+        return registers;
       }
   	}
 }
