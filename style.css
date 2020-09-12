@@ -1,0 +1,13 @@
+td {
+	border : 1px solid black;
+}
+
+.register {
+	width : 50px;
+	text-align: center;
+}
+
+.statusregister {
+	width : 100px;
+	text-align: center;
+}
