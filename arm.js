@@ -1,7 +1,115 @@
 const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 
+	//returns true if condition is met
+	const checkCondition (condition)
+	{
+		let flags = bitSlice(registers[16][registerIndices[mode][16]], 28, 31); //N, Z, C, V
+		switch(condition)
+		{
+			case 0: return (flags & 0x4) ? true : false; //BEQ Z=1
+			break;
+			case 1: return (flags & 0x4) ? false : true; //BNE Z=0
+			break;
+			case 2: return (flags & 0x2) ? true : false; //BCS/BHS C=1
+			break;
+			case 3: return (flags & 0x2) ? false : true; //BCC/BLO C=0
+			break;
+			case 4: return (flags & 0x8) ? true : false; //BMI N=1
+			break;
+			case 5: return (flags & 0x8) ? false : true; //BPL N=0
+			break;
+			case 6: return (flags & 0x1) ? true : false; //BVS V=1
+			break;
+			case 7: return (flags & 0x1) ? false : true; //BVC V=0
+			break;
+			case 8: return ((flags & 0x2) && !(flags & 0x4)) ? true : false; //BHI C=1, Z=0 
+			break;
+			case 9: return (!(flags & 0x2) && (flags & 0x4)) ? true : false; //BLS C=0, Z=1
+			break;
+			case 10: return ((flags & 0x8) === (flags & 0x1)) ? true : false; //BGE N=V
+			break;
+			case 11: return ((flags & 0x8) !== (flags & 0x1)) ? true : false; //BLT N<>V
+			break;
+			case 12: return (((flags & 0x8) === (flags & 0x1)) && !(flags & 0x4)) ? true : false; //BGT N=V, Z=0
+			break;
+			case 13: return (((flags & 0x8) !== (flags & 0x1)) || (flags & 0x4)) ? true : false; //BGT N<>V or Z=1
+			break;
+			case 14: throw Error("invalid opcode (0xE) with THUMB conditional branch");
+			break;
+			case 15: throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
+			break;
+		}
+		throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
+	}
 
+	const executeOpcode0 = function (instr, mode) { //0 - MULL / MLAL RdHiLo=Rm*Rs / RdHiLo=Rm*Rs+RdHiLo
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rdhi = bitSlice(instr, 16, 19);
+			let rdlo = bitSlice(instr, 12, 15);
+			let rs = bitSlice(instr, 8, 11);
+			let rm = bitSlice(instr, 0, 3);
 
+			let result = BigInt(registers[rm][registerIndices[mode][rm]]) * BigInt(registers[rs][registerIndices[mode][rs]]);
+			if (bitSlice(instr, 21, 21)) //accumulate bit
+			{
+				result += (BigInt(registers[rdhi][registerIndices[mode][rdhi]]) << 32n) + BigInt(registers[rdlo][registerIndices[mode][rdlo]]);
+			}
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV((result >> 63n) == 1, result == 0);
+			}
+			registers[rdhi][registerIndices[mode][rdhi]] = Number(result >> 32n);
+			registers[rdlo][registerIndices[mode][rdlo]] = Number(result & 0xFFFFFFFFn);
+		}
+	}
+
+	const executeOpcode1 = function (instr, mode) { //1 - MUL / MLA Rd=Rm*Rs Rd=Rm*Rs+Rn
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rd = bitSlice(instr, 16, 19);
+			let rn = bitSlice(instr, 12, 15);
+			let rs = bitSlice(instr, 8, 11);
+			let rm = bitSlice(instr, 0, 3);
+
+			let result = BigInt(registers[rm][registerIndices[mode][rm]]) * BigInt(registers[rs][registerIndices[mode][rs]]);
+			if (bitSlice(instr, 21, 21)) //accumulate bit
+			{
+				result += registers[rn][registerIndices[mode][rn]];
+			}
+			result = Number(result & 0xFFFFFFFFn);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	const executeOpcode2 = function (instr, mode) { //2 - STRH p=0 i=0 [a]=Rd
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rd = bitSlice(instr, 16, 19);
+			let rn = bitSlice(instr, 12, 15);
+			let rs = bitSlice(instr, 8, 11);
+			let rm = bitSlice(instr, 0, 3);
+
+			let result = BigInt(registers[rm][registerIndices[mode][rm]]) * BigInt(registers[rs][registerIndices[mode][rs]]);
+			if (bitSlice(instr, 21, 21)) //accumulate bit
+			{
+				result += registers[rn][registerIndices[mode][rn]];
+			}
+			result = Number(result & 0xFFFFFFFFn);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
 
 	return {
 		decode : function (instr) {
@@ -331,14 +439,89 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 			//undefined instruction
 			throw Error("encountered undefined instruction!");
 		},
-		execute : function (opcode) {
+		execute : function (instr, opcode, mode) {
 			switch (opcode)
 			{
-				case 0:
-				blahblah();
-				break;
+				case 0: executeOpcode0(instr, mode); break;
+				case 1: executeOpcode1(instr, mode); break;
+				case 2: executeOpcode2(instr, mode); break;
+				case 3: executeOpcode3(instr, mode); break;
+				case 4: executeOpcode4(instr, mode); break;
+				case 5: executeOpcode5(instr, mode); break;
+				case 6: executeOpcode6(instr, mode); break;
+				case 7: executeOpcode7(instr, mode); break;
+				case 8: executeOpcode8(instr, mode); break;
+				case 9: executeOpcode9(instr, mode); break;
+				case 10: executeOpcode10(instr, mode); break;
+				case 11: executeOpcode11(instr, mode); break;
+				case 12: executeOpcode12(instr, mode); break;
+				case 13: executeOpcode13(instr, mode); break;
+				case 14: executeOpcode14(instr, mode); break;
+				case 15: executeOpcode15(instr, mode); break;
+				case 16: executeOpcode16(instr, mode); break;
+				case 17: executeOpcode17(instr, mode); break;
+				case 18: executeOpcode18(instr, mode); break;
+				case 19: executeOpcode19(instr, mode); break;
+				case 20: executeOpcode20(instr, mode); break;
+				case 21: executeOpcode21(instr, mode); break;
+				case 22: executeOpcode22(instr, mode); break;
+				case 23: executeOpcode23(instr, mode); break;
+				case 24: executeOpcode24(instr, mode); break;
+				case 25: executeOpcode25(instr, mode); break;
+				case 26: executeOpcode26(instr, mode); break;
+				case 27: executeOpcode27(instr, mode); break;
+				case 28: executeOpcode28(instr, mode); break;
+				case 29: executeOpcode29(instr, mode); break;
+				case 30: executeOpcode30(instr, mode); break;
+				case 31: executeOpcode31(instr, mode); break;
+				case 32: executeOpcode32(instr, mode); break;
+				case 33: executeOpcode33(instr, mode); break;
+				case 34: executeOpcode34(instr, mode); break;
+				case 35: executeOpcode35(instr, mode); break;
+				case 36: executeOpcode36(instr, mode); break;
+				case 37: executeOpcode37(instr, mode); break;
+				case 38: executeOpcode38(instr, mode); break;
+				case 39: executeOpcode39(instr, mode); break;
+				case 40: executeOpcode40(instr, mode); break;
+				case 41: executeOpcode41(instr, mode); break;
+				case 42: executeOpcode42(instr, mode); break;
+				case 43: executeOpcode43(instr, mode); break;
+				case 44: executeOpcode44(instr, mode); break;
+				case 45: executeOpcode45(instr, mode); break;
+				case 46: executeOpcode46(instr, mode); break;
+				case 47: executeOpcode47(instr, mode); break;
+				case 48: executeOpcode48(instr, mode); break;
+				case 49: executeOpcode49(instr, mode); break;
+				case 50: executeOpcode50(instr, mode); break;
+				case 51: executeOpcode51(instr, mode); break;
+				case 52: executeOpcode52(instr, mode); break;
+				case 53: executeOpcode53(instr, mode); break;
+				case 54: executeOpcode54(instr, mode); break;
+				case 55: executeOpcode55(instr, mode); break;
+				case 56: executeOpcode56(instr, mode); break;
+				case 57: executeOpcode57(instr, mode); break;
+				case 58: executeOpcode58(instr, mode); break;
+				case 59: executeOpcode59(instr, mode); break;
+				case 60: executeOpcode60(instr, mode); break;
+				case 61: executeOpcode61(instr, mode); break;
+				case 62: executeOpcode62(instr, mode); break;
+				case 63: executeOpcode63(instr, mode); break;
+				case 64: executeOpcode64(instr, mode); break;
+				case 65: executeOpcode65(instr, mode); break;
+				case 66: executeOpcode66(instr, mode); break;
+				case 67: executeOpcode67(instr, mode); break;
+				case 68: executeOpcode68(instr, mode); break;
+				case 69: executeOpcode69(instr, mode); break;
+				case 70: executeOpcode70(instr, mode); break;
+				case 71: executeOpcode71(instr, mode); break;
+				case 72: executeOpcode72(instr, mode); break;
+				case 73: executeOpcode73(instr, mode); break;
+				case 74: executeOpcode74(instr, mode); break;
+				case 75: executeOpcode75(instr, mode); break;
+				case 76: executeOpcode76(instr, mode); break;
+				case 77: executeOpcode77(instr, mode); break;
+				case 78: executeOpcode78(instr, mode); break;
+				default: throw Error("invalid thumb opcode: " + opcode);
 			}
-			return true;
-		}
 	}
 }
