@@ -381,14 +381,9 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rd = bitSlice(instr, 0, 2);
 
 		let byte = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]), 1);
-		if (byte & 128) //most sig bit of byte is 1
-		{
-			registers[rd][registerIndices[mode][rd]] = (0xFFFFFF << 24) + byte;
-		}
-		else //most sig bit is 0
-		{
-			registers[rd][registerIndices[mode][rd]] = byte;
-		}
+		byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+		
+		registers[rd][registerIndices[mode][rd]] = byte;
 	}
 
 	const executeOpcode36 = function (instr, mode) { //36 - LDR REG OFFSET Rd = WORD[Rb+Ro]
@@ -421,14 +416,9 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rd = bitSlice(instr, 0, 2);
 
 		let halfword = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE, 2);
-		if (byte & 32768) //most sig bit of halfword is 1
-		{
-			registers[rd][registerIndices[mode][rd]] = (0xFFFF << 16) + halfword;
-		}
-		else //most sig bit is 0
-		{
-			registers[rd][registerIndices[mode][rd]] = halfword;
-		}
+		halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+		
+		registers[rd][registerIndices[mode][rd]] = halfword;
 	}
 
 	//THUMB.9------------------------------------------------------------------------------------------------------
