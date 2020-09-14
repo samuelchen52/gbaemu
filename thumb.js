@@ -381,9 +381,9 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rd = bitSlice(instr, 0, 2);
 
 		let byte = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]), 1);
-		if ((byte & 0x80) === 0x80) //most sig bit is 1
+		if (byte & 128) //most sig bit of byte is 1
 		{
-			registers[rd][registerIndices[mode][rd]] = 0xFFFFFF + byte;
+			registers[rd][registerIndices[mode][rd]] = (0xFFFFFF << 24) + byte;
 		}
 		else //most sig bit is 0
 		{
@@ -421,9 +421,9 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rd = bitSlice(instr, 0, 2);
 
 		let halfword = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE, 2);
-		if ((byte & 0x8000) === 0x8000) //most sig bit is 1
+		if (byte & 32768) //most sig bit of halfword is 1
 		{
-			registers[rd][registerIndices[mode][rd]] = 0xFFFF + halfword;
+			registers[rd][registerIndices[mode][rd]] = (0xFFFF << 16) + halfword;
 		}
 		else //most sig bit is 0
 		{
@@ -832,7 +832,6 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 			throw Error("encountered undefined instruction!");
 		},
 		execute : function (instr, opcode, mode) {
-
 			switch (opcode)
 			{
 				case 0: executeOpcode0(instr, mode); break;
