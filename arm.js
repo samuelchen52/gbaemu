@@ -42,6 +42,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 		throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
 	}
 
+	//ARM[5]-----------------------------------------------------------------------------------------------------
 	const executeOpcode0 = function (instr, mode) { //0 - MULL / MLAL RdHiLo=Rm*Rs / RdHiLo=Rm*Rs+RdHiLo
 		if (checkCondition(bitSlice(instr, 28, 31)))
 		{
@@ -88,29 +89,155 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 		}
 	}
 
+	//ARM[8]-----------------------------------------------------------------------------------------------------
+	//p = 0 -> post, add offset after transfer (writeback is always enabled)
+	//i = 0 -> register offset
+	//writeback -> write address into base
 	const executeOpcode2 = function (instr, mode) { //2 - STRH p=0 i=0 [a]=Rd
 		if (checkCondition(bitSlice(instr, 28, 31)))
 		{
-			let rd = bitSlice(instr, 16, 19);
-			let rn = bitSlice(instr, 12, 15);
-			let rs = bitSlice(instr, 8, 11);
-			let rm = bitSlice(instr, 0, 3);
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let rm = bitSlice(instr, 8, 11); //offset
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			let result = BigInt(registers[rm][registerIndices[mode][rm]]) * BigInt(registers[rs][registerIndices[mode][rs]]);
-			if (bitSlice(instr, 21, 21)) //accumulate bit
-			{
-				result += registers[rn][registerIndices[mode][rn]];
-			}
-			result = Number(result & 0xFFFFFFFFn);
+			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE,
+			registers[rd][registerIndices[mode][rd]], 
+			2);
 
+			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
+		}
+	}
+
+	const executeOpcode3 = function (instr, mode) { //3 - LDRH p=0 i=0 Load Unsigned halfword
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let rm = bitSlice(instr, 8, 11); //offset
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+
+			registers[rd][registerIndices[mode][rd]] = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
+
+			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
+		}
+	}
+
+	const executeOpcode4 = function (instr, mode) { //4 - STRH p=0 i=1 [a]=Rd
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+
+			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE,
+			registers[rd][registerIndices[mode][rd]], 
+			2);
+
+			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+		}
+	}
+
+	const executeOpcode5 = function (instr, mode) { //5 - LDRH p=0 i=1 Load Unsigned halfword
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+
+			registers[rd][registerIndices[mode][rd]] = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
+
+			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+		}
+	}
+
+	const executeOpcode6 = function (instr, mode) { //6 - LDRSB p=0 i=0 Load Signed Byte
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let rm = bitSlice(instr, 8, 11); //offset
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+
+			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]], 1);
+			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+			registers[rd][registerIndices[mode][rd]] = byte;
+
+			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
+
+		}
+	}
+
+	const executeOpcode7 = function (instr, mode) { //7 - LDRSB p=0 i=1 Load Signed Byte
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+
+			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]], 1);
+			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+			registers[rd][registerIndices[mode][rd]] = byte;
+			
+			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+
+		}
+	}
+
+	const executeOpcode8 = function (instr, mode) { //8 - LDRSH p=0 i=0 Load Signed halfword
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let rm = bitSlice(instr, 8, 11); //offset
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+
+			let halfword = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, 2);
+			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			registers[rd][registerIndices[mode][rd]] = halfword;
+
+			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
+
+		}
+	}
+
+	const executeOpcode9 = function (instr, mode) { //9 - LDRSH p=0 i=1 Load Signed halfword
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+
+			let halfword = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, 2);
+			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			registers[rd][registerIndices[mode][rd]] = halfword;
+
+			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+
+		}
+	}
+
+	//ARM[4]------------------------second operand register, shifted by register---------------------------------
+	const executeOpcode10 = function (instr, mode) { //10 - AND 0tt1 Rd = Rn AND Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = 
 			if (bitSlice(instr, 20, 20))
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0);
 			}
-			registers[rd][registerIndices[mode][rd]] = result;
 		}
 	}
-
 	return {
 		decode : function (instr) {
 			//3322 2222 2222 1111 1111 1100 0000 0000
