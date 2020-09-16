@@ -42,7 +42,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 		throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
 	}
 
-	var carryFlag = undefined;
+	var shiftCarryFlag = undefined;
 	//if imm flag is toggled, if shiftamt is 0, it will be set to 32 for shift type 1 and 2
 	const shiftReg = function (register, shiftamt, type, immflag)
 	{
@@ -51,7 +51,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 		{
 			if ((!type) || (!immflag)) //if LSL0 or immflag not set
 			{
-				carryFlag = undefined;
+				shiftCarryFlag = undefined;
 				return register;
 			}
 			else if ((type === 1) || (type === 2))
@@ -67,12 +67,12 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 			case 0: //LSL
 			if (gt32)
 			{
-				carryFlag = 0;
+				shiftCarryFlag = 0;
 				return 0;
 			}
 			else
 			{ 
-				carryFlag = bitSlice(register, 32 - shiftamt, 32 - shiftamt);
+				shiftCarryFlag = bitSlice(register, 32 - shiftamt, 32 - shiftamt);
 				return register << shiftamt;
 			}
 			break;
@@ -80,12 +80,12 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 			case 1: //LSR
 			if (gt32)
 			{
-				carryFlag = 0;
+				shiftCarryFlag = 0;
 				return 0;
 			}
 			else
 			{
-				carryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+				shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
 				return register >>> shiftamt;
 			}
 			break;
@@ -93,12 +93,12 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 			case 2:
 			if (gt32)
 			{
-				carryFlag = register >>> 31;
-				return carryFlag ? 4294967295 : 0; //2 ^ 32 - 1 === 4294967295
+				shiftCarryFlag = register >>> 31;
+				return shiftCarryFlag ? 4294967295 : 0; //2 ^ 32 - 1 === 4294967295
 			}
 			else
 			{
-				carryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+				shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
 				return (register >>> shiftamt) + ((register >> 31) ? (((1 << shiftamt) - 1) << (32 - shiftamt)) : 0);
 			}
 			break;
@@ -108,7 +108,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 			{
 				let result = register >>> 1;
 				result += bitSlice(registers[16][0], 29, 29) ? 2147483648 : 0;
-				carryFlag = bitSlice(register, 0, 0);
+				shiftCarryFlag = bitSlice(register, 0, 0);
 				return result;
 			}
 			else
@@ -116,12 +116,12 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 				shiftamt %= 32; //0 to 31
 				if (!shiftamt) //if shiftamt is zero here, then it was a multiple of 32
 				{
-					carryFlag = register >>> shiftamt;
+					shiftCarryFlag = register >>> shiftamt;
 					return register;
 				}
 				else
 				{
-					carryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+					shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
 					return rotateRight(register, shiftamt);
 				}
 			}
@@ -320,11 +320,56 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
 
-			let result = 
+			let result = registers[rn][registerIndices[mode][rn]] 
+			& shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
+
 			if (bitSlice(instr, 20, 20))
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0);
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
 			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	const executeOpcode11 = function (instr, mode) { //11 - EOR 0tt1 Rd = Rn XOR Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = registers[rn][registerIndices[mode][rn]] 
+			^ shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	const executeOpcode12 = function (instr, mode) { //12 - SUB 0tt1 Rd = Rn-Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
+			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
+
+			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand > registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
 		}
 	}
 	return {
