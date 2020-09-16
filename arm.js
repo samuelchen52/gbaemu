@@ -3,7 +3,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 	//returns true if condition is met
 	const checkCondition (condition)
 	{
-		let flags = bitSlice(registers[16][registerIndices[mode][16]], 28, 31); //N, Z, C, V
+		let flags = bitSlice(registers[16][0], 28, 31); //N, Z, C, V
 		switch(condition)
 		{
 			case 0: return (flags & 0x4) ? true : false; //BEQ Z=1
@@ -42,6 +42,95 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 		throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
 	}
 
+	var carryFlag = undefined;
+	//if imm flag is toggled, if shiftamt is 0, it will be set to 32 for shift type 1 and 2
+	const shiftReg = function (register, shiftamt, type, immflag)
+	{
+		//usually only LSL #0, but for register shifted by bottom byte of register, other ops with #0 are possible, behavior same?
+		if (shiftamt === 0)
+		{
+			if ((!type) || (!immflag)) //if LSL0 or immflag not set
+			{
+				carryFlag = undefined;
+				return register;
+			}
+			else if ((type === 1) || (type === 2))
+			{
+				shiftamt = 32;
+			}
+		}
+
+		//shiftamt nonzero
+		let gt32 = shiftamt > 32;
+		switch(type)
+		{
+			case 0: //LSL
+			if (gt32)
+			{
+				carryFlag = 0;
+				return 0;
+			}
+			else
+			{ 
+				carryFlag = bitSlice(register, 32 - shiftamt, 32 - shiftamt);
+				return register << shiftamt;
+			}
+			break;
+
+			case 1: //LSR
+			if (gt32)
+			{
+				carryFlag = 0;
+				return 0;
+			}
+			else
+			{
+				carryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+				return register >>> shiftamt;
+			}
+			break;
+
+			case 2:
+			if (gt32)
+			{
+				carryFlag = register >>> 31;
+				return carryFlag ? 4294967295 : 0; //2 ^ 32 - 1 === 4294967295
+			}
+			else
+			{
+				carryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+				return (register >>> shiftamt) + ((register >> 31) ? (((1 << shiftamt) - 1) << (32 - shiftamt)) : 0);
+			}
+			break;
+
+			case 3:
+			if (shiftamt === 0) //if shiftamt is 0 here, then immflag must be set (otherwise this would have returned already)
+			{
+				let result = register >>> 1;
+				result += bitSlice(registers[16][0], 29, 29) ? 2147483648 : 0;
+				carryFlag = bitSlice(register, 0, 0);
+				return result;
+			}
+			else
+			{
+				shiftamt %= 32; //0 to 31
+				if (!shiftamt) //if shiftamt is zero here, then it was a multiple of 32
+				{
+					carryFlag = register >>> shiftamt;
+					return register;
+				}
+				else
+				{
+					carryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+					return rotateRight(register, shiftamt);
+				}
+			}
+			break;
+
+			default:
+			throw Error("invalid shift type!");
+		}
+	}
 	//ARM[5]-----------------------------------------------------------------------------------------------------
 	const executeOpcode0 = function (instr, mode) { //0 - MULL / MLAL RdHiLo=Rm*Rs / RdHiLo=Rm*Rs+RdHiLo
 		if (checkCondition(bitSlice(instr, 28, 31)))
@@ -221,7 +310,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 		}
 	}
 
-	//ARM[4]------------------------second operand register, shifted by register---------------------------------
+	//ARM[4]------------------------second operand register, shifted by register (opcodes 0 - 7)-----------------
 	const executeOpcode10 = function (instr, mode) { //10 - AND 0tt1 Rd = Rn AND Op2
 		if (checkCondition(bitSlice(instr, 28, 31)))
 		{
