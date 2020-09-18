@@ -1,4 +1,4 @@
-const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
+const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZCV) {
 
 	//returns true if condition is met
 	const checkCondition (condition)
@@ -181,6 +181,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 	//ARM[8]-----------------------------------------------------------------------------------------------------
 	//p = 0 -> post, add offset after transfer (writeback is always enabled)
 	//i = 0 -> register offset
+	//i = 1 -> imm offset
 	//writeback -> write address into base
 	const executeOpcode2 = function (instr, mode) { //2 - STRH p=0 i=0 [a]=Rd
 		if (checkCondition(bitSlice(instr, 28, 31)))
@@ -695,21 +696,20 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 		}
 	}
 
-	const executeOpcode28 = function (instr, mode) { //28 - BX
+	const executeOpcode28 = function (instr, mode) { //28 - BX PC=Rn T=Rn[0]
 		if (checkCondition(bitSlice(instr, 28, 31)))
 		{
-			let rn = bitSlice(instr, 16, 19);
-			let rd = bitSlice(instr, 12, 15);
-			let rm = bitSlice(instr, 0, 3); //second operand
-			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
-			let st = bitSlice(instr, 5, 6); //shift type
+			let rn = bitSlice(instr, 0, 3);
 
-			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
-			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
-
-			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
-
-			setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			if (registers[rn][registerIndices[mode][rn]] & 1)
+			{
+				registers[15][registerIndices[mode][15]] = registers[rn][registerIndices[mode][rn]] - 1; //clear bit 0
+				changeState("THUMB");
+			}
+			else
+			{
+				registers[15][registerIndices[mode][15]] = registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFC; //clear bottom two bits
+			}
 		}
 	}
 
@@ -748,6 +748,471 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV) {
 			setNZCV(bitSlice(result, 31, 31), result === 0,  result < registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
 		}
 	}
+
+	const executeOpcode31 = function (instr, mode) { //31 - ORR 0tt1 Rd = Rn OR Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = registers[rn][registerIndices[mode][rn]] 
+			| shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	const executeOpcode32 = function (instr, mode) { //32 - MOV 0tt1 Rd = Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	const executeOpcode33 = function (instr, mode) { //33 - BIC 0tt1 Rd = Rn AND NOT Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = registers[rn][registerIndices[mode][rn]] 
+			& ~shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	const executeOpcode34 = function (instr, mode) { //34 - MVN 0tt1 Rd = NOT Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = ~shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	//ARM[10]------------------------------------------------------------------------------------------------
+	const executeOpcode35 = function (instr, mode) { //35 - SWP Rd=[Rn], [Rn]=Rm
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3);
+			let b = bitSlice(instr, 22, 22) ? 1 : 4;
+			let align = (b === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
+
+			registers[rd][registerIndices[mode][rd]] = mmu.readMem(registers[rn][registerIndices[mode][rn]] & align, b);
+			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & align, registers[rm][registerIndices[mode][rm]], b);
+		}
+	}
+
+	//ARM[8]-----------------------------------------------------------------------------------------------------
+	//p = 1 -> pr, add offset before transfer
+	//i = 0 -> register offset
+	//i = 1 -> imm offset
+	//writeback -> write address into base
+	const executeOpcode36 = function (instr, mode) { //36 - STRH p=1 i=0 [a]=Rd
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let rm = bitSlice(instr, 8, 11); //offset
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+			let w = bitSlice(instr, 21, 21); //writeback
+
+			mmu.writeMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE,
+			registers[rd][registerIndices[mode][rd]], 
+			2);
+
+			if (w)
+			{
+				registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
+			}
+		}
+	}
+
+	const executeOpcode37 = function (instr, mode) { //37 - LDRH p=1 i=0 Load Unsigned halfword
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let rm = bitSlice(instr, 8, 11); //offset
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+			let w = bitSlice(instr, 21, 21); //writeback
+
+			registers[rd][registerIndices[mode][rd]] = mmu.readMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
+
+			if (w)
+			{
+				registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
+			}
+		}
+	}
+
+	const executeOpcode38 = function (instr, mode) { //38 - STRH p=1 i=1 [a]=Rd
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+			let w = bitSlice(instr, 21, 21); //writeback
+
+			mmu.writeMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE,
+			registers[rd][registerIndices[mode][rd]], 
+			2);
+
+			if (w)
+			{
+				registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+			}
+		}
+	}
+
+	const executeOpcode39 = function (instr, mode) { //39 - LDRH p=1 i=1 Load Unsigned halfword
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+			let w = bitSlice(instr, 21, 21); //writeback
+
+			registers[rd][registerIndices[mode][rd]] = mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
+
+			if (w)
+			{
+				registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+			}
+		}
+	}
+
+	const executeOpcode40 = function (instr, mode) { //40 - LDRSB p=1 i=0 Load Signed Byte
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let rm = bitSlice(instr, 8, 11); //offset
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+			let w = bitSlice(instr, 21, 21); //writeback
+
+			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1), 1);
+			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+			registers[rd][registerIndices[mode][rd]] = byte;
+
+			if (w)
+			{
+				registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
+			}
+		}
+	}
+
+	const executeOpcode41 = function (instr, mode) { //41 - LDRSB p=1 i=1 Load Signed Byte
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+			let w = bitSlice(instr, 21, 21); //writeback
+
+			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1), 1);
+			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+			registers[rd][registerIndices[mode][rd]] = byte;
+			
+			if (w)
+			{
+				registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+			}
+
+		}
+	}
+
+	const executeOpcode42 = function (instr, mode) { //42 - LDRSH p=1 i=0 Load Signed halfword
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let rm = bitSlice(instr, 8, 11); //offset
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+			let w = bitSlice(instr, 21, 21); //writeback
+
+			let halfword = mmu.readMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE, 2);
+			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			registers[rd][registerIndices[mode][rd]] = halfword;
+
+			if (w)
+			{
+				registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
+			}
+
+		}
+	}
+
+	const executeOpcode43 = function (instr, mode) { //43 - LDRSH p=1 i=1 Load Signed halfword
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
+			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
+			let w = bitSlice(instr, 21, 21); //writeback
+
+			let halfword = mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE, 2);
+			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			registers[rd][registerIndices[mode][rd]] = halfword;
+
+			if (w)
+			{
+				registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+			}
+
+		}
+	}
+
+	//ARM[10]-----------------------------------------------------------------------------------------------------
+	const executeOpcode44 = function (instr, mode) { //44 - MRS Rd = Psr
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			//let i = bitSlice(instr, 25, 25); 
+			let psrBit = bitSlice(instr, 22, 22);
+			let rd = bitSlice(instr, 12, 15);
+
+			registers[rd][registerIndices[mode][rd]] = registers[16 + psrBit][registerIndices[mode][16 + psrBit]];
+			if (registers[rd][registerIndices[mode][rd]] === undefined)
+			{
+				throw Error("trying to access PSR in MRS with psr bit set when in USER/SYSTEM MODE");
+			}
+		}
+	}
+	const executeOpcode45 = function (instr, mode) { //45 - MSR register Psr[field] = Op
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let i = bitSlice(instr, 25, 25); 
+			let psrBit = bitSlice(instr, 22, 22);
+			let rd = bitSlice(instr, 12, 15);
+			let fsxc = bitSlice(instr, 16, 19);
+			let p = (getModeVal() === 16) ? 0 : 1; //privileged
+
+			let op;
+			let psr = registers[16 + psrBit][registerIndices[mode][16 + psrBit]];
+			if (psr === undefined)
+			{
+				throw Error("trying to change PSR in MSR with psr bit set when in USER/SYSTEM MODE");
+			}
+
+			if (i)
+			{
+				op = rotateRight(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1);
+			}
+			else
+			{
+				op = registers[bitSlice(instr, 0, 3)][registerIndices[mode][bitSlice(instr, 0, 3)]];
+			}
+
+			if (fsxc & 0x8) //set CPSR_flg
+			{
+				psr = (psr & 0x00FFFFFF) + (op & 0xFF000000);
+			}
+			if ((fsxc & 0x4) && (p)) //set CPSR_res_1 (shouldnt be used)
+			{
+				psr = (psr & 0xFF00FFFF) + (op & 0x00FF0000);
+			}
+			if ((fsxc & 0x2) && (p)) //set CPSR_res_2 (shouldnt be used)
+			{
+				psr = (psr & 0xFFFF00FF) + (op & 0x0000FF00);
+			}
+			if ((fsxc & 0x1) && (p)) //set CPSR_ctl
+			{
+				psr = (psr & 0xFFFFFF00) + (op & 0x000000FF);
+			}
+
+			registers[16 + psrBit][registerIndices[mode][16 + psrBit]] = psr;
+		}
+	}
+
+	//ARM[4]-----------second operand register, shifted by IMM(opcodes 8 - 15)----------------------------------------------------------
+	const executeOpcode46 = function (instr, mode) { //46 - TST stt0 Void = Rn AND Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = registers[rn][registerIndices[mode][rn]] 
+			& shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
+
+			setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+		}
+	}
+
+	const executeOpcode47 = function (instr, mode) { //47 - TEQ stt0 Void = Rn XOR Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = registers[rn][registerIndices[mode][rn]] 
+			^ shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
+
+			setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+		}
+	}
+
+
+	const executeOpcode48 = function (instr, mode) { //48 - CMP stt0 Void = Rn-Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
+			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
+
+			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+			setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+		}
+	}
+
+	const executeOpcode49 = function (instr, mode) { //49 - CMN stt0 Void = Rn+Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
+			let result = (registers[rn][registerIndices[mode][rn]] + secondOperand) & 0xFFFFFFFF;
+
+ 			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+
+			setNZCV(bitSlice(result, 31, 31), result === 0,  result < registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+		}
+	}
+
+	const executeOpcode50 = function (instr, mode) { //50 - ORR stt0 Rd = Rn OR Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = registers[rn][registerIndices[mode][rn]] 
+			| shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	const executeOpcode51 = function (instr, mode) { //51 - MOV stt0 Rd = Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	const executeOpcode52 = function (instr, mode) { //52 - BIC stt0 Rd = Rn AND NOT Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rn = bitSlice(instr, 16, 19);
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = registers[rn][registerIndices[mode][rn]] 
+			& ~shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+	const executeOpcode53 = function (instr, mode) { //53 - MVN stt0 Rd = NOT Op2
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rd = bitSlice(instr, 12, 15);
+			let rm = bitSlice(instr, 0, 3); //second operand
+			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
+			let st = bitSlice(instr, 5, 6); //shift type
+
+			let result = ~shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
+
+
+
 	return {
 		decode : function (instr) {
 			//3322 2222 2222 1111 1111 1100 0000 0000
