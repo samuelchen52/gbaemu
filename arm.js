@@ -207,7 +207,12 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 			let rm = bitSlice(instr, 8, 11); //offset
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			registers[rd][registerIndices[mode][rd]] = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
+			let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
+			if (registers[rn][registerIndices[mode][rn]] & 1)
+			{
+				data = rotateRight(data, 8);
+			}
+			registers[rd][registerIndices[mode][rd]] = data;
 
 			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
 		}
@@ -237,7 +242,12 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			registers[rd][registerIndices[mode][rd]] = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
+			let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
+			if (registers[rn][registerIndices[mode][rn]] & 1)
+			{
+				data = rotateRight(data, 8);
+			}
+			registers[rd][registerIndices[mode][rd]] = data;
 
 			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
 		}
@@ -287,6 +297,10 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 
 			let halfword = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, 2);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			if (registers[rn][registerIndices[mode][rn]] & 1)
+			{
+				halfword = (halfword >>> 8) + (bitSlice(halfword, 16, 23) << 24);
+			}
 			registers[rd][registerIndices[mode][rd]] = halfword;
 
 			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
@@ -304,6 +318,10 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 
 			let halfword = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, 2);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			if (registers[rn][registerIndices[mode][rn]] & 1)
+			{
+				halfword = (halfword >>> 8) + (bitSlice(halfword, 16, 23) << 24);
+			}
 			registers[rd][registerIndices[mode][rd]] = halfword;
 
 			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
@@ -874,7 +892,12 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			registers[rd][registerIndices[mode][rd]] = mmu.readMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
+			let data = mmu.readMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
+			if ((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 1)
+			{
+				data = rotateRight(data, 8);
+			}
+			registers[rd][registerIndices[mode][rd]] = data;
 
 			if (w)
 			{
@@ -912,8 +935,13 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			registers[rd][registerIndices[mode][rd]] = mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
-
+			let data = mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
+			if ((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 1)
+			{
+				data = rotateRight(data, 8);
+			}
+			registers[rd][registerIndices[mode][rd]] = data;
+			
 			if (w)
 			{
 				registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
@@ -973,6 +1001,10 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 
 			let halfword = mmu.readMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE, 2);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			if ((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 1)
+			{
+				halfword = (halfword >>> 8) + (bitSlice(halfword, 16, 23) << 24);
+			}
 			registers[rd][registerIndices[mode][rd]] = halfword;
 
 			if (w)
@@ -994,6 +1026,10 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 
 			let halfword = mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE, 2);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			if ((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 1)
+			{
+				halfword = (halfword >>> 8) + (bitSlice(halfword, 16, 23) << 24);
+			}
 			registers[rd][registerIndices[mode][rd]] = halfword;
 
 			if (w)
@@ -1511,7 +1547,32 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		}
 	}
 
+	//ARM[7]-------------------------------------------------------------------------------------------------------------------------------------------------------
+	const executeOpcode71 = function (instr, mode) { //71 - LDR / STR i=0
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let p = bitSlice(instr, 24, 24);
+			let sign = bitSlice(instr, 23, 23) ? 1 : -1;
+			let size = bitSlice(instr, 22, 22) ? 1 : 4;
 
+		}
+	}
+
+	const executeOpcode72 = function (instr, mode) { //72 - LDR / STR i=1
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let rd = bitSlice(instr, 12, 15);
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
+
+			let result = ~secondOperand;
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			registers[rd][registerIndices[mode][rd]] = result;
+		}
+	}
 
 	return {
 		decode : function (instr) {
