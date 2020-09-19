@@ -399,7 +399,13 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][registerIndices[mode][rd]] = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE, 2);
+		let data = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE, 2);
+		
+		if ((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 1)
+		{
+			data = rotateRight(data, 8);
+		}
+		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
 	const executeOpcode38 = function (instr, mode) { //38 - LDRB REG OFFSET Rd = BYTE[Rb+Ro]
@@ -475,7 +481,13 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][registerIndices[mode][rd]] = mmu.readMem((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFE, 2);
+		let data = mmu.readMem((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFE, 2);
+		
+		if ((registers[rb][registerIndices[mode][rb]] + offset) & 1)
+		{
+			data = rotateRight(data, 8);
+		}
+		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
 	//THUMB.11------------------------------------------------------------------------------------------------------
