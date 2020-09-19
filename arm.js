@@ -851,10 +851,16 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 			let rd = bitSlice(instr, 12, 15);
 			let rm = bitSlice(instr, 0, 3);
 			let b = bitSlice(instr, 22, 22) ? 1 : 4;
-			let align = (b === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
+			let mask = (b === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
 
-			registers[rd][registerIndices[mode][rd]] = mmu.readMem(registers[rn][registerIndices[mode][rn]] & align, b);
-			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & align, registers[rm][registerIndices[mode][rm]], b);
+			let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & mask, b); //LDR
+			if (registers[rn][registerIndices[mode][rn]] & 3)
+			{
+				rotateRight(data, (registers[rn][registerIndices[mode][rn]] & 3) << 3);
+			}
+			registers[rd][registerIndices[mode][rd]] = data;
+
+			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rm][registerIndices[mode][rm]], b); //STR
 		}
 	}
 
@@ -941,7 +947,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 				data = rotateRight(data, 8);
 			}
 			registers[rd][registerIndices[mode][rd]] = data;
-			
+
 			if (w)
 			{
 				registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
@@ -1551,26 +1557,121 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 	const executeOpcode71 = function (instr, mode) { //71 - LDR / STR i=0
 		if (checkCondition(bitSlice(instr, 28, 31)))
 		{
-			let p = bitSlice(instr, 24, 24);
-			let sign = bitSlice(instr, 23, 23) ? 1 : -1;
-			let size = bitSlice(instr, 22, 22) ? 1 : 4;
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let offset = bitSlice(instr, 0, 11); //imm offset
+			let p = bitSlice(instr, 24, 24); //pre/post
+			let sign = bitSlice(instr, 23, 23) ? 1 : -1; //0 = subtract, 1 = add
+			let size = bitSlice(instr, 22, 22) ? 1 : 4; //byte / word
+			let mask = (size === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
+			let w = bitSlice(instr, 21, 21); //writeback
 
+			if (bitSlice(instr, 20, 20)) //LDR
+			{
+				if (p) //add offset after (writeback always enabled)
+				{
+					let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & mask, size);
+					if (registers[rn][registerIndices[mode][rn]] & 3)
+					{
+						rotateRight(data, (registers[rn][registerIndices[mode][rn]] & 3) << 3);
+					}
+					registers[rd][registerIndices[mode][rd]] = data;
+
+					registers[rn][registerIndices[mode][rn]] += sign * offset;
+				}
+				else //add offset before (check if writeback enabled)
+				{
+					let addr = (registers[rn][registerIndices[mode][rn]] + offset * sign);
+					let data = mmu.readMem(addr & mask, size);
+					if (addr & 3)
+					{
+						rotateRight(data, (addr & 3) << 3);
+					}
+					registers[rd][registerIndices[mode][rd]] = data;
+
+					if (w)
+					{
+						registers[rn][registerIndices[mode][rn]] += sign * offset;
+					}
+				}
+			}
+			else //STR
+			{
+				if (p) //add offset after (writeback always enabled)
+				{
+					mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]], size);
+					registers[rn][registerIndices[mode][rn]] += sign * offset;
+				}
+				else //add offset before (check if writeback enabled)
+				{
+					mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]], size);
+					if (w)
+					{
+						registers[rn][registerIndices[mode][rn]] += sign * offset;
+					}
+				}
+			}
 		}
 	}
 
 	const executeOpcode72 = function (instr, mode) { //72 - LDR / STR i=1
 		if (checkCondition(bitSlice(instr, 28, 31)))
 		{
-			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
+			let rn = bitSlice(instr, 16, 19); //base
+			let rd = bitSlice(instr, 12, 15); //destination
+			let rm = bitSlice(instr, 0 ,3); //offset reg
+			let offset = shiftReg(registers[rm][registerIndices[mode][rm]], bitSlice(instr, 7, 11), bitSlice(instr, 5, 6), 1); //register shifted by imm as offset
+			let p = bitSlice(instr, 24, 24); //pre/post
+			let sign = bitSlice(instr, 23, 23) ? 1 : -1; //0 = subtract, 1 = add
+			let size = bitSlice(instr, 22, 22) ? 1 : 4; //byte / word
+			let mask = (size === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
+			let w = bitSlice(instr, 21, 21); //writeback
 
-			let result = ~secondOperand;
-
-			if (bitSlice(instr, 20, 20))
+			if (bitSlice(instr, 20, 20)) //LDR
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+				if (p) //add offset after (writeback always enabled)
+				{
+					let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & mask, size);
+					if (registers[rn][registerIndices[mode][rn]] & 3)
+					{
+						rotateRight(data, (registers[rn][registerIndices[mode][rn]] & 3) << 3);
+					}
+					registers[rd][registerIndices[mode][rd]] = data;
+
+					registers[rn][registerIndices[mode][rn]] += sign * offset;
+				}
+				else //add offset before (check if writeback enabled)
+				{
+					let addr = (registers[rn][registerIndices[mode][rn]] + offset * sign);
+					let data = mmu.readMem(addr & mask, size);
+					if (addr & 3)
+					{
+						rotateRight(data, (addr & 3) << 3);
+					}
+					registers[rd][registerIndices[mode][rd]] = data;
+
+					if (w)
+					{
+						registers[rn][registerIndices[mode][rn]] += sign * offset;
+					}
+				}
 			}
-			registers[rd][registerIndices[mode][rd]] = result;
+			else //STR
+			{
+				if (p) //add offset after (writeback always enabled)
+				{
+					mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]], size);
+					registers[rn][registerIndices[mode][rn]] += sign * offset;
+				}
+				else //add offset before (check if writeback enabled)
+				{
+					mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]], size);
+					if (w)
+					{
+						registers[rn][registerIndices[mode][rn]] += sign * offset;
+					}
+				}
+			}
 		}
 	}
 
