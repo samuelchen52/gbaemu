@@ -1,7 +1,6 @@
 const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZCV) {
-
 	//returns true if condition is met
-	const checkCondition (condition)
+	const checkCondition = function (condition)
 	{
 		let flags = bitSlice(registers[16][0], 28, 31); //N, Z, C, V
 		switch(condition)
@@ -1805,6 +1804,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 	const executeOpcode78 = function (instr, mode) { //78 - SWI
 		
 	}
+
 	return {
 		decode : function (instr) {
 			//3322 2222 2222 1111 1111 1100 0000 0000
@@ -2217,5 +2217,6 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 				case 78: executeOpcode78(instr, mode); break;
 				default: throw Error("invalid thumb opcode: " + opcode);
 			}
+		}
 	}
 }

@@ -68,9 +68,9 @@ const cpu = function (pc, MMU) {
     valToMode[18] = "IRQ";
     valToMode[27] = "UND";
 
-  	let state = stateENUMS["THUMB"]; //starting state is ARM
+  	let state = stateENUMS["ARM"]; //starting state is ARM
   	let mode = modeENUMS["SYSTEM"]; //starting mode is SYSTEM
-    let modeVal = 16; //all modes but user are non privileged
+    let modeVal = 31; //all modes but user are non privileged
 
 
     const registerIndices = [
@@ -107,7 +107,7 @@ const cpu = function (pc, MMU) {
   	];
   	
   	registers[15][mode] = pc; //set initial pc
-    registers[16][0] += 32 + 16; //set THUMB bit and set USER mode in CPSR
+    registers[16][0] += 31; //set ARM bit (already cleared) and set SYSTEM mode in CPSR
 
 
 
@@ -150,7 +150,7 @@ const cpu = function (pc, MMU) {
     }
 
   	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV, registerIndices);
-  	const ARM = arm(MMU, registers, changeState, changeMode, getModeVal, setNZCV, registerIndices);
+  	const ARM = arm(MMU, registers, changeState, changeMode, function(){return modeVal;}, setNZCV, registerIndices);
 
   	return {
       fetch : function() {
