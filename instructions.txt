@@ -463,6 +463,7 @@ instructions here are grouped up by their first four bits (after the condition b
 [ 'cccc 1110 oooa nnnn dddd pppp iii1 mmmm |MRC / MCR', ]
 [ 'cccc 1111 xxxx xxxx xxxx xxxx xxxx xxxx |SOFTWARE INTERRUPT', ]
 
+numbers in brackets refer to how these sections are ordered in GBATEK
 ARM opcode map -
 0 - MULL / MLAL (MULTIPLY AND MULTIPLY ACCUMULATE [5])
 1 - MUL / MLA (MULTIPLY AND MULTIPLY ACCUMULATE [5])
@@ -500,6 +501,7 @@ ARM opcode map -
 32 - MOV 0tt1 check needed (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
 33 - BIC 0tt1 (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
 34 - MVN 0tt1 check needed (DATA PROCESSING OPCODES 0-15 REGISTER SECOND OP, SHIFT BY REGISTER [4])
+
 35 - SWP check needed (Single Data Swap [10])
 36 - STRH p=1 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])
 37 - LDRH p=1 i=0 check needed (Memory: Halfword, Doubleword, and Signed Data Transfer [8])

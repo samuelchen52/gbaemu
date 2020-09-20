@@ -1769,6 +1769,42 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 
 		}
 	}
+	//ARM[1]-------------------------------------------------------------------------------------------------------------------------------------------------------
+	const executeOpcode74 = function (instr, mode) { //74 - B / BL
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let signedOffset = bitSlice(instr, 0 , 23);
+			if (signedOffset >> 23)
+			{
+				signedOffset = -1 * (~(signedOffset - 1));
+			}
+
+			if (bitSlice(instr, 24, 24)) //BL, set link register
+			{
+				registers[14][registerIndices[mode][14]] = registers[15][registerIndices[mode][15]] - 4;
+			}
+			
+			registers[15][registerIndices[mode][15]] += signedOffset << 2;
+		}
+	}
+
+	//ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
+	const executeOpcode75 = function (instr, mode) { //75 - LDC / STC
+		//gba does not use this instruction
+	}
+
+	const executeOpcode76 = function (instr, mode) { //76 - CDP
+		//gba does not use this instruction
+	}
+
+	const executeOpcode77 = function (instr, mode) { //77 - MRC / MCR
+		//gba does not use this instruction
+	}
+
+	//ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
+	const executeOpcode78 = function (instr, mode) { //78 - SWI
+		
+	}
 	return {
 		decode : function (instr) {
 			//3322 2222 2222 1111 1111 1100 0000 0000

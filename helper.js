@@ -216,6 +216,80 @@ function rotateRight(num, rotateBy)
 		return num;
 	}
 }
+//4294967296
+//shifts a 32 bit number (register) by shift amount
+//possible t values (0=LSL, 1=LSR, 2=ASR, 3=ROR)
+//returns the 32 bit result (32nd bit will be the last bit shifted out) and sets carry flag
+function shiftReg (register, shiftamt, type)
+{
+	if (shiftamt === 0) //usually only LSL #0, but for register shifted by bottom byte of register, other ops with #0 are possible, behavior same?
+	{
+		carryFlag = undefined;
+		return register;
+	}
+
+	//shiftamt nonzero
+	let gt32 = shiftamt > 32;
+	switch(type)
+	{
+		case 0: //LSL
+		if (gt32)
+		{
+			carryFlag = 0;
+			return 0;
+		}
+		else
+		{ 
+			carryFlag = bitSlice(register, 32 - shiftamt, 32 - shiftamt);
+			return register << shiftamt;
+		}
+		break;
+
+		case 1: //LSR
+		if (gt32)
+		{
+			carryFlag = 0;
+			return 0;
+		}
+		else
+		{
+			carryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+			return register >>> shiftamt;
+		}
+		break;
+
+		case 2:
+		if (gt32)
+		{
+			carryFlag = register >>> 31;
+			return carryFlag ? 4294967295 : 0; //2 ^ 32 - 1 === 4294967295
+		}
+		else
+		{
+			carryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+			return (register >>> shiftamt) + ((register >> 31) ? (((1 << shiftamt) - 1) << (32 - shiftamt)) : 0);
+		}
+		break;
+
+		case 3:
+		shiftamt %= 32; //0 to 31
+		if (!shiftamt) //if shiftamt is zero here, then it was a multiple of 32
+		{
+			carryFlag = register >>> shiftamt;
+			return register;
+		}
+		else
+		{
+			carryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+			return rotateRight(register, shiftamt);
+		}
+		break;
+
+		default:
+		throw Error("invalid shift type!");
+	}
+}
+
 
 //assumes both instructions same length
 function cmp(instr1, instr2)

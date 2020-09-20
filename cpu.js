@@ -62,14 +62,15 @@ const cpu = function (pc, MMU) {
     const valToMode = []; //modes indexed by their value in the CPSR
     valToMode[31] = "SYSTEM";
     valToMode[16] = "USER";
-    valToMode[17] = "FIQ";
+    valToMode[17] = "FIQ"; //never used
     valToMode[19] = "SVC";
     valToMode[23] = "ABT";
     valToMode[18] = "IRQ";
     valToMode[27] = "UND";
 
-  	let state = stateENUMS["THUMB"];
-  	let mode = modeENUMS["USER"];
+  	let state = stateENUMS["THUMB"]; //starting state is ARM
+  	let mode = modeENUMS["SYSTEM"]; //starting mode is SYSTEM
+    let modeVal = 16; //all modes but user are non privileged
 
 
     const registerIndices = [
@@ -110,6 +111,7 @@ const cpu = function (pc, MMU) {
 
 
 
+    //ARM or THUMB
     const changeState = function (newState) {
       if (stateENUMS[newState] === undefined) 
       {
@@ -117,17 +119,20 @@ const cpu = function (pc, MMU) {
       }
       else
       {
-        registers[16][0] &= 0xFFFFFFDF;
+        registers[16][0] &= 0xFFFFFFDF; //clear t bit in CPSR
         if (stateENUMS[newState])
         {
-          registers[16][0] += 32;
+          registers[16][0] += 32; //set t bit in CPSR if THUMB
         }
         state = stateENUMS[newState];
       }
     }
 
+    //USER, SYSTEM, FIQ, etc..
+    //all modes besides USER are privileged
     const changeMode = function (newMode) {
       mode = modeENUMS[newMode];
+      priveleged = newMode === "USER" ? false : true;
       if (mode === undefined) {throw Error("undefined mode!"); }
     }
 
@@ -145,7 +150,7 @@ const cpu = function (pc, MMU) {
     }
 
   	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV, registerIndices);
-  	const ARM = arm(MMU, registers, changeState, changeMode, setNZCV, registerIndices);
+  	const ARM = arm(MMU, registers, changeState, changeMode, getModeVal, setNZCV, registerIndices);
 
   	return {
       fetch : function() {
@@ -192,6 +197,10 @@ const cpu = function (pc, MMU) {
 
       getMode : function() {
         return mode;
+      },
+
+      getModeVal : function() {
+        return modeVal;
       },
 
       getRegisters : function() {
