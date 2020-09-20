@@ -1675,6 +1675,100 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		}
 	}
 
+	//ARM[9]-------------------------------------------------------------------------------------------------------------------------------------------------------
+	//IB p = 1 u = 1 -> descending empty stack
+	//IA p = 0 u = 1 -> descending full stack
+	//DB p = 1 u = 0 -> ascending empty stack
+	//DA p = 0 u = 0 -> ascending full stack
+	const executeOpcode73 = function (instr, mode) { //73 - LDM / STM 
+		if (checkCondition(bitSlice(instr, 28, 31)))
+		{
+			let p = bitSlice(instr, 24, 24);
+			let incramt = bitSlice(instr, 23, 23) ? 4 : -4;
+			let s = bitSlice(instr, 22, 22);
+			let w = bitSlice(instr, 21, 21); //if set, writeback final address into rn
+			let rn = bitSlice(instr, 16, 19); //base address
+			let rlist = bitSlice(instr, 0 ,15); //register list, each bit corresponds to register (by position)
+
+			let addr = registers[rn][registerIndices[mode][rn]];
+			if (bitSlise(instr, 20, 20)) //LDM
+			{
+				if (!p) //IB/DB
+				{
+					addr += incramt;
+				}
+
+				if (incramt === 4) //start from bottom of list
+				{
+					for (let i = 0; i <= 15; i++)
+					{
+						if (bitSlice(instr, i, i))
+						{
+							registers[i][registerIndices[mode][i]] = mmu.readMem(addr & 0xFFFFFFFC, 4);
+						}
+						addr += incramt;
+					}
+				}
+				else
+				{
+					for (let i = 15; i > 0; i--) //start from top of list
+					{
+						if (bitSlice(instr, i, i))
+						{
+							registers[i][registerIndices[mode][i]] = mmu.readMem(addr & 0xFFFFFFFC, 4);
+						}
+						addr += incramt;
+					}
+				}
+
+				if (!p)
+				{
+					addr -= incramt;
+				}
+			}
+			else //STM
+			{
+				if (!p) //IB/DB
+				{
+					addr += incramt;
+				}
+
+				if (incramt === 4) //start from bottom of list
+				{
+					for (let i = 0; i <= 15; i++)
+					{
+						if (bitSlice(instr, i, i))
+						{
+							mmu.writeMem(addr & 0xFFFFFFFC, registers[i][registerIndices[mode][i]], 4);
+						}
+						addr += incramt;
+					}
+				}
+				else
+				{
+					for (let i = 15; i > 0; i--) //start from top of list
+					{
+						if (bitSlice(instr, i, i))
+						{
+							mmu.writeMem(addr & 0xFFFFFFFC, registers[i][registerIndices[mode][i]], 4);
+						}
+						addr += incramt;
+					}
+				}
+
+				if (!p)
+				{
+					addr -= incramt;
+				}
+			}
+
+			if (w)
+			{
+				registers[rn][registerIndices[mode][rn]] = addr;
+			}
+
+		}
+	}
 	return {
 		decode : function (instr) {
 			//3322 2222 2222 1111 1111 1100 0000 0000
