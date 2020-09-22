@@ -20,7 +20,7 @@ const graphics = function(mmu, registers) {
 		updateRegisters : function(mode) {
 			for (let i = 0; i <= 15; i++)
 			{
-				registersDOM[i].textContent = registers[i][registerIndices[mode][i]];
+				registersDOM[i].textContent = parseInt(registers[i][registerIndices[mode][i]]).toString(16);
 			}
 			let CPSR = registers[16][0];
 			cpsrDOM[0].textContent = bitSlice(CPSR, 31, 31);

@@ -1,46 +1,5 @@
-const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZCV) {
-	//returns true if condition is met
-	const checkCondition = function (condition)
-	{
-		let flags = bitSlice(registers[16][0], 28, 31); //N, Z, C, V
-		switch(condition)
-		{
-			case 0: return (flags & 0x4) ? true : false; //BEQ Z=1
-			break;
-			case 1: return (flags & 0x4) ? false : true; //BNE Z=0
-			break;
-			case 2: return (flags & 0x2) ? true : false; //BCS/BHS C=1
-			break;
-			case 3: return (flags & 0x2) ? false : true; //BCC/BLO C=0
-			break;
-			case 4: return (flags & 0x8) ? true : false; //BMI N=1
-			break;
-			case 5: return (flags & 0x8) ? false : true; //BPL N=0
-			break;
-			case 6: return (flags & 0x1) ? true : false; //BVS V=1
-			break;
-			case 7: return (flags & 0x1) ? false : true; //BVC V=0
-			break;
-			case 8: return ((flags & 0x2) && !(flags & 0x4)) ? true : false; //BHI C=1, Z=0 
-			break;
-			case 9: return (!(flags & 0x2) && (flags & 0x4)) ? true : false; //BLS C=0, Z=1
-			break;
-			case 10: return ((flags & 0x8) === (flags & 0x1)) ? true : false; //BGE N=V
-			break;
-			case 11: return ((flags & 0x8) !== (flags & 0x1)) ? true : false; //BLT N<>V
-			break;
-			case 12: return (((flags & 0x8) === (flags & 0x1)) && !(flags & 0x4)) ? true : false; //BGT N=V, Z=0
-			break;
-			case 13: return (((flags & 0x8) !== (flags & 0x1)) || (flags & 0x4)) ? true : false; //BGT N<>V or Z=1
-			break;
-			case 14: throw Error("invalid opcode (0xE) with THUMB conditional branch");
-			break;
-			case 15: throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
-			break;
-		}
-		throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
-	}
-
+const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZCV, registerIndices, pipeline) {
+	
 	var shiftCarryFlag = undefined;
 	//if imm flag is toggled, if shiftamt is 0, it will be set to 32 for shift type 1 and 2
 	const shiftReg = function (register, shiftamt, type, immflag)
@@ -130,6 +89,50 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 			throw Error("invalid shift type!");
 		}
 	}
+
+	//returns true if condition is met
+	const checkCondition = function (condition)
+	{
+		let flags = bitSlice(registers[16][0], 28, 31); //N, Z, C, V
+		switch(condition)
+		{
+			case 0: return (flags & 0x4) ? true : false; //BEQ Z=1
+			break;
+			case 1: return (flags & 0x4) ? false : true; //BNE Z=0
+			break;
+			case 2: return (flags & 0x2) ? true : false; //BCS/BHS C=1
+			break;
+			case 3: return (flags & 0x2) ? false : true; //BCC/BLO C=0
+			break;
+			case 4: return (flags & 0x8) ? true : false; //BMI N=1
+			break;
+			case 5: return (flags & 0x8) ? false : true; //BPL N=0
+			break;
+			case 6: return (flags & 0x1) ? true : false; //BVS V=1
+			break;
+			case 7: return (flags & 0x1) ? false : true; //BVC V=0
+			break;
+			case 8: return ((flags & 0x2) && !(flags & 0x4)) ? true : false; //BHI C=1, Z=0 
+			break;
+			case 9: return (!(flags & 0x2) && (flags & 0x4)) ? true : false; //BLS C=0, Z=1
+			break;
+			case 10: return ((flags & 0x8) === (flags & 0x1)) ? true : false; //BGE N=V
+			break;
+			case 11: return ((flags & 0x8) !== (flags & 0x1)) ? true : false; //BLT N<>V
+			break;
+			case 12: return (((flags & 0x8) === (flags & 0x1)) && !(flags & 0x4)) ? true : false; //BGT N=V, Z=0
+			break;
+			case 13: return (((flags & 0x8) !== (flags & 0x1)) || (flags & 0x4)) ? true : false; //BGT N<>V or Z=1
+			break;
+			case 14: return true;
+			break;
+			case 15: return false;
+			break;
+		}
+		return true;
+		throw Error("condition wasnt a 4 bit number?");
+	}
+
 	//ARM[5]-----------------------------------------------------------------------------------------------------
 	const executeOpcode0 = function (instr, mode) { //0 - MULL / MLAL RdHiLo=Rm*Rs / RdHiLo=Rm*Rs+RdHiLo
 		if (checkCondition(bitSlice(instr, 28, 31)))
@@ -1399,7 +1402,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		{
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
 			let result = registers[rn][registerIndices[mode][rn]] & secondOperand;
 
@@ -1448,7 +1451,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		{
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
 			let result = registers[rn][registerIndices[mode][rn]] ^ secondOperand;
 
@@ -1461,7 +1464,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		{
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
 			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
 
@@ -1476,7 +1479,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		{
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
 			let result = (registers[rn][registerIndices[mode][rn]] + secondOperand) & 0xFFFFFFFF;
 
@@ -1491,7 +1494,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		{
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
 			let result = registers[rn][registerIndices[mode][rn]] | secondOperand;
 
@@ -1507,8 +1510,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		if (checkCondition(bitSlice(instr, 28, 31)))
 		{
 			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
-
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);	
 			let result = secondOperand;
 
 			if (bitSlice(instr, 20, 20))
@@ -1524,7 +1526,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		{
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
 			let result = registers[rn][registerIndices[mode][rn]] & ~secondOperand;
 
@@ -1540,7 +1542,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		if (checkCondition(bitSlice(instr, 28, 31)))
 		{
 			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11), 4, 0);
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
 			let result = ~secondOperand;
 
@@ -1567,7 +1569,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 
 			if (bitSlice(instr, 20, 20)) //LDR
 			{
-				if (p) //add offset after (writeback always enabled)
+				if (!p) //add offset after (writeback always enabled)
 				{
 					let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & mask, size);
 					if (registers[rn][registerIndices[mode][rn]] & 3)
@@ -1596,14 +1598,14 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 			}
 			else //STR
 			{
-				if (p) //add offset after (writeback always enabled)
+				if (!p) //add offset after (writeback always enabled)
 				{
 					mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]], size);
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]], size);
+					mmu.writeMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]], size);
 					if (w)
 					{
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
@@ -1628,7 +1630,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 
 			if (bitSlice(instr, 20, 20)) //LDR
 			{
-				if (p) //add offset after (writeback always enabled)
+				if (!p) //add offset after (writeback always enabled)
 				{
 					let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & mask, size);
 					if (registers[rn][registerIndices[mode][rn]] & 3)
@@ -1657,14 +1659,14 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 			}
 			else //STR
 			{
-				if (p) //add offset after (writeback always enabled)
+				if (!p) //add offset after (writeback always enabled)
 				{
 					mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]], size);
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]], size);
+					mmu.writeMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]], size);
 					if (w)
 					{
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
@@ -1773,20 +1775,20 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 		if (checkCondition(bitSlice(instr, 28, 31)))
 		{
 			let signedOffset = bitSlice(instr, 0 , 23);
-			if (signedOffset >> 23)
+			if (signedOffset >>> 23)
 			{
 				signedOffset = -1 * (~(signedOffset - 1));
 			}
 
 			if (bitSlice(instr, 24, 24)) //BL, set link register
 			{
-				registers[14][registerIndices[mode][14]] = registers[15][registerIndices[mode][15]] - 4;
+				registers[14][registerIndices[mode][14]] = registers[15][registerIndices[mode][15]] - 8;
 			}
 			
-			registers[15][registerIndices[mode][15]] += signedOffset << 2;
+			registers[15][registerIndices[mode][15]] += (signedOffset << 2) - 4;
 		}
 	}
-
+//11101010000000000000000000101110
 	//ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
 	const executeOpcode75 = function (instr, mode) { //75 - LDC / STC
 		//gba does not use this instruction
@@ -1919,7 +1921,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 				case 1:
 				if (bitSlice(instr, 4, 4))
 				{
-					if (bitSlice(instr, 7, 7))
+					if (!bitSlice(instr, 7, 7))
 					{
 						switch (bitSlice(instr, 21, 23))
 						{
@@ -2215,7 +2217,7 @@ const arm = function(mmu, registers, changeState, changeMode, getModeVal, setNZC
 				case 76: executeOpcode76(instr, mode); break;
 				case 77: executeOpcode77(instr, mode); break;
 				case 78: executeOpcode78(instr, mode); break;
-				default: throw Error("invalid thumb opcode: " + opcode);
+				default: throw Error("invalid arm opcode: " + opcode);
 			}
 		}
 	}

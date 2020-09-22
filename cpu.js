@@ -107,11 +107,19 @@ const cpu = function (pc, MMU) {
   	];
   	
   	registers[15][mode] = pc; //set initial pc
-    registers[16][0] += 31; //set ARM bit (already cleared) and set SYSTEM mode in CPSR
+    //registers[16][0] += 31 + 128 + 64; //clear ARM bit (already cleared), set SYSTEM mode in CPSR, set I and F bit
+    registers[16][0] += 31;
+    
+    const pipeline = new Uint32Array(3);
+    const pipelinecopy = new Uint32Array(3);
 
+    pipeline[0] = 0xE1A00000;
+    pipeline[1] = 0xE1A00000;
+    pipeline[2] = 51;
 
+    let curpc = pc; //internal pc (for detecting changes to r15)
 
-    //ARM or THUMB
+    //'ARM' or 'THUMB'
     const changeState = function (newState) {
       if (stateENUMS[newState] === undefined) 
       {
@@ -126,14 +134,18 @@ const cpu = function (pc, MMU) {
         }
         state = stateENUMS[newState];
       }
-    }
+    };
 
-    //USER, SYSTEM, FIQ, etc..
-    //all modes besides USER are privileged
+    //USER, SYSTEM, FIQ, etc.. all modes besides USER are privileged
     const changeMode = function (newMode) {
       mode = modeENUMS[newMode];
       priveleged = newMode === "USER" ? false : true;
       if (mode === undefined) {throw Error("undefined mode!"); }
+    };
+
+    const getModeVal  = function()
+    {
+      return modeVal;
     }
 
     //CPSR nzcv xxxx xxxx xxxx xxxx xxxx xxxx xxxx 
@@ -150,11 +162,9 @@ const cpu = function (pc, MMU) {
     }
 
   	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV, registerIndices);
-  	const ARM = arm(MMU, registers, changeState, changeMode, function(){return modeVal;}, setNZCV, registerIndices);
+  	const ARM = arm(MMU, registers, changeState, changeMode, getModeVal, setNZCV, registerIndices);
 
-  	return {
-      fetch : function() {
-        console.log("mem addr: 0x" + registers[15][mode].toString(16))
+    const fetch = function() {
         if (state === stateENUMS["ARM"])
         {
           return MMU.readMem(registers[15][mode], 4);
@@ -163,33 +173,123 @@ const cpu = function (pc, MMU) {
         {
           return MMU.readMem(registers[15][mode], 2);
         }
-      },
-  		decode : function (instr) {
-  			let opcode;
+    };
 
-  			if (state === stateENUMS["ARM"])
-  			{
-  				opcode = ARM.decode(instr);
-  			}
-  			else //state === stateEnums["THUMB"]
-  			{
-  				opcode = THUMB.decode(instr);
-  			}
-  			return opcode;
-  		},
-  		execute : function (instr, opcode) {
-  			if (state === stateENUMS["ARM"])
-  			{
-  				//ARM.execute(instr, opcode, modeToVal[mode]);
-  			}
-  			else //state === stateEnums["THUMB"]
-  			{
-  				THUMB.execute(instr, opcode, mode);
-  			}
-  			//decode
-  			registers[15][mode] += (state === stateENUMS["ARM"] ? 4 : 2); //increment pc
-  			return true;
-  		},
+    const decode = function (instr) {
+        let opcode;
+
+        if (state === stateENUMS["ARM"])
+        {
+          opcode = ARM.decode(instr);
+        }
+        else //state === stateEnums["THUMB"]
+        {
+          opcode = THUMB.decode(instr);
+        }
+        return opcode;
+    };
+    
+    const execute = function (instr, opcode) {
+        if (state === stateENUMS["ARM"])
+        {
+          ARM.execute(instr, opcode, mode);
+        }
+        else //state === stateEnums["THUMB"]
+        {
+          THUMB.execute(instr, opcode, mode);
+        }
+    };
+
+    //resets pipeline by filling it with nops (for branching instructions)
+    const resetPipeline = function (state){
+      if (state) //thumb nops
+      {
+        pipeline[0] = 0x46C0;
+        pipeline[1] = 0x46C0;
+        pipeline[2] = 29;
+      }
+      else //arm nops
+      {
+        pipeline[0] = 0xE1A00000;
+        pipeline[1] = 0xE1A00000;
+        pipeline[2] = 51;
+      }
+    };
+
+    //debugging
+    $("#decode").change(function()
+    {
+      let instr = parseInt($(this).val(), 16);
+      console.log("ARM opcode: " + ARM.decode(instr));
+      console.log("THUMB opcode: " + THUMB.decode(instr));
+    });
+
+
+  	return {
+      run : function() {
+        pipelinecopy[0] = pipeline[0];
+        pipelinecopy[1] = pipeline[1];
+        pipelinecopy[2] = pipeline[2];
+
+        console.log("executing opcode: " + ARMopcodes[pipelinecopy[2]] + " at Memory addr: 0x" + (curpc - 8).toString(16));
+
+        pipeline[0] = fetch();
+        registers[15][mode] += (state === stateENUMS["ARM"] ? 4 : 2); //increment pc
+        curpc = registers[15][mode];
+
+        pipeline[1] = pipelinecopy[0];
+        pipeline[2] = decode(pipelinecopy[0]);
+
+        execute(pipelinecopy[1], pipelinecopy[2]);
+
+        if (curpc != registers[15][mode])
+        {
+          resetPipeline(state);
+          curpc = registers[15][mode];
+          console.log("resetting pipeline, pc was changed to 0x" + (curpc).toString(16));
+        }
+
+        //pipeline -> instr, instr, opcode
+      },
+
+
+    //   fetch : function() {
+    //     console.log("mem addr: 0x" + registers[15][mode].toString(16))
+    //     if (state === stateENUMS["ARM"])
+    //     {
+    //       return MMU.readMem(registers[15][mode], 4);
+    //     }
+    //     else //state === stateEnums["THUMB"]
+    //     {
+    //       return MMU.readMem(registers[15][mode], 2);
+    //     }
+    //     registers[15][mode] += (state === stateENUMS["ARM"] ? 4 : 2); //increment pc
+    // },
+
+    // decode : function (instr) {
+    //     let opcode;
+
+    //     if (state === stateENUMS["ARM"])
+    //     {
+    //       opcode = ARM.decode(instr);
+    //     }
+    //     else //state === stateEnums["THUMB"]
+    //     {
+    //       opcode = THUMB.decode(instr);
+    //     }
+    //     return opcode;
+    // },
+    
+    // execute : function (instr, opcode) {
+    //     if (state === stateENUMS["ARM"])
+    //     {
+    //       ARM.execute(instr, opcode, mode);
+    //     }
+    //     else //state === stateEnums["THUMB"]
+    //     {
+    //       THUMB.execute(instr, opcode, mode);
+    //     }
+    // },
 
       getState : function() {
         return state;

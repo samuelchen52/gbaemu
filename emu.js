@@ -48,20 +48,27 @@ waitFile().then(async function (buffer) {
 	let opcode;
 	let instr;
 	let i = 0;
+	$("#runbutton").click(function()
+	{
+		CPU.run();
+		GRAPHICS.updateRegisters(CPU.getMode());
+	});
 	while (i < 50)
 	{
-		instr = CPU.fetch();
-		opcode = CPU.decode(instr);
-		console.log("instr bytes (MSB to LSB): ");
-		console.log(getBytes(instr, CPU.getState()));
-		console.log("opcode: " + (CPU.getState() === 0 ? ARMopcodes[opcode] : THUMBopcodes[opcode]) );
-		console.log("////////////////////////////////////");
-		CPU.execute(instr, opcode);
-		GRAPHICS.updateRegisters(CPU.getMode());
-		await new Promise(function (resolve, reject)
-		{
-			setTimeout(function(){resolve()}, 2000);
-		});
+		// instr = CPU.fetch();
+		// opcode = CPU.decode(instr);
+		// console.log(bitSlice(instr, 28, 31));
+		// console.log("instr bytes (MSB to LSB): ");
+		// console.log(getBytes(instr, CPU.getState()));
+		// console.log("opcode: " + (CPU.getState() === 0 ? ARMopcodes[opcode] : THUMBopcodes[opcode]) );
+		// CPU.execute(instr, opcode);
+		// console.log("////////////////////////////////////");
+		//CPU.run();
+		//GRAPHICS.updateRegisters(CPU.getMode());
+		// await new Promise(function (resolve, reject)
+		// {
+		// 	setTimeout(function(){resolve()}, 1000);
+		// });
 		i ++;
 	}
 

@@ -199,7 +199,7 @@ function bitSlice (num, startBit, endBit)
 	{
 		sum += bits[i];
 	}
-	return (num & sum) >> startBit;
+	return (num & sum) >>> startBit;
 }
 
 //rotates a 32 bit number right by 0 to 31 bits

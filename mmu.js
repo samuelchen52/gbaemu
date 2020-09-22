@@ -91,7 +91,7 @@ const mmu = function(memory) {
 		readMem: function (memAddr, numBytes){
 			if (memAddr % numBytes !== 0)
 			{
-				throw Error("memory address is not aligned!");
+				throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
 			}
 			let memRegion = memory[memENUMS[checkMemBounds(memAddr, numBytes)]];
 			//console.log(checkMemBounds(memAddr, numBytes));

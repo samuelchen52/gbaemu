@@ -1,4 +1,21 @@
-const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registerIndices) {
+const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registerIndices, pipeline) {
+	
+	//resets pipeline by filling it with nops (for branching instructions)
+	//nops are based on which state is passed in
+	const resetPipeline = function (state){
+		if (state) //thumb nops
+		{
+			pipeline[0] = 0x46C0;
+			pipeline[1] = 0x46C0;
+			pipeline[2] = 29;
+		}
+		else //arm nops
+		{
+			pipeline[0] = 0xE1A00000;
+			pipeline[1] = 0xE1A00000;
+			pipeline[2] = 51;
+		}
+	};
 	
 	//THUMB.1------------------------------------------------------------------------------------------------------
 	const executeOpcode0 = function (instr, mode) { //0 - LSL IMM5 Rd,Rs,#Offset 

@@ -433,7 +433,6 @@ instructions here are grouped up by their first four bits (after the condition b
 [ 'cccc 0001 u0w1 nnnn dddd 0000 1111 mmmm |p=1 i=0 LDRSH' ]
 [ 'cccc 0001 u1w1 nnnn dddd mmmm 1111 mmmm |p=1 i=1 LDRSH' ]
 
-
 [ 'cccc 0010 000S nnnn dddd ssss mmmm mmmm |AND and' ]
 [ 'cccc 0010 001S nnnn dddd ssss mmmm mmmm |EOR exclusive or' ]
 [ 'cccc 0010 010S nnnn dddd ssss mmmm mmmm |SUB subtract' ]
@@ -551,7 +550,7 @@ ARM opcode map -
 77 - MRC / MCR (Coproc Instructions [11])
 78 - SWI (SOFTWARE INTERRUPT [3])
 
-
+nop -> mov r0, r0 (0xE1A00000, opcode 51)
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________THUMB_PARSING___________________________________________________________
@@ -726,3 +725,6 @@ THUMB opcode map -
 58 - UNCONDITIONAL BRANCH (THUMB.18)
 59 - LONG BRANCH 1 (THUMB.19)
 60 - LONG BRANCH 2 (THUMB.19)
+
+
+nop -> mov r8, r8 (0x46C0, opcode 29)
