@@ -17,7 +17,7 @@ const mmu = function(memory) {
 			return 0;
 			break;
 
-			case 2:
+			case 2: //RAM[addr & 0x7FFF] = value -> memory mirrors (because of how the hardware works)
 			if ((memAddr + numBytes - 1) > 0x203FFFF)
 			{
 				throw Error("accessing invalid memory!");
@@ -141,6 +141,18 @@ const mmu = function(memory) {
 				break;
 			}
 			throw Error("writing invalid number of bytes!");
+		},
+
+		getMemoryRegion: function(region)
+		{
+			if (memENUMS.indexOf(region) === -1)
+			{
+				throw Error("mem region doesnt exist");
+			}
+			else
+			{
+				return memory[memENUMS[memENUMS.indexOf(region)]];
+			}
 		}
 
 

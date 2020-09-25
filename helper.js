@@ -149,6 +149,18 @@ const THUMBopcodes = [
 "LONG BRANCH 1",
 "LONG BRANCH 2"
 ]
+var rgbstr = [ 'rgb(' , 0 , ',' , 0 , ',' , 0 , ')'];
+
+//returns rgb string represented by 16bit num
+//xbbbbbgggggrrrrr
+function rgb(num)
+{
+	rgbstr[1] = (num & 31744) >>> 10;
+	rgbstr[3] = (num & 992) >>> 5;
+	rgbstr[5] = num & 31;
+
+	return rgbstr.join('');
+}
 
 //gets the bytes of a 32 or 16 bit number
 function getBytes (instr, state)

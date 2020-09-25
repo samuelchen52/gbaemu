@@ -52,9 +52,13 @@ waitFile().then(async function (buffer) {
 	{
 		CPU.run();
 		GRAPHICS.updateRegisters(CPU.getMode());
+		GRAPHICS.updateScreen();
 	});
-	while (i < 50)
+	while (i < 10000)
 	{
+		CPU.run();
+		GRAPHICS.updateRegisters(CPU.getMode());
+		GRAPHICS.updateScreen();
 		// instr = CPU.fetch();
 		// opcode = CPU.decode(instr);
 		// console.log(bitSlice(instr, 28, 31));

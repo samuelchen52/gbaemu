@@ -9,6 +9,11 @@
 //UND (undefined mode): entered when an undefined instruction is executed  
 
 
+// #define CARRY_ADD(a, b)  ((0xFFFFFFFF-a) < b)
+// #define CARRY_SUB(a, b)  (a >= b)
+
+// #define ADD_OVERFLOW(a, b, result) ((!(((a) ^ (b)) & 0x80000000)) && (((a) ^ (result)) & 0x80000000))
+// #define SUB_OVERFLOW(a, b, result) (((a) ^ (b)) & 0x80000000) && (((a) ^ (result)) & 0x80000000)
 
 
 //37 registers: 31 general registers (Rxx) and 6 status registers (xPSR)
@@ -69,6 +74,7 @@ const cpu = function (pc, MMU) {
     valToMode[27] = "UND";
 
   	let state = stateENUMS["ARM"]; //starting state is ARM
+    let insize = 4; //instruction size
   	let mode = modeENUMS["SYSTEM"]; //starting mode is SYSTEM
     let modeVal = 31; //all modes but user are non privileged
 
@@ -108,17 +114,24 @@ const cpu = function (pc, MMU) {
   	
   	registers[15][mode] = pc; //set initial pc
     //registers[16][0] += 31 + 128 + 64; //clear ARM bit (already cleared), set SYSTEM mode in CPSR, set I and F bit
-    registers[16][0] += 31;
-    
+    registers[16][0] += 31; //set SYSTEM mode
+
+    //set default sp values
+    registers[13][0] = 0x03007F00;
+    registers[13][4] = 0x03007FA0;
+    registers[13][2] = 0x03007FE0;
+
+    //set default r0 and r14?
+    registers[0][0] = 0xCA5;
+    registers[14][0] = 0x8000000;
+
+    //pipeline -> [instr, instr, opcode] execute will take pipeline[1] and pipeline[2] as args, decode will take pipeline[0] as arg
     const pipeline = new Uint32Array(3);
     const pipelinecopy = new Uint32Array(3);
 
-    pipeline[0] = 0xE1A00000;
-    pipeline[1] = 0xE1A00000;
-    pipeline[2] = 51;
-
     let curpc = pc; //internal pc (for detecting changes to r15)
 
+    //setter functions for ARM and THUMB objects for manipulating CPU state///////////////////////////////////
     //'ARM' or 'THUMB'
     const changeState = function (newState) {
       if (stateENUMS[newState] === undefined) 
@@ -127,12 +140,17 @@ const cpu = function (pc, MMU) {
       }
       else
       {
+        console.log("switching to " + newState + " state")
+        //set to arm by default
+        insize = 4;
         registers[16][0] &= 0xFFFFFFDF; //clear t bit in CPSR
-        if (stateENUMS[newState])
+        if (stateENUMS[newState]) //if thumb, set to thumb
         {
-          registers[16][0] += 32; //set t bit in CPSR if THUMB
+          insize = 2;
+          registers[16][0] += 32; //set t bit in CPSR
         }
-        state = stateENUMS[newState];
+
+        state = stateENUMS[newState]; //set internal state
       }
     };
 
@@ -161,6 +179,7 @@ const cpu = function (pc, MMU) {
       registers[16][0] += (newNZCV << 28); //add new flags to CPSR
     }
 
+    ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV, registerIndices);
   	const ARM = arm(MMU, registers, changeState, changeMode, getModeVal, setNZCV, registerIndices);
 
@@ -176,17 +195,14 @@ const cpu = function (pc, MMU) {
     };
 
     const decode = function (instr) {
-        let opcode;
-
         if (state === stateENUMS["ARM"])
         {
-          opcode = ARM.decode(instr);
+          return ARM.decode(instr);
         }
         else //state === stateEnums["THUMB"]
         {
-          opcode = THUMB.decode(instr);
+          return THUMB.decode(instr);
         }
-        return opcode;
     };
     
     const execute = function (instr, opcode) {
@@ -200,20 +216,16 @@ const cpu = function (pc, MMU) {
         }
     };
 
-    //resets pipeline by filling it with nops (for branching instructions)
-    const resetPipeline = function (state){
-      if (state) //thumb nops
-      {
-        pipeline[0] = 0x46C0;
-        pipeline[1] = 0x46C0;
-        pipeline[2] = 29;
-      }
-      else //arm nops
-      {
-        pipeline[0] = 0xE1A00000;
-        pipeline[1] = 0xE1A00000;
-        pipeline[2] = 51;
-      }
+    //resets pipeline by fetching
+    const resetPipeline = function (){
+      pipeline[1] = fetch();
+      pipeline[2] = decode(pipeline[1]);
+      registers[15][mode] += insize;
+
+      pipeline[0] = fetch();
+      registers[15][mode] += insize;
+
+      curpc = registers[15][mode];
     };
 
     //debugging
@@ -224,6 +236,8 @@ const cpu = function (pc, MMU) {
       console.log("THUMB opcode: " + THUMB.decode(instr));
     });
 
+    //init pipeline contents
+    resetPipeline();
 
   	return {
       run : function() {
@@ -231,26 +245,49 @@ const cpu = function (pc, MMU) {
         pipelinecopy[1] = pipeline[1];
         pipelinecopy[2] = pipeline[2];
 
-        console.log("executing opcode: " + ARMopcodes[pipelinecopy[2]] + " at Memory addr: 0x" + (curpc - 8).toString(16));
+        console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (curpc - (state ? 4 : 8)).toString(16));
 
         pipeline[0] = fetch();
-        registers[15][mode] += (state === stateENUMS["ARM"] ? 4 : 2); //increment pc
-        curpc = registers[15][mode];
+        registers[15][mode] += insize; //increment pc
+        curpc = registers[15][mode]; //set internal pc to match
 
         pipeline[1] = pipelinecopy[0];
         pipeline[2] = decode(pipelinecopy[0]);
 
         execute(pipelinecopy[1], pipelinecopy[2]);
 
-        if (curpc != registers[15][mode])
+        if (curpc != registers[15][mode]) //if change to r15 occurred, reset the pipeline
         {
-          resetPipeline(state);
-          curpc = registers[15][mode];
-          console.log("resetting pipeline, pc was changed to 0x" + (curpc).toString(16));
+          console.log("resetting pipeline, pc was changed to 0x" + (registers[15][mode]).toString(16));
+          resetPipeline();
         }
-
-        //pipeline -> instr, instr, opcode
       },
+
+      getState : function() {
+        return state;
+      },
+
+      getMode : function() {
+        return mode;
+      },
+
+      getModeVal : function() {
+        return modeVal;
+      },
+
+      getRegisters : function() {
+        return registers;
+      }
+  	}
+}
+
+
+
+
+
+
+
+
 
 
     //   fetch : function() {
@@ -290,21 +327,3 @@ const cpu = function (pc, MMU) {
     //       THUMB.execute(instr, opcode, mode);
     //     }
     // },
-
-      getState : function() {
-        return state;
-      },
-
-      getMode : function() {
-        return mode;
-      },
-
-      getModeVal : function() {
-        return modeVal;
-      },
-
-      getRegisters : function() {
-        return registers;
-      }
-  	}
-}
