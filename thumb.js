@@ -16,7 +16,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 			pipeline[2] = 51;
 		}
 	};
-	
+
 	//THUMB.1------------------------------------------------------------------------------------------------------
 	const executeOpcode0 = function (instr, mode) { //0 - LSL IMM5 Rd,Rs,#Offset 
 		let offset = bitSlice(instr, 6, 10);
@@ -99,7 +99,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let result = (registers[rs][registerIndices[mode][rs]] - imm) & 0xFFFFFFFF;
 		let vflag = bitSlice(registers[rs][registerIndices[mode][rs]], 31, 31) + 1 + (bitSlice(result, 31, 31) ^ 1);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][registerIndices[mode][rn]] <= registers[rs][registerIndices[mode][rs]], vflag === 3);
+		setNZCV(bitSlice(result, 31, 31), result === 0, imm <= registers[rs][registerIndices[mode][rs]], vflag === 3);
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 
@@ -358,7 +358,13 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rd = bitSlice(instr, 8, 10);
 		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 
-		registers[rd][registerIndices[mode][rd]] += mmu.readMem(registers[15][registerIndices[mode][15]] + offset, 4);
+		let data += mmu.readMem((((registers[15][registerIndices[mode][15]] - 2) & ~2) + offset) & 0xFFFFFFFC, 4);		
+		if ((((registers[15][registerIndices[mode][15]] - 2) & ~2) + offset) & 1)
+		{
+			data = rotateRight(data, 8);
+		}
+
+		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
 	//THUMB.7/8------------------------------------------------------------------------------------------------------
@@ -408,7 +414,12 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][registerIndices[mode][rd]] = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFC, 4);
+		let data = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFC, 4);
+		if ((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 1)
+		{
+			data = rotateRight(data, 8);
+		}
+		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
 	const executeOpcode37 = function (instr, mode) { //37 - LDRH REG OFFSET Rd = HALFWORD[Rb+Ro]
@@ -461,7 +472,13 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][registerIndices[mode][rd]] = mmu.readMem((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFC, 4);
+		data = mmu.readMem((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFC, 4);
+		if ((registers[rb][registerIndices[mode][rb]] + offset) & 1)
+		{
+			data = rotateRight(data, 8);
+		}
+
+		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
 	const executeOpcode42 = function (instr, mode) { //42 - STRB IMM OFFSET BYTE[Rb+nn] = Rd
@@ -521,7 +538,12 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rd = bitSlice(instr, 8, 10);
 		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 
-		registers[rd][registerIndices[mode][rd]] = mmu.readMem((registers[13][registerIndices[mode][13]] + offset) & 0xFFFFFFFC, 4);
+		let data = mmu.readMem((registers[13][registerIndices[mode][13]] + offset) & 0xFFFFFFFC, 4);
+		if ((registers[13][registerIndices[mode][13]] + offset) & 1)
+		{
+			data = rotateRight(data, 8);
+		}
+		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
 	//THUMB.12------------------------------------------------------------------------------------------------------
@@ -660,7 +682,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 			case 15: throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
 			break;
 		}
-		registers[15][registerIndices[mode][15]] += execute ? offset : 0;
+		registers[15][registerIndices[mode][15]] += execute ? offset - 2 : 0;
 
 	}
 
