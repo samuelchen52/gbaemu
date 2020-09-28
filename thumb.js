@@ -1,22 +1,5 @@
-const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registerIndices, pipeline) {
+const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipelineResetFlag registerIndices) {
 	
-	//resets pipeline by filling it with nops (for branching instructions)
-	//nops are based on which state is passed in
-	const resetPipeline = function (state){
-		if (state) //thumb nops
-		{
-			pipeline[0] = 0x46C0;
-			pipeline[1] = 0x46C0;
-			pipeline[2] = 29;
-		}
-		else //arm nops
-		{
-			pipeline[0] = 0xE1A00000;
-			pipeline[1] = 0xE1A00000;
-			pipeline[2] = 51;
-		}
-	};
-
 	//THUMB.1------------------------------------------------------------------------------------------------------
 	const executeOpcode0 = function (instr, mode) { //0 - LSL IMM5 Rd,Rs,#Offset 
 		let offset = bitSlice(instr, 6, 10);
@@ -308,6 +291,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		if (rd === 15)
 		{
 			registers[15][registerIndices[mode][15]] &= 0xFFFFFFFE; //forcibly half-word align the address by zeroing out bit 0
+			setPipelineResetFlag();
 		}
 	}
 
@@ -329,6 +313,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		if (rd === 15)
 		{
 			registers[15][registerIndices[mode][15]] &= 0xFFFFFFFE; //forcibly half-word align the address by zeroing out bit 0
+			setPipelineResetFlag();
 		}
 	}
 
@@ -341,7 +326,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
   	// Thus, BX PC (switch to ARM) may be issued from word-aligned address ?????
   	// only, the destination is PC+4 (ie. the following halfword is skipped).
 
-		registers[15][registerIndices[mode][15]] &= registers[rs][registerIndices[mode][rs]];
+		registers[15][registerIndices[mode][15]] = registers[rs][registerIndices[mode][rs]];
 		if (bitSlice(rs, 0, 0) === 0) //if bit 0 of rs is 0, switch to arm state
 		{
 			changeState("ARM");
@@ -351,6 +336,8 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		{
 			registers[15][registerIndices[mode][15]] &= 0xFFFFFFFE; //forcibly half-word align the address by zeroing out bit 0
 		}
+
+		setPipelineResetFlag();
 	}
 
 	//THUMB.6------------------------------------------------------------------------------------------------------
@@ -358,7 +345,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let rd = bitSlice(instr, 8, 10);
 		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 
-		let data += mmu.readMem((((registers[15][registerIndices[mode][15]] - 2) & ~2) + offset) & 0xFFFFFFFC, 4);		
+		let data = mmu.readMem((((registers[15][registerIndices[mode][15]] - 2) & ~2) + offset) & 0xFFFFFFFC, 4);		
 		if ((((registers[15][registerIndices[mode][15]] - 2) & ~2) + offset) & 1)
 		{
 			data = rotateRight(data, 8);
@@ -600,7 +587,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 		let pclrbit = bitSlice(instr, 8, 8);
 		if (pclrbit)
 		{
-			registers[15][registerIndices[mode][15]] = mmu.readMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC, 4)
+			registers[15][registerIndices[mode][15]] = mmu.readMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC, 4) & 0xFFFFFFFE;
 			registers[13][registerIndices[mode][13]] += 4;
 		}
 		for (let i = 0; i < 8; i ++)
@@ -616,26 +603,45 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 	//THUMB.15------------------------------------------------------------------------------------------------------
 	const executeOpcode54 = function (instr, mode) { //54 - STMIA store in memory, increments Rb
 		let rb = bitSlice(instr, 8, 10);
-		for (let i = 0; i < 8; i ++)
+		if (!bitSlice(instr, 0, 7)) //empty rlist
 		{
-			if (bitSlice(instr, i, i))
+			mmu.writeMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC,
+					registers[15][0], 
+					4);
+					registers[rb][registerIndices[mode][rb]] += 4;
+		}
+		else
+		{
+			for (let i = 0; i < 8; i ++)
 			{
-				mmu.writeMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC,
-				registers[i][registerIndices[mode][i]], 
-				4);
-				registers[rb][registerIndices[mode][rb]] += 4;
+				if (bitSlice(instr, i, i))
+				{
+					mmu.writeMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC,
+					registers[i][registerIndices[mode][i]], 
+					4);
+					registers[rb][registerIndices[mode][rb]] += 4;
+				}
 			}
 		}
 	}
 
 	const executeOpcode55 = function (instr, mode) { //55 - LDMIA load from memory, increments Rb
 		let rb = bitSlice(instr, 8, 10);
-		for (let i = 0; i < 8; i ++)
+		if (!bitSlice(instr, 0, 7)) //empty rlist
 		{
-			if (bitSlice(instr, i, i))
+			registers[15][0] = mmu.readMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC, 4)
+			registers[rb][registerIndices[mode][rb]] += 4;
+			setPipelineResetFlag();
+		}
+		else
+		{
+			for (let i = 0; i < 8; i ++)
 			{
-				registers[i][registerIndices[mode][i]] = mmu.readMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC, 4)
-				registers[rb][registerIndices[mode][rb]] += 4;
+				if (bitSlice(instr, i, i))
+				{
+					registers[i][registerIndices[mode][i]] = mmu.readMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC, 4)
+					registers[rb][registerIndices[mode][rb]] += 4;
+				}
 			}
 		}
 	}
@@ -682,7 +688,8 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 			case 15: throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
 			break;
 		}
-		registers[15][registerIndices[mode][15]] += execute ? offset - 2 : 0;
+		registers[15][registerIndices[mode][15]] += execute ? offset : 0;
+		setPipelineResetFlag();
 
 	}
 
@@ -695,6 +702,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 	const executeOpcode58 = function (instr, mode) { //58 - UNCONDITIONAL BRANCH
 		let offset =  bitSlice(instr, 10, 10) ? (((bitSlice(instr, 0, 10) - 1) ^ 0xFF) * -1) << 1 : bitSlice(instr, 0, 9) << 1;
 		registers[15][registerIndices[mode][15]] += offset;
+		setPipelineResetFlag();
 	}
 
 	//THUMB.19------------------------------------------------------------------------------------------------------
@@ -708,7 +716,8 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, registe
 
 		let temp = registers[14][registerIndices[mode][14]];
 		registers[14][registerIndices[mode][14]] = (registers[15][registerIndices[mode][15]] - 2) | 1;
-		registers[15][registerIndices[mode][15]] = temp + offset;
+		registers[15][registerIndices[mode][15]] = (temp + offset) & 0xFFFFFFFE;
+		setPipelineResetFlag();
 	}
 
 	return {
