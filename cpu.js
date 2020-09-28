@@ -83,11 +83,11 @@ const cpu = function (pc, MMU) {
     //                     1 1 1 1 1 1
     //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
       [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"]
-      [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0], //modeENUMS["FIQ"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,0,1], //modeENUMS["SVC"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,0,2], //modeENUMS["ABT"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,4,0,3], //modeENUMS["IRQ"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,5,0,4], //modeENUMS["UND"]
+      [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0], //modeENUMS["FIQ"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,1], //modeENUMS["SVC"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,0,2], //modeENUMS["ABT"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,0,0,3], //modeENUMS["IRQ"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,4], //modeENUMS["UND"]
     ];
   	//availability of registers depends on the current mode
   	//in THUMB state, only a subset of the registers are available 
@@ -107,12 +107,13 @@ const cpu = function (pc, MMU) {
   		new Uint32Array(2), //R12, shared among all modes except FIQ mode, unavailable in THUMB STATE
   		new Uint32Array(6), //R13, every mode has banked registers for this register (stack pointer in the THUMB state)
   		new Uint32Array(6), //R14, every mode has banked registers for this register  (link register)
-  		new Uint32Array(6), //R15, every mode has banked registers for this register  (program counter)
+  		new Uint32Array(1), //R15, shared (program counter)
   		new Uint32Array(1), //CPSR, shared (current program status register)
   		new Uint32Array(5) //SPSR, every mode has banked registers for this register (saved process status register) besides USER/SYSTEM
   	];
   	
-  	registers[15][mode] = pc; //set initial pc
+    //set up registers
+  	registers[15][0] = pc; //set initial pc
     //registers[16][0] += 31 + 128 + 64; //clear ARM bit (already cleared), set SYSTEM mode in CPSR, set I and F bit
     registers[16][0] += 31; //set SYSTEM mode
 
@@ -128,6 +129,7 @@ const cpu = function (pc, MMU) {
     //pipeline -> [instr, instr, opcode] execute will take pipeline[1] and pipeline[2] as args, decode will take pipeline[0] as arg
     const pipeline = new Uint32Array(3);
     const pipelinecopy = new Uint32Array(3);
+    let pipelineResetFlag = false;
 
     let curpc = pc; //internal pc (for detecting changes to r15)
 
@@ -155,16 +157,15 @@ const cpu = function (pc, MMU) {
     };
 
     //USER, SYSTEM, FIQ, etc.. all modes besides USER are privileged
-    const changeMode = function (newMode) {
-      mode = modeENUMS[newMode];
-      priveleged = newMode === "USER" ? false : true;
-      if (mode === undefined) {throw Error("undefined mode!"); }
+    const changeMode = function (newModeVal) {
+      modeVal = newModeVal;
+      mode = modeENUMS[valToMode[newModeVal]];
+      if (mode === undefined)
+      {
+        throw Error("changing mode to undefined value");
+      }
+      console.log("set mode to " + valToMode[newModeVal]);
     };
-
-    const getModeVal  = function()
-    {
-      return modeVal;
-    }
 
     //CPSR nzcv xxxx xxxx xxxx xxxx xxxx xxxx xxxx 
     const setNZCV = function (nflag, zflag, cflag, vflag) { 
@@ -179,18 +180,23 @@ const cpu = function (pc, MMU) {
       registers[16][0] += (newNZCV << 28); //add new flags to CPSR
     }
 
+    //tell cpu to reset pipeline
+    const setPipelineResetFlag = function () {
+      pipelineResetFlag = true;
+    }
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV, registerIndices);
-  	const ARM = arm(MMU, registers, changeState, changeMode, getModeVal, setNZCV, registerIndices);
+  	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV, setPipelineResetFlag, registerIndices);
+  	const ARM = arm(MMU, registers, changeState, changeMode, setNZCV, setPipelineResetFlag,  registerIndices);
 
     const fetch = function() {
         if (state === stateENUMS["ARM"])
         {
-          return MMU.readMem(registers[15][mode], 4);
+          return MMU.readMem(registers[15][0], 4);
         }
         else //state === stateEnums["THUMB"]
         {
-          return MMU.readMem(registers[15][mode], 2);
+          return MMU.readMem(registers[15][0], 2);
         }
     };
 
@@ -220,12 +226,12 @@ const cpu = function (pc, MMU) {
     const resetPipeline = function (){
       pipeline[1] = fetch();
       pipeline[2] = decode(pipeline[1]);
-      registers[15][mode] += insize;
+      registers[15][0] += insize;
 
       pipeline[0] = fetch();
-      registers[15][mode] += insize;
+      registers[15][0] += insize;
 
-      curpc = registers[15][mode];
+      curpc = registers[15][0];
     };
 
     //debugging
@@ -245,21 +251,32 @@ const cpu = function (pc, MMU) {
         pipelinecopy[1] = pipeline[1];
         pipelinecopy[2] = pipeline[2];
 
-        console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (curpc - (state ? 4 : 8)).toString(16));
-
         pipeline[0] = fetch();
-        registers[15][mode] += insize; //increment pc
-        curpc = registers[15][mode]; //set internal pc to match
 
         pipeline[1] = pipelinecopy[0];
         pipeline[2] = decode(pipelinecopy[0]);
 
-        execute(pipelinecopy[1], pipelinecopy[2]);
-
-        if (curpc != registers[15][mode]) //if change to r15 occurred, reset the pipeline
+        try{
+          console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (curpc - (state ? 4 : 8)).toString(16));
+          execute(pipelinecopy[1], pipelinecopy[2]);
+        }
+        catch (err)
         {
-          console.log("resetting pipeline, pc was changed to 0x" + (registers[15][mode]).toString(16));
+          console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (curpc - (state ? 4 : 8)).toString(16));
+          console.log(err);
+          throw Error(err);
+        }
+
+        if (pipelineResetFlag)//(curpc != registers[15][0]) //if change to r15 occurred, reset the pipeline
+        {
+          //console.log("resetting pipeline, pc was changed to 0x" + (registers[15][0]).toString(16));
           resetPipeline();
+          pipelineResetFlag = false;
+        }
+        else
+        {
+          registers[15][0] += insize; //increment pc
+          //curpc = registers[15][0]; //set internal pc to match
         }
       },
 
@@ -269,10 +286,6 @@ const cpu = function (pc, MMU) {
 
       getMode : function() {
         return mode;
-      },
-
-      getModeVal : function() {
-        return modeVal;
       },
 
       getRegisters : function() {
@@ -291,16 +304,16 @@ const cpu = function (pc, MMU) {
 
 
     //   fetch : function() {
-    //     console.log("mem addr: 0x" + registers[15][mode].toString(16))
+    //     console.log("mem addr: 0x" + registers[15][0].toString(16))
     //     if (state === stateENUMS["ARM"])
     //     {
-    //       return MMU.readMem(registers[15][mode], 4);
+    //       return MMU.readMem(registers[15][0], 4);
     //     }
     //     else //state === stateEnums["THUMB"]
     //     {
-    //       return MMU.readMem(registers[15][mode], 2);
+    //       return MMU.readMem(registers[15][0], 2);
     //     }
-    //     registers[15][mode] += (state === stateENUMS["ARM"] ? 4 : 2); //increment pc
+    //     registers[15][0] += (state === stateENUMS["ARM"] ? 4 : 2); //increment pc
     // },
 
     // decode : function (instr) {
