@@ -44,18 +44,23 @@ waitFile().then(async function (buffer) {
 	const MMU = mmu(memory);
 	const CPU = cpu(0x08000000, MMU);
 	const GRAPHICS = graphics(MMU, CPU.getRegisters());
+	const KEYPAD = keypad(MMU);
 
-	let opcode;
-	let instr;
 	let i = 0;
+	// let opcode;
+	// let instr;
 	$("#runbutton").click(function()
 	{
 		CPU.run();
 		GRAPHICS.updateRegisters(CPU.getMode());
 		GRAPHICS.updateScreen();
+		//console.log(i);
 	});
-	while (i < 10000)
+	KEYPAD.setup();
+
+	while (i < 0)
 	{
+
 		CPU.run();
 		GRAPHICS.updateRegisters(CPU.getMode());
 		GRAPHICS.updateScreen();
@@ -71,10 +76,12 @@ waitFile().then(async function (buffer) {
 		//GRAPHICS.updateRegisters(CPU.getMode());
 		// await new Promise(function (resolve, reject)
 		// {
-		// 	setTimeout(function(){resolve()}, 1000);
+		// 	setTimeout(function(){resolve()}, 10);
 		// });
 		i ++;
 	}
+
+	//alert("HALLO");
 
 
 });
