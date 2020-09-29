@@ -360,7 +360,6 @@ the second instruction — lr = (pc + 2) | 1. the or 1 is there to keep the cpu 
 THUMB.17: software interrupt and breakpoint
 1101 1111 nnnn nnnn
 enters SVC mode and switches to ARM state, and saves next instr addr in lr and load SWI vector addr in pc
-<<<<<<< HEAD
 n - comment field for exception handler 
 
 
@@ -550,7 +549,6 @@ ARM opcode map -
 77 - MRC / MCR (Coproc Instructions [11])
 78 - SWI (SOFTWARE INTERRUPT [3])
 
-nop -> mov r0, r0 (0xE1A00000, opcode 51)
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________THUMB_PARSING___________________________________________________________
@@ -727,4 +725,27 @@ THUMB opcode map -
 60 - LONG BRANCH 2 (THUMB.19)
 
 
-nop -> mov r8, r8 (0x46C0, opcode 29)
+
+
+
+
+PSEUDOINSTRUCTIONS:
+
+ARM Pseudo Instructions
+  nop              mov r0,r0 (0xE1A00000, opcode 51)
+  ldr Rd,=Imm      ldr Rd,[r15,disp] ;use .pool as parameter field
+  add Rd,=addr     add/sub Rd,r15,disp
+  adr Rd,addr      add/sub Rd,r15,disp
+  adrl Rd,addr     two add/sub opcodes with disp=xx00h+00yyh
+  mov Rd,Imm       mvn Rd,NOT Imm    ;or vice-versa
+  and Rd,Rn,Imm    bic Rd,Rn,NOT Imm ;or vice-versa
+  cmp Rd,Rn,Imm    cmn Rd,Rn,-Imm    ;or vice-versa
+  add Rd,Rn,Imm    sub Rd,Rn,-Imm    ;or vice-versa
+All above opcodes may be made conditional by specifying a {cond} field.
+
+THUMB Pseudo Instructions
+  nop              mov r8,r8 (0x46C0, opcode 29)
+  ldr Rd,=Imm      ldr Rd,[r15,disp] ;use .pool as parameter field
+  add Rd,=addr     add Rd,r15,disp
+  adr Rd,addr      add Rd,r15,disp
+  mov Rd,Rs        add Rd,Rs,0       ;with Rd,Rs in range r0-r7 each
