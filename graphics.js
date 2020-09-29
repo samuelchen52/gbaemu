@@ -22,16 +22,22 @@
 //3 types of graphics -> bitmaps, tiled backgrounds, and sprites
 //bitmaps and tiled backgrounds are for the background (only one can be used at a time), sprites can be used with either
 
-//REG_DISPCNT - 0x00 - 0x01
+//tiled backgrounds made up of tiles (8x8 pixel bitmap)
+
+
+//LCD CONTROL
+
+//REG_DISPCNT R/W addr - 0x4000000h (two bytes)
 //D-F Enables the use of windows 0, 1 and Object window, respectively. Windows can be used to mask out certain areas
 //8-B Enables rendering of the corresponding background and sprites.
 //7   Force a screen blank
 //6   Object mapping mode
-//5   allows access to OAM in Hblan. OAM is normally locked in VDraw
+//5   allows access to OAM in Hblank. OAM is normally locked in VDraw
 //4   Page select. Modes 4 and 5 can use page flipping for smoother animation
 //3   set if cartridge is GBC game
 //0-2 Sets video mode. 0, 1, 2 are tiled modes; 3, 4, 5 are bitmap modes.
-//REG_DISPSTAT - 0x04 - 0x05
+
+//REG_DISPSTAT R/W addr - 0x4000004h (two bytes)
 //8-F VCount trigger value. if scanline is this value, bit 2 is set
 //5   Vcount interrupt request. if set, interrupt fired if bit 2 is set
 //4   Hblank interrupt request
@@ -39,10 +45,11 @@
 //2   Vcount trigger status = Vcount trigger value = vcount
 //1   Hblank status, read only
 //0   Vblank status, read only
-//REG_VCOUNT - 0x06
+
+//REG_VCOUNT R addr - 0x4000006h (one byte)
 //0-7 vcount (scanline number) -> range is [0, 227]
 
-//video modes 3, 4, 5 (bitmap modes) VRAM is at 0x6000000
+//video modes 3, 4, 5 (bitmap modes) VRAM is at 0x6000000, only use one background -> BG_2
 //3- 240x160 16bpp -> 0x12C00 bytes no page flip
 //4- 240x160 8bpp -> 0x9600 * 2 bytes (page flip)
 //5- 160x128 16bpp -> 0xA000 * 2 bytes (page flip)
@@ -52,16 +59,39 @@
 //  8 bits -> 256 possible indices -> corresponds to 256 (16 bit) colors in palette
 //5 works the same as 3, but has page flipping and a smaller resolution (for shifting magic)
 
+//video modes 0, 1, 2
+
+
+
+
+//BACKGROUND
+
+//BG0-BG3CNT R/W Control addr - 0x40000008, 0x...A, 0x...C, 0x...E (two bytes)
+//BG0-BG3HOFS W X-Offset addr - 0x4000010, 0x...14, 0x...18, 0x...1C (two bytes)
+//BG0-BG3VOFS W Y-Offset addr - 0x4000012, 0x...16, 0x...1A, 0x...1E (two bytes)
+
+//BG2PA-D W Rotation/Scaling Parameter addr - 0x400020, 0x...22, 0x...24, 0x...26 (two bytes)
+//BG3PA-D W Rotation/Scaling Parameter addr - 0x400030, 0x...32, 0x...34, 0x...36 (two bytes)
+
+//BG2X/Y W Reference Point Coordinate addr - 0x4000028, 0x...2C (4 bytes)
+//BG3X/Y W Reference Point Coordinate addr - 0x4000038, 0x...3C (4 bytes)
+
+//WINDOW
+//WIN0/1H W Window Horizontal Dimensions addr - 0x4000040, 0x...42 (2 bytes)
+//WIN0/1HV W Window Vertical Dimensions addr - 0x4000044, 0x...46 (2 bytes)
+//WININ R/W Inside of Window 0 and 1 addr - 0x4000044 (2 bytes)
+//WINOUT R/W Inside of OBJ Window and Outside of Windows addr - 0x400004A (2 bytes)
+
+//COLORS
+//MOSAIC W Mosaic Size addr - 0x400004C (2 bytes)
+//BLDCNT R/W Color Special Effects Selection addr - 0x4000050 (2 bytes)
+//BLD ALPHA R/W Alpha Blending Coefficients addr - 0x4000052 (2 bytes)
+//BLDY W Brightness (Fade-In/Out) Coefficient addr - 0x4000054 (2 bytes)
+
 const graphics = function(mmu, registers) {
 
 	const registersDOM = $(".register");
 	const cpsrDOM = $(".statusregister"); //N, Z, C, V, Q, I, F, T, Mode, all
-
-	const screenDOM = document.getElementById("screen").getContext("2d");
-	// screenDOM.fillStyle = 'rgb(255, 165, 0)';
-	// screenDOM.fillStyle = '#FFA500';
-	// screenDOM.fillRect(0, 0, 50, 50);
-
 	const valToMode = []; //modes indexed by their value in the CPSR
   valToMode[31] = "SYSTEM";
   valToMode[16] = "USER";
@@ -75,17 +105,29 @@ const graphics = function(mmu, registers) {
     //                     1 1 1 1 1 1
     //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
       [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"]
-      [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,0,0], //modeENUMS["FIQ"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,2,0,1], //modeENUMS["SVC"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,3,0,2], //modeENUMS["ABT"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,4,0,3], //modeENUMS["IRQ"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,5,0,4], //modeENUMS["UND"]
+      [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0], //modeENUMS["FIQ"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,1], //modeENUMS["SVC"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,0,2], //modeENUMS["ABT"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,0,0,3], //modeENUMS["IRQ"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,4], //modeENUMS["UND"]
     ];
+
+
+
+
+
+	const screenDOM = document.getElementById("screen").getContext("2d");
+	// screenDOM.fillStyle = 'rgb(255, 165, 0)';
+	// screenDOM.fillStyle = '#FFA500';
+	// screenDOM.fillRect(0, 0, 50, 50);
 
   const ioregs = mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
   const paletteram = mmu.getMemoryRegion("PALETTERAM"); //0x5000000
   const vram = mmu.getMemoryRegion("VRAM"); //0x6000000
   const oam = mmu.getMemoryRegion("OAM"); //0x7000000
+
+  let pixel = 0; //current pixel we are drawing
+
 
   const drawMode3 = function()
   {	
@@ -108,6 +150,11 @@ const graphics = function(mmu, registers) {
 			{
 				registersDOM[i].textContent = parseInt(registers[i][registerIndices[mode][i]]).toString(16);
 			}
+			//show SPSR
+			if (mode)
+			{
+				registersDOM[16].textContent = parseInt(registers[17][registerIndices[mode][17]]).toString(16);
+			}
 			let CPSR = registers[16][0];
 			cpsrDOM[0].textContent = bitSlice(CPSR, 31, 31);
 			cpsrDOM[1].textContent = bitSlice(CPSR, 30, 30);
@@ -118,6 +165,7 @@ const graphics = function(mmu, registers) {
 			cpsrDOM[7].textContent = bitSlice(CPSR, 5, 5);
 			cpsrDOM[8].textContent = valToMode[bitSlice(CPSR, 0, 4)] + "(" + bitSlice(CPSR, 0, 4) + ")";
 			cpsrDOM[9].textContent = getBytes(CPSR, 0);
+
 		},
 
 		updateScreen : function(){
