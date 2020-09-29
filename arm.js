@@ -1,4 +1,4 @@
-const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerIndices) {
+const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipelineResetFlag, registerIndices) {
 	
 	var shiftCarryFlag = undefined;
 	//if imm flag is toggled, if shiftamt is 0, it will be set to 32 for shift type 1 and 2
@@ -188,7 +188,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
 			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE,
-			registers[rd][registerIndices[mode][rd]], 
+			registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), 
 			2);
 
 			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
@@ -202,11 +202,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
 			let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
-			if (registers[rn][registerIndices[mode][rn]] & 1)
-			{
-				data = rotateRight(data, 8);
-			}
 			registers[rd][registerIndices[mode][rd]] = data;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
 		}
@@ -219,7 +219,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
 			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE,
-			registers[rd][registerIndices[mode][rd]], 
+			registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), 
 			2);
 
 			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
@@ -233,11 +233,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
 			let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
-			if (registers[rn][registerIndices[mode][rn]] & 1)
-			{
-				data = rotateRight(data, 8);
-			}
 			registers[rd][registerIndices[mode][rd]] = data;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
 		}
@@ -252,6 +252,10 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]], 1);
 			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
 
@@ -267,6 +271,10 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]], 1);
 			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 			
 			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
 
@@ -281,11 +289,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
 			let halfword = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, 2);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
-			if (registers[rn][registerIndices[mode][rn]] & 1)
-			{
-				halfword = (halfword >>> 8) + (bitSlice(halfword, 16, 23) << 24);
-			}
 			registers[rd][registerIndices[mode][rd]] = halfword;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
 
@@ -300,11 +308,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
 			let halfword = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, 2);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
-			if (registers[rn][registerIndices[mode][rn]] & 1)
-			{
-				halfword = (halfword >>> 8) + (bitSlice(halfword, 16, 23) << 24);
-			}
 			registers[rd][registerIndices[mode][rd]] = halfword;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
 
@@ -318,13 +326,28 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
+
+			registers[15][0] += 4;
 
 			let result = registers[rn][registerIndices[mode][rn]] 
 			& shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -336,13 +359,28 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
+
+			registers[15][0] += 4;
 
 			let result = registers[rn][registerIndices[mode][rn]] 
 			^ shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -354,15 +392,30 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
+
+			registers[15][0] += 4;
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
 
 			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -374,15 +427,30 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
+
+			registers[15][0] += 4;
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 			let result = (secondOperand - registers[rn][registerIndices[mode][rn]]) & 0xFFFFFFFF;
 
 			let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][registerIndices[mode][rn]] <= secondOperand, (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -394,15 +462,30 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
+
+			registers[15][0] += 4;
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 			let result = (registers[rn][registerIndices[mode][rn]] + secondOperand) & 0xFFFFFFFF;
 
  			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0,  result < registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -414,16 +497,31 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 			let carryFlag = bitSlice(registers[16][0], 29, 29);
+
+			registers[15][0] += 4;
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 			let result = registers[rn][registerIndices[mode][rn]] + secondOperand + carryFlag;
 
  			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result >>> 32, (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -435,16 +533,31 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 			let carryFlag = bitSlice(registers[16][0], 29, 29);
+
+			registers[15][0] += 4;
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
 
 			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand + carryFlag - 1 <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -456,16 +569,31 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 			let carryFlag = bitSlice(registers[16][0], 29, 29);
+
+			registers[15][0] += 4;
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 			let result = (secondOperand - registers[rn][registerIndices[mode][rn]]  + carryFlag - 1) & 0xFFFFFFFF;
 
 			let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(registers[rn][registerIndices[mode][rn]] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][registerIndices[mode][rn]] + carryFlag - 1 <= secondOperand, (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -478,13 +606,22 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 
 			let result = registers[rn][registerIndices[mode][rn]] 
 			& shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -496,13 +633,22 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 
 			let result = registers[rn][registerIndices[mode][rn]] 
 			^ shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -514,15 +660,24 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
 			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
 
 			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -534,15 +689,24 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
 			let result = (secondOperand - registers[rn][registerIndices[mode][rn]]) & 0xFFFFFFFF;
 
 			let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][registerIndices[mode][rn]] <= secondOperand, (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -554,15 +718,24 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
 			let result = (registers[rn][registerIndices[mode][rn]] + secondOperand) & 0xFFFFFFFF;
 
  			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0,  result < registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -574,6 +747,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 			let carryFlag = bitSlice(registers[16][0], 29, 29);
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
@@ -581,9 +755,17 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
  			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result >>> 32, (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -595,6 +777,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 			let carryFlag = bitSlice(registers[16][0], 29, 29);
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
@@ -602,9 +785,17 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
 			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand + carryFlag - 1 <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -616,6 +807,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 			let carryFlag = bitSlice(registers[16][0], 29, 29);
 
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
@@ -623,9 +815,17 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
 			let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(registers[rn][registerIndices[mode][rn]] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][registerIndices[mode][rn]] + carryFlag - 1 <= secondOperand, (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -639,8 +839,12 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
 
+			registers[15][0] += 4;
+
 			let result = registers[rn][registerIndices[mode][rn]] 
 			& shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
+
+			registers[15][0] -= 4;
 
 			setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
 		}
@@ -653,8 +857,12 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
 
+			registers[15][0] += 4;
+
 			let result = registers[rn][registerIndices[mode][rn]] 
 			^ shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
+
+			registers[15][0] -= 4;
 
 			setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
 		}
@@ -665,13 +873,14 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
 			if (registers[rn][registerIndices[mode][rn]] & 1)
 			{
-				registers[15][registerIndices[mode][15]] = registers[rn][registerIndices[mode][rn]] - 1; //clear bit 0
+				registers[15][0] = registers[rn][registerIndices[mode][rn]] - 1; //clear bit 0
 				changeState("THUMB");
 			}
 			else
 			{
-				registers[15][registerIndices[mode][15]] = registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFC; //clear bottom two bits
+				registers[15][0] = registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFC; //clear bottom two bits
 			}
+			setPipelineResetFlag();
 		}
 	
 
@@ -682,10 +891,14 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
 
+			registers[15][0] += 4;
+
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
 
 			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+			registers[15][0] -= 4;
 
 			setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
 		}
@@ -698,10 +911,14 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
 
+			registers[15][0] += 4;
+
 			let secondOperand = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 			let result = (registers[rn][registerIndices[mode][rn]] + secondOperand) & 0xFFFFFFFF;
 
  			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+
+ 			registers[15][0] -= 4;
 
 			setNZCV(bitSlice(result, 31, 31), result === 0,  result < registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
 		}
@@ -713,13 +930,28 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
+
+			registers[15][0] += 4;
 
 			let result = registers[rn][registerIndices[mode][rn]] 
 			| shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -730,12 +962,27 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
+
+			registers[15][0] += 4;
 
 			let result = shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -747,13 +994,28 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
+
+			registers[15][0] += 4;
 
 			let result = registers[rn][registerIndices[mode][rn]] 
 			& ~shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -764,12 +1026,27 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
+
+			registers[15][0] += 4;
 
 			let result = ~shiftReg(registers[rm][registerIndices[mode][rm]], registers[rs][registerIndices[mode][rs]], st, 0);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+			}
+			else
+			{
+				registers[15][0] -= 4;
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -784,7 +1061,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let mask = (b === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
 
 			let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & mask, b); //LDR
-			rotateRight(data, (registers[rn][registerIndices[mode][rn]] & 3) << 3);
+			data = rotateRight(data, (registers[rn][registerIndices[mode][rn]] & 3) << 3);
 			registers[rd][registerIndices[mode][rd]] = data;
 
 			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rm][registerIndices[mode][rm]], b); //STR
@@ -804,7 +1081,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let w = bitSlice(instr, 21, 21); //writeback
 
 			mmu.writeMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE,
-			registers[rd][registerIndices[mode][rd]], 
+			registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), 
 			2);
 
 			if (w)
@@ -822,11 +1099,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let w = bitSlice(instr, 21, 21); //writeback
 
 			let data = mmu.readMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
-			if ((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 1)
-			{
-				data = rotateRight(data, 8);
-			}
 			registers[rd][registerIndices[mode][rd]] = data;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			if (w)
 			{
@@ -843,7 +1120,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let w = bitSlice(instr, 21, 21); //writeback
 
 			mmu.writeMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE,
-			registers[rd][registerIndices[mode][rd]], 
+			registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), 
 			2);
 
 			if (w)
@@ -861,11 +1138,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let w = bitSlice(instr, 21, 21); //writeback
 
 			let data = mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
-			if ((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 1)
-			{
-				data = rotateRight(data, 8);
-			}
 			registers[rd][registerIndices[mode][rd]] = data;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			if (w)
 			{
@@ -884,6 +1161,10 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1), 1);
 			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			if (w)
 			{
@@ -902,6 +1183,10 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1), 1);
 			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 			
 			if (w)
 			{
@@ -920,11 +1205,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
 			let halfword = mmu.readMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE, 2);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
-			if ((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 1)
-			{
-				halfword = (halfword >>> 8) + (bitSlice(halfword, 16, 23) << 24);
-			}
 			registers[rd][registerIndices[mode][rd]] = halfword;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			if (w)
 			{
@@ -943,11 +1228,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
 			let halfword = mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE, 2);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
-			if ((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 1)
-			{
-				halfword = (halfword >>> 8) + (bitSlice(halfword, 16, 23) << 24);
-			}
 			registers[rd][registerIndices[mode][rd]] = halfword;
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+			}
 
 			if (w)
 			{
@@ -996,7 +1281,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			}
 			if ((fsxc & 0x1) && (p)) //set CPSR_ctl
 			{
-				psr = (psr & 0xFFFFFF00) + (op & 0x000000FF);
+				psr = (psr & 0xFFFFFF20) + (op & 0x000000DF); //20 -> 00100000 DF -> 11011111 to keep the t bit intact
 				if (!psrBit)
 				{
 					changeMode(psr & 31);
@@ -1076,13 +1361,22 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 
 			let result = registers[rn][registerIndices[mode][rn]] 
 			| shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1093,12 +1387,21 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 
 			let result = shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1110,13 +1413,22 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 
 			let result = registers[rn][registerIndices[mode][rn]] 
 			& ~shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1127,12 +1439,21 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rm = bitSlice(instr, 0, 3); //second operand
 			let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 			let st = bitSlice(instr, 5, 6); //shift type
+			let s = bitSlice(instr, 20, 20);
 
 			let result = ~shiftReg(registers[rm][registerIndices[mode][rm]], imm, st, 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1143,12 +1464,21 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 4, 0);
+			let s = bitSlice(instr, 20, 20);
 
-			let result = (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) & secondOperand;
+			let result = registers[rn][registerIndices[mode][rn]] & secondOperand;
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1158,12 +1488,21 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 4, 0);
+			let s = bitSlice(instr, 20, 20);
 
-			let result = (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) ^ secondOperand;
+			let result = registers[rn][registerIndices[mode][rn]] ^ secondOperand;
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1173,14 +1512,23 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 4, 0);
+			let s = bitSlice(instr, 20, 20);
 
-			let result = ((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) - secondOperand) & 0xFFFFFFFF;
+			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
 
-			let vflag = bitSlice((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1190,14 +1538,23 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 4, 0);
+			let s = bitSlice(instr, 20, 20);
 
-			let result = (secondOperand - (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0))) & 0xFFFFFFFF;
+			let result = (secondOperand - registers[rn][registerIndices[mode][rn]]) & 0xFFFFFFFF;
 
-			let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+			let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) <= secondOperand, (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][registerIndices[mode][rn]] <= secondOperand, (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1207,14 +1564,23 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 4, 0);
+			let s = bitSlice(instr, 20, 20);
 
-			let result = ((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) + secondOperand) & 0xFFFFFFFF;
+			let result = (registers[rn][registerIndices[mode][rn]] + secondOperand) & 0xFFFFFFFF;
 
- 			let vflag = bitSlice((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+ 			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0,  result < (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0,  result < registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1224,15 +1590,24 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 4, 0);
+			let s = bitSlice(instr, 20, 20);
 			let carryFlag = bitSlice(registers[16][0], 29, 29);
 
-			let result = (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) + secondOperand + carryFlag;
+			let result = registers[rn][registerIndices[mode][rn]] + secondOperand + carryFlag;
 
- 			let vflag = bitSlice((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+ 			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result >>> 32, (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1242,15 +1617,24 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 4, 0);
+			let s = bitSlice(instr, 20, 20);
 			let carryFlag = bitSlice(registers[16][0], 29, 29);
 
-			let result = ((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
+			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
 
-			let vflag = bitSlice((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), 31, 31) + (bitSlice(secondOperand + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand + carryFlag - 1 <= (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand + carryFlag - 1 <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1260,15 +1644,24 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 4, 0);
+			let s = bitSlice(instr, 20, 20);
 			let carryFlag = bitSlice(registers[16][0], 29, 29);
 
-			let result = (secondOperand - (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0))  + carryFlag - 1) & 0xFFFFFFFF;
+			let result = (secondOperand - registers[rn][registerIndices[mode][rn]]  + carryFlag - 1) & 0xFFFFFFFF;
 
-			let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+			let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(registers[rn][registerIndices[mode][rn]] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) + carryFlag - 1 <= secondOperand, (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, registers[rn][registerIndices[mode][rn]] + carryFlag - 1 <= secondOperand, (vflag === 0) || (vflag === 3));
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1280,7 +1673,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
-			let result = (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) & secondOperand;
+			let result = registers[rn][registerIndices[mode][rn]] & secondOperand;
 
 			setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
 		}
@@ -1313,7 +1706,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			}
 			if ((fsxc & 0x1) && (p)) //set CPSR_ctl
 			{
-				psr = (psr & 0xFFFFFF00) + (op & 0x000000FF);
+				psr = (psr & 0xFFFFFF20) + (op & 0x000000DF);  //20 -> 00100000 DF -> 11011111 to keep the t bit intact
 				if (!psrBit)
 				{
 					changeMode(psr & 31);
@@ -1329,7 +1722,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
-			let result = (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) ^ secondOperand;
+			let result = registers[rn][registerIndices[mode][rn]] ^ secondOperand;
 
 			setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
 		}
@@ -1340,11 +1733,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
-			let result = ((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) - secondOperand) & 0xFFFFFFFF;
+			let result = (registers[rn][registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
 
-			let vflag = bitSlice((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-			setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), (vflag === 0) || (vflag === 3));
+			setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
 		}
 	
 
@@ -1353,11 +1746,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
 
-			let result = ((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) + secondOperand) & 0xFFFFFFFF;
+			let result = (registers[rn][registerIndices[mode][rn]] + secondOperand) & 0xFFFFFFFF;
 
- 			let vflag = bitSlice((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+ 			let vflag = bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-			setNZCV(bitSlice(result, 31, 31), result === 0,  result < (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)), (vflag === 0) || (vflag === 3));
+			setNZCV(bitSlice(result, 31, 31), result === 0,  result < registers[rn][registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
 		}
 	
 
@@ -1365,12 +1758,21 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
+			let s = bitSlice(instr, 20, 20);
 
-			let result = (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) | secondOperand;
+			let result = registers[rn][registerIndices[mode][rn]] | secondOperand;
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1378,12 +1780,22 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
 	const executeOpcode68 = function (instr, mode) { //68 - MOV imm  Rd = Op2
 			let rd = bitSlice(instr, 12, 15);
-			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);	
+			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
+			let s = bitSlice(instr, 20, 20);	
+
 			let result = secondOperand;
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1393,12 +1805,21 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
+			let s = bitSlice(instr, 20, 20);
 
-			let result = (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) & ~secondOperand;
+			let result = registers[rn][registerIndices[mode][rn]] & ~secondOperand;
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1407,12 +1828,21 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 	const executeOpcode70 = function (instr, mode) { //70 - MVN imm Rd = NOT Op2
 			let rd = bitSlice(instr, 12, 15);
 			let secondOperand = shiftReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3, 0);
+			let s = bitSlice(instr, 20, 20);
 
 			let result = ~secondOperand;
 
-			if (bitSlice(instr, 20, 20))
+			if (s)
 			{
 				setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
+			}
+			if (rd === 15)
+			{
+				setPipelineResetFlag();
+				if (s) //set CPSR to SPSR_current_mode
+				{
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
 			}
 			registers[rd][registerIndices[mode][rd]] = result;
 		}
@@ -1433,18 +1863,18 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
-					let addr = (registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) & mask;
+					let addr = registers[rn][registerIndices[mode][rn]] & mask;
 					let data = mmu.readMem(addr, size);
-					rotateRight(data, (addr & 3) << 3);
+					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					let addr = ((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) + offset * sign);
+					let addr = registers[rn][registerIndices[mode][rn]] + offset * sign;
 					let data = mmu.readMem(addr & mask, size);
-					rotateRight(data, (addr & 3) << 3);
+					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
 					if (w)
@@ -1452,17 +1882,22 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
 					}
 				}
+
+				if (rd === 15)
+				{
+					setPipelineResetFlag();
+				}
 			}
 			else //STR
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
-					mmu.writeMem((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) & mask, registers[rd][registerIndices[mode][rd]], size);
+					mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					mmu.writeMem(((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) + offset * sign) & mask, registers[rd][registerIndices[mode][rd]], size);
+					mmu.writeMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
 					if (w)
 					{
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
@@ -1487,18 +1922,18 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
-					let addr = registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0);
+					let addr =registers[rn][registerIndices[mode][rn]]
 					let data = mmu.readMem(addr & mask, size);
-					rotateRight(data, (addr & 3) << 3);
+					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					let addr = ((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) + offset * sign);
+					let addr = registers[rn][registerIndices[mode][rn]] + offset * sign;
 					let data = mmu.readMem(addr & mask, size);
-					rotateRight(data, (addr & 3) << 3);
+					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
 					if (w)
@@ -1506,17 +1941,22 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
 					}
 				}
+
+				if (rd === 15)
+				{
+					setPipelineResetFlag();
+				}
 			}
 			else //STR
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
-					mmu.writeMem((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) & mask, registers[rd][registerIndices[mode][rd]], size);
+					mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					mmu.writeMem(((registers[rn][registerIndices[mode][rn]] - (rn === 15 ? 4 : 0)) + offset * sign) & mask, registers[rd][registerIndices[mode][rd]], size);
+					mmu.writeMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
 					if (w)
 					{
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
@@ -1629,10 +2069,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, registerI
 
 			if (bitSlice(instr, 24, 24)) //BL, set link register
 			{
-				registers[14][registerIndices[mode][14]] = registers[15][registerIndices[mode][15]] - 8;
+				registers[14][registerIndices[mode][14]] = registers[15][registerIndices[mode][15]] - 4;
 			}
 			
-			registers[15][registerIndices[mode][15]] += (signedOffset << 2) - 4;
+			registers[15][registerIndices[mode][15]] += (signedOffset << 2);
+			setPipelineResetFlag();
 		}
 	
 	//ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
