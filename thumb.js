@@ -1,4 +1,4 @@
-const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipelineResetFlag registerIndices) {
+const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipelineResetFlag, registerIndices) {
 	
 	//THUMB.1------------------------------------------------------------------------------------------------------
 	const executeOpcode0 = function (instr, mode) { //0 - LSL IMM5 Rd,Rs,#Offset 
@@ -249,7 +249,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		result |= registers[rs][registerIndices[mode][rs]];
+		let result = registers[rs][registerIndices[mode][rs]] | registers[rd][registerIndices[mode][rd]];
 
 		setNZCV(bitSlice(result, 31, 31), result === 0);
 		registers[rd][registerIndices[mode][rd]] = result;
@@ -344,12 +344,10 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 	const executeOpcode31 = function (instr, mode) { //31 - LDR IMM (PC) Rd = WORD[PC+nn]
 		let rd = bitSlice(instr, 8, 10);
 		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
+		let addr = ((registers[15][registerIndices[mode][15]] & ~2) + offset);
 
-		let data = mmu.readMem((((registers[15][registerIndices[mode][15]] - 2) & ~2) + offset) & 0xFFFFFFFC, 4);		
-		if ((((registers[15][registerIndices[mode][15]] - 2) & ~2) + offset) & 1)
-		{
-			data = rotateRight(data, 8);
-		}
+		let data = mmu.readMem(addr & 0xFFFFFFFC, 4);		
+		data = rotateRight(data, (addr & 3) << 3);
 
 		registers[rd][registerIndices[mode][rd]] = data;
 	}
@@ -458,12 +456,10 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let offset = bitSlice(instr, 6, 10);
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
+		let addr = registers[rb][registerIndices[mode][rb]] + offset;
 
-		data = mmu.readMem((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFC, 4);
-		if ((registers[rb][registerIndices[mode][rb]] + offset) & 1)
-		{
-			data = rotateRight(data, 8);
-		}
+		let data = mmu.readMem(addr & 0xFFFFFFFC, 4);
+		data = rotateRight(data, (addr & 3) << 3);
 
 		registers[rd][registerIndices[mode][rd]] = data;
 	}
@@ -524,12 +520,11 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 	const executeOpcode47 = function (instr, mode) { //47 - LDR IMM OFFSET (SP) Rd = WORD[SP+nn]
 		let rd = bitSlice(instr, 8, 10);
 		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
+		let addr = registers[13][registerIndices[mode][13]] + offset;
 
-		let data = mmu.readMem((registers[13][registerIndices[mode][13]] + offset) & 0xFFFFFFFC, 4);
-		if ((registers[13][registerIndices[mode][13]] + offset) & 1)
-		{
-			data = rotateRight(data, 8);
-		}
+		let data = mmu.readMem(addr & 0xFFFFFFFC, 4);
+		data = rotateRight(data, (addr & 3) << 3);
+
 		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
