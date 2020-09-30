@@ -387,6 +387,98 @@ function quicksort (arr, start, end, sortby)
 	}
 };
 
+var strData = "";
+var strFileName = "output.txt";
+
+const log = function (registers)
+{
+	const registerIndices = [
+    //                     1 1 1 1 1 1
+    //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"]
+      [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0], //modeENUMS["FIQ"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,1], //modeENUMS["SVC"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,0,2], //modeENUMS["ABT"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,0,0,3], //modeENUMS["IRQ"]
+      [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,4], //modeENUMS["UND"]
+    ];
+	return {
+		logRegs : function (mode)
+		{
+			strData += registers[0][0].toString(16).padStart(8, '0') + " "
+			+ registers[1][0].toString(16).padStart(8, '0') + " "
+			+ registers[2][0].toString(16).padStart(8, '0') + " "
+			+ registers[3][0].toString(16).padStart(8, '0') + " "
+			+ registers[4][0].toString(16).padStart(8, '0') + " "
+			+ registers[5][0].toString(16).padStart(8, '0') + " "
+			+ registers[6][0].toString(16).padStart(8, '0') + " "
+			+ registers[7][0].toString(16).padStart(8, '0') + " "
+
+			+ registers[8][0].toString(16).padStart(8, '0') + " "
+			+ registers[9][0].toString(16).padStart(8, '0') + " "
+			+ registers[10][0].toString(16).padStart(8, '0') + " "
+			+ registers[11][0].toString(16).padStart(8, '0') + " "
+			+ registers[12][0].toString(16).padStart(8, '0') + " "
+
+			+ registers[13][registerIndices[mode][13]].toString(16).padStart(8, '0') + " "
+			+ registers[14][registerIndices[mode][14]].toString(16).padStart(8, '0') + " "
+
+			//+ (registers[15][0] - 4).toString(16).padStart(8, '0') + " "
+
+			+ "cpsr: " + registers[16][0].toString(16).padStart(8, '0') + "\n";
+		}
+	}
+}
+
+//00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 03007F00 00000000 08000004 cpsr: 0000001F | EA00002E: b $080000BC
+//0 - 133
+//144 - 172
+//https://stackoverflow.com/questions/21012580/is-it-possible-to-write-data-to-file-using-only-javascript
+function download(strData, strFileName, strMimeType) {
+    var D = document,
+        A = arguments,
+        a = D.createElement("a"),
+        d = A[0],
+        n = A[1],
+        t = A[2] || "text/plain";
+
+    //build download link:
+    a.href = "data:" + strMimeType + "charset=utf-8," + escape(strData);
+
+
+    if (window.MSBlobBuilder) { // IE10
+        var bb = new MSBlobBuilder();
+        bb.append(strData);
+        return navigator.msSaveBlob(bb, strFileName);
+    } /* end if(window.MSBlobBuilder) */
+
+
+
+    if ('download' in a) { //FF20, CH19
+        a.setAttribute("download", n);
+        a.innerHTML = "downloading...";
+        D.body.appendChild(a);
+        setTimeout(function() {
+            var e = D.createEvent("MouseEvents");
+            e.initMouseEvent("click", true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+            a.dispatchEvent(e);
+            D.body.removeChild(a);
+        }, 66);
+        return true;
+    }; /* end if('download' in a) */
+
+
+
+    //do iframe dataURL download: (older W3)
+    var f = D.createElement("iframe");
+    D.body.appendChild(f);
+    f.src = "data:" + (A[2] ? A[2] : "application/octet-stream") + (window.btoa ? ";base64" : "") + "," + (window.btoa ? window.btoa : escape)(strData);
+    setTimeout(function() {
+        D.body.removeChild(f);
+    }, 333);
+    return true;
+}
+
 let sigs = instructionVal([
 	// 'cccc 0000 110S nnnn dddd ssss stt0 mmmm |SBC subtract with carry',
 	// 'cccc 0000 010S nnnn dddd ssss stt0 mmmm |SUB subtract',

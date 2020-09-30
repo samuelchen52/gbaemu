@@ -58,12 +58,20 @@ waitFile().then(async function (buffer) {
 	});
 	KEYPAD.setup();
 
-	while (i < 0)
+	while (i < 500)
 	{
 
-		CPU.run();
-		GRAPHICS.updateRegisters(CPU.getMode());
-		GRAPHICS.updateScreen();
+		try {
+			CPU.run();
+		}
+		catch (err)
+		{
+			download(strData, strFileName);
+			throw (err);
+		}
+		// GRAPHICS.updateRegisters(CPU.getMode());
+
+		//GRAPHICS.updateScreen();
 		// instr = CPU.fetch();
 		// opcode = CPU.decode(instr);
 		// console.log(bitSlice(instr, 28, 31));
@@ -74,14 +82,14 @@ waitFile().then(async function (buffer) {
 		// console.log("////////////////////////////////////");
 		//CPU.run();
 		//GRAPHICS.updateRegisters(CPU.getMode());
-		// await new Promise(function (resolve, reject)
-		// {
-		// 	setTimeout(function(){resolve()}, 10);
-		// });
+		await new Promise(function (resolve, reject)
+		{
+			setTimeout(function(){resolve()}, 10);
+		});
 		i ++;
 	}
-
-	//alert("HALLO");
+	download(strData, strFileName);
+	alert("finished");
 
 
 });

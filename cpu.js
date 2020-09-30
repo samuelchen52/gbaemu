@@ -8,7 +8,7 @@
 //ABT (abort mode) : entered after data or instruction prefetch abort
 //UND (undefined mode): entered when an undefined instruction is executed  
 
-
+//from PSI in emudev discord
 // #define CARRY_ADD(a, b)  ((0xFFFFFFFF-a) < b)
 // #define CARRY_SUB(a, b)  (a >= b)
 
@@ -118,13 +118,13 @@ const cpu = function (pc, MMU) {
     registers[16][0] += 31; //set SYSTEM mode
 
     //set default sp values
-    registers[13][0] = 0x03007F00;
-    registers[13][4] = 0x03007FA0;
-    registers[13][2] = 0x03007FE0;
+    registers[13][0] = 0x03007F00; //USER/SYSTEM
+    registers[13][4] = 0x03007FA0; //IRQ
+    registers[13][2] = 0x03007FE0; //SVC
 
     //set default r0 and r14?
-    registers[0][0] = 0xCA5;
-    registers[14][0] = 0x8000000;
+    //registers[0][0] = 0xCA5;
+    //registers[14][0] = 0x8000000;
 
     //pipeline -> [instr, instr, opcode] execute will take pipeline[1] and pipeline[2] as args, decode will take pipeline[0] as arg
     const pipeline = new Uint32Array(3);
@@ -242,6 +242,8 @@ const cpu = function (pc, MMU) {
       console.log("THUMB opcode: " + THUMB.decode(instr));
     });
 
+    const LOG = log(registers);
+
     //init pipeline contents
     resetPipeline();
 
@@ -257,17 +259,17 @@ const cpu = function (pc, MMU) {
         pipeline[2] = decode(pipelinecopy[0]);
 
         try{
-          console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (curpc - (state ? 4 : 8)).toString(16));
+          //console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
+          LOG.logRegs(mode);
           execute(pipelinecopy[1], pipelinecopy[2]);
         }
         catch (err)
         {
-          console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (curpc - (state ? 4 : 8)).toString(16));
-          console.log(err);
+          console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
           throw Error(err);
         }
 
-        if (pipelineResetFlag)//(curpc != registers[15][0]) //if change to r15 occurred, reset the pipeline
+        if (pipelineResetFlag)
         {
           //console.log("resetting pipeline, pc was changed to 0x" + (registers[15][0]).toString(16));
           resetPipeline();
@@ -276,7 +278,6 @@ const cpu = function (pc, MMU) {
         else
         {
           registers[15][0] += insize; //increment pc
-          //curpc = registers[15][0]; //set internal pc to match
         }
       },
 
