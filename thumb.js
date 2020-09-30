@@ -91,7 +91,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rd = bitSlice(instr, 8, 10);
 		let imm = bitSlice(instr, 0, 7);
 
-		setNZCV(bitSlice(imm, 7, 7), imm === 0);
+		setNZCV(false, imm === 0);
 		registers[rd][registerIndices[mode][rd]] = imm;
 	}
 
@@ -327,7 +327,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
   	// only, the destination is PC+4 (ie. the following halfword is skipped).
 
 		registers[15][registerIndices[mode][15]] = registers[rs][registerIndices[mode][rs]];
-		if (bitSlice(rs, 0, 0) === 0) //if bit 0 of rs is 0, switch to arm state
+		if (bitSlice(registers[rs][registerIndices[mode][rs]], 0, 0) === 0) //if bit 0 of rs is 0, switch to arm state
 		{
 			changeState("ARM");
 			registers[15][registerIndices[mode][15]] &= 0xFFFFFFFC; //forcibly word align the address by zeroing out the bits 1 and 0
@@ -683,8 +683,12 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 			case 15: throw Error("error with parsing, decode returned opcode for conditional branch instead of SWI");
 			break;
 		}
-		registers[15][registerIndices[mode][15]] += execute ? offset : 0;
-		setPipelineResetFlag();
+
+		if (execute)
+		{
+			registers[15][registerIndices[mode][15]] += offset;
+			setPipelineResetFlag();
+		}
 
 	}
 
