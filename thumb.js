@@ -573,7 +573,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		{
 			registers[13][registerIndices[mode][13]] -= 4;
 			mmu.writeMem(registers[14][registerIndices[mode][14]] & 0xFFFFFFFC,
-				registers[i][registerIndices[mode][i]], 
+				registers[14][registerIndices[mode][14]], 
 				4);
 		}
 	}
@@ -707,7 +707,21 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 	//THUMB.19------------------------------------------------------------------------------------------------------
 	const executeOpcode59 = function (instr, mode) { //59 - LONG BRANCH 1
 		let offset = bitSlice(instr, 0, 10) << 12;
-		registers[14][registerIndices[mode][14]] = registers[15][registerIndices[mode][15]] + offset;
+
+		if (bitSlice(offset, 22, 22)) //msb set, negative offset
+		{
+			let offset2 = bitSlice(mmu.readMem(registers[15][registerIndices[mode][15]] - 2, 2), 0, 10) << 1; //get offset in the next instruction
+
+			offset += offset2;
+			offset = (~(offset - 1)) & 0x7FFFFF; //convert offset to its absolute value
+
+			//long branch 2 will be adding offset2, so we subtract it to cancel it out
+			registers[14][registerIndices[mode][14]] = registers[15][registerIndices[mode][15]] - (offset + offset2);
+		}
+		else //dont have to do anything for positive offset
+		{
+			registers[14][registerIndices[mode][14]] = registers[15][registerIndices[mode][15]] + offset;
+		}
 	}
 
 	const executeOpcode60 = function (instr, mode) { //60 - LONG BRANCH 2
