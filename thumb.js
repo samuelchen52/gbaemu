@@ -101,7 +101,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 
 		let result = registers[rd][registerIndices[mode][rd]] - imm;
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, imm > registers[rs][registerIndices[mode][rs]], bitSlice(registers[rd][registerIndices[mode][rd]], 31, 31) && (!bitSlice(result, 31, 31)));
+		setNZCV(bitSlice(result, 31, 31), result === 0, imm <= registers[rd][registerIndices[mode][rd]], bitSlice(registers[rd][registerIndices[mode][rd]], 31, 31) && (!bitSlice(result, 31, 31)));
 	}
 
 	const executeOpcode9 = function (instr, mode) { //9 - ADD IMM8 Rd   = Rd + #nn
@@ -234,7 +234,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let result = (registers[rd][registerIndices[mode][rd]] - registers[rs][registerIndices[mode][rs]]) & 0xFFFFFFFF;
 		let vflag = bitSlice(registers[rd][registerIndices[mode][rd]], 31, 31) + (bitSlice(registers[rs][registerIndices[mode][rs]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rs][registerIndices[mode][rs]] > registers[rd][registerIndices[mode][rd]], (vflag === 0) || (vflag === 3));
+		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rs][registerIndices[mode][rs]] <= registers[rd][registerIndices[mode][rd]], (vflag === 0) || (vflag === 3));
 	}
 	const executeOpcode22 = function (instr, mode) { //22 - NEGCMP Void = Rd + Rs
 		let rs = bitSlice(instr, 3, 5);
@@ -302,7 +302,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let result = (registers[rd][registerIndices[mode][rd]] - registers[rs][registerIndices[mode][rs]]) & 0xFFFFFFFF;
 		let vflag = bitSlice(registers[rd][registerIndices[mode][rd]], 31, 31) + (bitSlice(registers[rs][registerIndices[mode][rs]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rs][registerIndices[mode][rs]] > registers[rd][registerIndices[mode][rd]], (vflag === 0) || (vflag === 3));
+		setNZCV(bitSlice(result, 31, 31), result === 0, registers[rs][registerIndices[mode][rs]] <= registers[rd][registerIndices[mode][rd]], (vflag === 0) || (vflag === 3));
 	}
 
 	const executeOpcode29 = function (instr, mode) { //29 - MOV check needed Rd = Rs
@@ -559,39 +559,44 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 	//THUMB.14------------------------------------------------------------------------------------------------------
 	const executeOpcode52 = function (instr, mode) { //52 - PUSH store in memory, decrements SP (R13) STMDB=PUSH
 		let pclrbit = bitSlice(instr, 8, 8);
+		if (pclrbit)
+		{
+			registers[13][registerIndices[mode][13]] -= 4;
+			//console.log("pushing register 14 to mem addr 0x" + registers[13][registerIndices[mode][13]].toString(16));
+			mmu.writeMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC,
+				registers[14][registerIndices[mode][14]], 
+				4);
+		}
 		for (let i = 7; i > -1; i --)
 		{
 			if (bitSlice(instr, i, i))
 			{
 				registers[13][registerIndices[mode][13]] -= 4;
+				//console.log("pushing register " + i + " to mem addr 0x" + registers[13][registerIndices[mode][13]].toString(16));
 				mmu.writeMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC,
 				registers[i][registerIndices[mode][i]], 
 				4);
 			}
 		}
-		if (pclrbit)
-		{
-			registers[13][registerIndices[mode][13]] -= 4;
-			mmu.writeMem(registers[14][registerIndices[mode][14]] & 0xFFFFFFFC,
-				registers[14][registerIndices[mode][14]], 
-				4);
-		}
 	}
 
 	const executeOpcode53 = function (instr, mode) { //53 - POP load from memory, increments SP (R13) LDMIA=POP
 		let pclrbit = bitSlice(instr, 8, 8);
-		if (pclrbit)
-		{
-			registers[15][registerIndices[mode][15]] = mmu.readMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC, 4) & 0xFFFFFFFE;
-			registers[13][registerIndices[mode][13]] += 4;
-		}
 		for (let i = 0; i < 8; i ++)
 		{
 			if (bitSlice(instr, i, i))
 			{
+				//console.log("popping register " + i + " from mem addr 0x" + registers[13][registerIndices[mode][13]].toString(16));
 				registers[i][registerIndices[mode][i]] = mmu.readMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC, 4)
 				registers[13][registerIndices[mode][13]] += 4;
 			}
+		}
+		if (pclrbit)
+		{
+			//console.log("popping register 15 from mem addr 0x" + registers[13][registerIndices[mode][13]].toString(16));
+			registers[15][registerIndices[mode][15]] = mmu.readMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC, 4) & 0xFFFFFFFE;
+			registers[13][registerIndices[mode][13]] += 4;
+			setPipelineResetFlag();
 		}
 	}
 
@@ -699,7 +704,8 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 
 	//THUMB.18------------------------------------------------------------------------------------------------------
 	const executeOpcode58 = function (instr, mode) { //58 - UNCONDITIONAL BRANCH
-		let offset =  bitSlice(instr, 10, 10) ? (((bitSlice(instr, 0, 10) - 1) ^ 0xFF) * -1) << 1 : bitSlice(instr, 0, 9) << 1;
+		//offset is signed
+		let offset =  bitSlice(instr, 10, 10) ? (((~(bitSlice(instr, 0, 10) - 1)) & 0x7FF) * -1) << 1 : bitSlice(instr, 0, 9) << 1;
 		registers[15][registerIndices[mode][15]] += offset;
 		setPipelineResetFlag();
 	}
