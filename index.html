@@ -21,10 +21,12 @@
 				<div class = "col-4">
 					enter gba file: 
 	    		<input type="file" id="fileInput">
-	    		<canvas id = "screen" width = 400 height = 400 class = "border" >
+	    		<canvas id = "screen" width = 240 height = 160 class = "border" >
 	    		</canvas>
 	    		<input type="text" placeholder="type instruction in hex here to test opcode" id ="decode">
 	    		<button id = "runbutton"> click to run one instruction</button>
+	    		<input type="text" placeholder="type mem addr" id ="addr">
+	    		<button id = "fetch"> click to fetch</button>
 				</div>
 	    	<div class ="col-8">
 	    		<table>
