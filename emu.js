@@ -46,46 +46,36 @@ waitFile().then(async function (buffer) {
 	const GRAPHICS = graphics(MMU, CPU.getRegisters());
 	const KEYPAD = keypad(MMU);
 
-	let i = 0;
+	let i = 1;
 	// let opcode;
 	// let instr;
 	$("#runbutton").click(function()
 	{
-		CPU.run();
+		CPU.run(true, i);
 		GRAPHICS.updateRegisters(CPU.getMode());
-		GRAPHICS.updateScreen();
+		//GRAPHICS.updateScreen();
+		i ++;
 		//console.log(i);
 	});
 	KEYPAD.setup();
 
-	while (i < 500)
+	while (i <= 300000)
 	{
 
 		try {
-			CPU.run();
+			CPU.run(false, i);
+			// GRAPHICS.updateRegisters(CPU.getMode());
+			//GRAPHICS.updateScreen();
 		}
 		catch (err)
 		{
-			download(strData, strFileName);
+			//download(strData, strFileName);
 			throw (err);
 		}
-		// GRAPHICS.updateRegisters(CPU.getMode());
-
-		//GRAPHICS.updateScreen();
-		// instr = CPU.fetch();
-		// opcode = CPU.decode(instr);
-		// console.log(bitSlice(instr, 28, 31));
-		// console.log("instr bytes (MSB to LSB): ");
-		// console.log(getBytes(instr, CPU.getState()));
-		// console.log("opcode: " + (CPU.getState() === 0 ? ARMopcodes[opcode] : THUMBopcodes[opcode]) );
-		// CPU.execute(instr, opcode);
-		// console.log("////////////////////////////////////");
-		//CPU.run();
-		//GRAPHICS.updateRegisters(CPU.getMode());
-		await new Promise(function (resolve, reject)
-		{
-			setTimeout(function(){resolve()}, 10);
-		});
+		// await new Promise(function (resolve, reject)
+		// {
+		// 	setTimeout(function(){resolve()}, 10);
+		// });
 		i ++;
 	}
 	download(strData, strFileName);

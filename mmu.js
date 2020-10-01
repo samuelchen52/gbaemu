@@ -1,3 +1,6 @@
+
+
+
 const mmu = function(memory) {
 
 	const memENUMS = ["BIOS", null, "BOARDWORKRAM", "CHIPWORKRAM", "IOREGISTERS", "PALETTERAM", "VRAM", "OAM", "ROM", null, null, null, null, null, "SRAM"];
@@ -12,7 +15,7 @@ const mmu = function(memory) {
 			case 0:
 			if ((memAddr + numBytes - 1) > 0x3FFF)
 			{
-				throw Error("accessing invalid memory!");
+				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
 			}
 			return 0;
 			break;
@@ -20,7 +23,7 @@ const mmu = function(memory) {
 			case 2: //RAM[addr & 0x7FFF] = value -> memory mirrors (because of how the hardware works)
 			if ((memAddr + numBytes - 1) > 0x203FFFF)
 			{
-				throw Error("accessing invalid memory!");
+				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
 			}
 			return 2;
 			break;
@@ -28,7 +31,7 @@ const mmu = function(memory) {
 			case 3:
 			if ((memAddr + numBytes - 1) > 0x3007FFF)
 			{
-				throw Error("accessing invalid memory!");
+				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
 			}
 			return 3;
 			break;
@@ -36,7 +39,7 @@ const mmu = function(memory) {
 			case 4:
 			if ((memAddr + numBytes - 1) > 0x40003FE)
 			{
-				throw Error("accessing invalid memory!");
+				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
 			}
 			return 4;
 			break;
@@ -44,7 +47,7 @@ const mmu = function(memory) {
 			case 5:
 			if ((memAddr + numBytes - 1) > 0x50003FF)
 			{
-				throw Error("accessing invalid memory!");
+				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
 			}
 			return 5;
 			break;
@@ -52,7 +55,7 @@ const mmu = function(memory) {
 			case 6:
 			if ((memAddr + numBytes - 1) > 0x6017FFF)
 			{
-				throw Error("accessing invalid memory!");
+				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
 			}
 			return 6;
 			break;
@@ -60,7 +63,7 @@ const mmu = function(memory) {
 			case 7:
 			if ((memAddr + numBytes - 1) > 0x70003FF)
 			{
-				throw Error("accessing invalid memory!");
+				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
 			}
 			return 7;
 			break;
@@ -68,7 +71,7 @@ const mmu = function(memory) {
 			case 8:
 			if ((memAddr + numBytes - 1) > 0x9FFFFFF)
 			{
-				throw Error("accessing invalid memory!");
+				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
 			}
 			return 8;
 			break;
@@ -76,13 +79,13 @@ const mmu = function(memory) {
 			case 14:
 			if ((memAddr + numBytes - 1) > 0xE00FFFF)
 			{
-				throw Error("accessing invalid memory!");
+				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
 			}
 			return 14;
 			break;
 
 		}
-		throw Error("accessing unused memory!");
+		throw Error("accessing unused memory: 0x " + memAddr.toString(16) + "!");
 	}
 
 

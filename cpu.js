@@ -248,7 +248,7 @@ const cpu = function (pc, MMU) {
     resetPipeline();
 
   	return {
-      run : function() {
+      run : function(debug, inum) {
         pipelinecopy[0] = pipeline[0];
         pipelinecopy[1] = pipeline[1];
         pipelinecopy[2] = pipeline[2];
@@ -259,19 +259,22 @@ const cpu = function (pc, MMU) {
         pipeline[2] = decode(pipelinecopy[0]);
 
         try{
-          //console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
+          if (debug)
+          console.log("[" + inum +  "] executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
           LOG.logRegs(mode);
           execute(pipelinecopy[1], pipelinecopy[2]);
         }
         catch (err)
         {
           console.log("executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
+          console.log(err);
           throw Error(err);
         }
 
         if (pipelineResetFlag)
         {
-          //console.log("resetting pipeline, pc was changed to 0x" + (registers[15][0]).toString(16));
+          if (debug)
+          console.log("resetting pipeline, pc was changed to 0x" + (registers[15][0]).toString(16));
           resetPipeline();
           pipelineResetFlag = false;
         }
