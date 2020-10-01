@@ -192,11 +192,11 @@ const cpu = function (pc, MMU) {
     const fetch = function() {
         if (state === stateENUMS["ARM"])
         {
-          return MMU.readMem(registers[15][0], 4);
+          return MMU.read32(registers[15][0]);
         }
         else //state === stateEnums["THUMB"]
         {
-          return MMU.readMem(registers[15][0], 2);
+          return MMU.read16(registers[15][0]);
         }
     };
 
@@ -240,6 +240,11 @@ const cpu = function (pc, MMU) {
       let instr = parseInt($(this).val(), 16);
       console.log("ARM opcode: " + ARM.decode(instr));
       console.log("THUMB opcode: " + THUMB.decode(instr));
+    });
+
+    $("#fetch").click(function()
+    {
+      console.log("data: 0x" + MMU.read32(parseInt($("#addr").val(), 16), 4).toString(16).padStart(0, 8));
     });
 
     const LOG = log(registers);

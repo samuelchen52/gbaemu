@@ -5,14 +5,13 @@ const mmu = function(memory) {
 
 	const memENUMS = ["BIOS", null, "BOARDWORKRAM", "CHIPWORKRAM", "IOREGISTERS", "PALETTERAM", "VRAM", "OAM", "ROM", null, null, null, null, null, "SRAM"];
 
-	//checks that a memory address refers to a usable portion of memory
-	//returns a number representing that portion
+	//checks that a memory address refers to a usable portion of memory (taking into account mirrors)
+	//returns an index into the memory array that refers to said portion of memory
 	const checkMemBounds = function (memAddr, numBytes)
 	{
-		//console.log(memAddr + " " + numBytes);
 		switch ((memAddr & 0xFF000000) >> 24)
 		{
-			case 0:
+			case 0: //BIOS
 			if ((memAddr + numBytes - 1) > 0x3FFF)
 			{
 				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
@@ -20,7 +19,7 @@ const mmu = function(memory) {
 			return 0;
 			break;
 
-			case 2: //RAM[addr & 0x7FFF] = value -> memory mirrors (because of how the hardware works)
+			case 2: //EWRAM
 			if ((memAddr + numBytes - 1) > 0x203FFFF)
 			{
 				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
@@ -28,7 +27,7 @@ const mmu = function(memory) {
 			return 2;
 			break;
 
-			case 3:
+			case 3: //IWRAM
 			if ((memAddr + numBytes - 1) > 0x3007FFF)
 			{
 				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
@@ -36,7 +35,7 @@ const mmu = function(memory) {
 			return 3;
 			break;
 
-			case 4:
+			case 4: //IOREGS
 			if ((memAddr + numBytes - 1) > 0x40003FE)
 			{
 				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
@@ -44,7 +43,7 @@ const mmu = function(memory) {
 			return 4;
 			break;
 
-			case 5:
+			case 5: //PALETTERAM
 			if ((memAddr + numBytes - 1) > 0x50003FF)
 			{
 				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
@@ -52,7 +51,7 @@ const mmu = function(memory) {
 			return 5;
 			break;
 
-			case 6:
+			case 6: //VRAM
 			if ((memAddr + numBytes - 1) > 0x6017FFF)
 			{
 				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
@@ -60,7 +59,7 @@ const mmu = function(memory) {
 			return 6;
 			break;
 
-			case 7:
+			case 7:  //OAM
 			if ((memAddr + numBytes - 1) > 0x70003FF)
 			{
 				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
@@ -68,7 +67,7 @@ const mmu = function(memory) {
 			return 7;
 			break;
 
-			case 8:
+			case 8: //ROM
 			if ((memAddr + numBytes - 1) > 0x9FFFFFF)
 			{
 				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
@@ -76,7 +75,7 @@ const mmu = function(memory) {
 			return 8;
 			break;
 
-			case 14:
+			case 14: //SRAM
 			if ((memAddr + numBytes - 1) > 0xE00FFFF)
 			{
 				throw Error("accessing invalid memory addr 0x" + memAddr.toString(16) + "!");
@@ -90,14 +89,13 @@ const mmu = function(memory) {
 
 
 	return {
-		//check that mem addr is aligned
-		readMem: function (memAddr, numBytes){
-			if (memAddr % numBytes !== 0)
+
+		read: function (memAddr, numBytes) {
+			if (numBytes === 4 ? memAddr & 3 : memAddr & 1)
 			{
 				throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
 			}
 			let memRegion = memory[memENUMS[checkMemBounds(memAddr, numBytes)]];
-			//console.log(checkMemBounds(memAddr, numBytes));
 			switch(numBytes)
 			{
 				case 1: //byte
@@ -113,11 +111,35 @@ const mmu = function(memory) {
 				break;
 			}
 			throw Error("reading invalid number of bytes!");
-
 		},
-		//check that mem addr is aligned
-		writeMem: function(memAddr, val, numBytes){
-			if (memAddr % numBytes !== 0)
+
+		read8 : function(memAddr) {
+			let memRegion = memory[memENUMS[checkMemBounds(memAddr, 1)]];
+			return memRegion[memAddr & 0x00FFFFFF];
+		},
+
+		read16: function(memAddr) {
+			if (memAddr & 1)
+			{
+				throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
+			}
+
+			let memRegion = memory[memENUMS[checkMemBounds(memAddr, 2)]];
+			return memRegion[memAddr & 0x00FFFFFF] + (memRegion[(memAddr + 1) & 0x00FFFFFF] << 8);
+		},
+
+		read32: function(memAddr) {
+			if (memAddr & 3)
+			{
+				throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
+			}
+
+			let memRegion = memory[memENUMS[checkMemBounds(memAddr, 4)]];
+			return memRegion[memAddr & 0x00FFFFFF] + (memRegion[(memAddr + 1) & 0x00FFFFFF] << 8) + (memRegion[(memAddr + 2) & 0x00FFFFFF] << 16) + (memRegion[(memAddr + 3) & 0x00FFFFFF] << 24);
+		},
+
+		write: function(memAddr, val, numBytes) {
+			if (numBytes === 4 ? memAddr & 3 : memAddr & 1)
 			{
 				throw Error("memory address is not aligned!");
 			}
@@ -144,6 +166,34 @@ const mmu = function(memory) {
 				break;
 			}
 			throw Error("writing invalid number of bytes!");
+		},
+
+		write8 : function(memAddr, val) {
+			let memRegion = memory[memENUMS[checkMemBounds(memAddr, 1)]];
+			memRegion[memAddr & 0x00FFFFFF] = val & 0xFF;
+		},
+
+		write16: function(memAddr, val) {
+			if (memAddr & 1)
+			{
+				throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
+			}
+
+			let memRegion = memory[memENUMS[checkMemBounds(memAddr, 2)]];
+			memRegion[memAddr & 0x00FFFFFF] = val & 0xFF;
+			memRegion[(memAddr + 1) & 0x00FFFFFF] = (val & 0xFF00) >> 8;
+		},
+
+		write32: function(memAddr, val) {
+			if (memAddr & 3)
+			{
+				throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
+			}
+			let memRegion = memory[memENUMS[checkMemBounds(memAddr, 4)]];
+			memRegion[memAddr & 0x00FFFFFF] = val & 0xFF;
+			memRegion[(memAddr + 1) & 0x00FFFFFF] = (val & 0xFF00) >> 8;
+			memRegion[(memAddr + 2) & 0x00FFFFFF] = (val & 0xFF0000) >> 16;
+			memRegion[(memAddr + 3) & 0x00FFFFFF] = (val & 0xFF000000) >> 24;
 		},
 
 		getMemoryRegion: function(region)

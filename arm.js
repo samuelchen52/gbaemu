@@ -187,9 +187,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let rm = bitSlice(instr, 8, 11); //offset
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE,
-			registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), 
-			2);
+			mmu.write16(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0));
 
 			registers[rn][registerIndices[mode][rn]] += registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1);
 		}
@@ -201,7 +199,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let rm = bitSlice(instr, 8, 11); //offset
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
+			let data = mmu.read16(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE);
 			registers[rd][registerIndices[mode][rd]] = data;
 			if (rd === 15)
 			{
@@ -218,9 +216,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE,
-			registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), 
-			2);
+			mmu.write16(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0));
 
 			registers[rn][registerIndices[mode][rn]] += offset * (u ? 1 : -1);
 		}
@@ -232,7 +228,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE , 2);
+			let data = mmu.read16(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE);
 			registers[rd][registerIndices[mode][rd]] = data;
 			if (rd === 15)
 			{
@@ -249,7 +245,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let rm = bitSlice(instr, 8, 11); //offset
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]], 1);
+			let byte = mmu.read8(registers[rn][registerIndices[mode][rn]]);
 			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
 			if (rd === 15)
@@ -268,7 +264,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]], 1);
+			let byte = mmu.read8(registers[rn][registerIndices[mode][rn]]);
 			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
 			if (rd === 15)
@@ -287,7 +283,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let rm = bitSlice(instr, 8, 11); //offset
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			let halfword = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, 2);
+			let halfword = mmu.read16(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
 			registers[rd][registerIndices[mode][rd]] = halfword;
 			if (rd === 15)
@@ -306,7 +302,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-			let halfword = mmu.readMem(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE, 2);
+			let halfword = mmu.read16(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
 			registers[rd][registerIndices[mode][rd]] = halfword;
 			if (rd === 15)
@@ -1060,11 +1056,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let b = bitSlice(instr, 22, 22) ? 1 : 4;
 			let mask = (b === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
 
-			let data = mmu.readMem(registers[rn][registerIndices[mode][rn]] & mask, b); //LDR
+			let data = mmu.read(registers[rn][registerIndices[mode][rn]] & mask, b); //LDR
 			data = rotateRight(data, (registers[rn][registerIndices[mode][rn]] & 3) << 3);
 			registers[rd][registerIndices[mode][rd]] = data;
 
-			mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rm][registerIndices[mode][rm]], b); //STR
+			mmu.write(registers[rn][registerIndices[mode][rn]] & mask, registers[rm][registerIndices[mode][rm]], b); //STR
 		}
 	
 
@@ -1080,9 +1076,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			mmu.writeMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE,
-			registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), 
-			2);
+			mmu.write16((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0));
 
 			if (w)
 			{
@@ -1098,7 +1092,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			let data = mmu.readMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
+			let data = mmu.read16((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE);
 			registers[rd][registerIndices[mode][rd]] = data;
 			if (rd === 15)
 			{
@@ -1119,9 +1113,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			mmu.writeMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE,
-			registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), 
-			2);
+			mmu.write16((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0));
 
 			if (w)
 			{
@@ -1137,7 +1129,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			let data = mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE , 2);
+			let data = mmu.read16((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE);
 			registers[rd][registerIndices[mode][rd]] = data;
 			if (rd === 15)
 			{
@@ -1158,7 +1150,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1), 1);
+			let byte = mmu.read8(registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1));
 			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
 			if (rd === 15)
@@ -1180,7 +1172,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			let byte = mmu.readMem(registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1), 1);
+			let byte = mmu.read8(registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1));
 			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
 			if (rd === 15)
@@ -1203,7 +1195,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			let halfword = mmu.readMem((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE, 2);
+			let halfword = mmu.read16((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
 			registers[rd][registerIndices[mode][rd]] = halfword;
 			if (rd === 15)
@@ -1226,7 +1218,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			let halfword = mmu.readMem((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE, 2);
+			let halfword = mmu.read16((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE);
 			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
 			registers[rd][registerIndices[mode][rd]] = halfword;
 			if (rd === 15)
@@ -1864,7 +1856,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				if (!p) //add offset after (writeback always enabled)
 				{
 					let addr = registers[rn][registerIndices[mode][rn]] & mask;
-					let data = mmu.readMem(addr, size);
+					let data = mmu.read(addr, size);
 					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
@@ -1873,7 +1865,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				else //add offset before (check if writeback enabled)
 				{
 					let addr = registers[rn][registerIndices[mode][rn]] + offset * sign;
-					let data = mmu.readMem(addr & mask, size);
+					let data = mmu.read(addr & mask, size);
 					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
@@ -1892,12 +1884,12 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
-					mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
+					mmu.write(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					mmu.writeMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
+					mmu.write((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
 					if (w)
 					{
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
@@ -1923,7 +1915,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				if (!p) //add offset after (writeback always enabled)
 				{
 					let addr =registers[rn][registerIndices[mode][rn]]
-					let data = mmu.readMem(addr & mask, size);
+					let data = mmu.read(addr & mask, size);
 					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
@@ -1932,7 +1924,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				else //add offset before (check if writeback enabled)
 				{
 					let addr = registers[rn][registerIndices[mode][rn]] + offset * sign;
-					let data = mmu.readMem(addr & mask, size);
+					let data = mmu.read(addr & mask, size);
 					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
@@ -1951,12 +1943,12 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
-					mmu.writeMem(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
+					mmu.write(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					mmu.writeMem((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
+					mmu.write((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
 					if (w)
 					{
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
@@ -1994,7 +1986,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					{
 						if (bitSlice(instr, i, i))
 						{
-							registers[i][registerIndices[mode][i]] = mmu.readMem(addr & 0xFFFFFFFC, 4);
+							registers[i][registerIndices[mode][i]] = mmu.read32(addr & 0xFFFFFFFC);
 						}
 						addr += incramt;
 					}
@@ -2005,7 +1997,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					{
 						if (bitSlice(instr, i, i))
 						{
-							registers[i][registerIndices[mode][i]] = mmu.readMem(addr & 0xFFFFFFFC, 4);
+							registers[i][registerIndices[mode][i]] = mmu.read32(addr & 0xFFFFFFFC);
 						}
 						addr += incramt;
 					}
@@ -2029,7 +2021,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					{
 						if (bitSlice(instr, i, i))
 						{
-							mmu.writeMem(addr & 0xFFFFFFFC, registers[i][registerIndices[mode][i]], 4);
+							mmu.write32(addr & 0xFFFFFFFC, registers[i][registerIndices[mode][i]]);
 						}
 						addr += incramt;
 					}
@@ -2040,7 +2032,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					{
 						if (bitSlice(instr, i, i))
 						{
-							mmu.writeMem(addr & 0xFFFFFFFC, registers[i][registerIndices[mode][i]], 4);
+							mmu.write32(addr & 0xFFFFFFFC, registers[i][registerIndices[mode][i]]);
 						}
 						addr += incramt;
 					}

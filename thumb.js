@@ -346,7 +346,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 		let addr = ((registers[15][registerIndices[mode][15]] & ~2) + offset);
 
-		let data = mmu.readMem(addr & 0xFFFFFFFC, 4);		
+		let data = mmu.read32(addr & 0xFFFFFFFC);		
 		data = rotateRight(data, (addr & 3) << 3);
 
 		registers[rd][registerIndices[mode][rd]] = data;
@@ -358,9 +358,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		mmu.writeMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFC,
-			registers[rd][registerIndices[mode][rd]], 
-			4);
+		mmu.write32((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFC, registers[rd][registerIndices[mode][rd]]);
 	}
 
 	const executeOpcode33 = function (instr, mode) { //33 - STRH REG OFFSET HALFWORD[Rb+Ro] = Rd
@@ -368,9 +366,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		mmu.writeMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE,
-			registers[rd][registerIndices[mode][rd]], 
-			2);
+		mmu.write16((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE, registers[rd][registerIndices[mode][rd]]);
 	}
 
 	const executeOpcode34 = function (instr, mode) { //34 - STRB REG OFFSET BYTE[Rb+Ro] = Rd
@@ -378,9 +374,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		mmu.writeMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]),
-			registers[rd][registerIndices[mode][rd]], 
-			1);
+		mmu.write8((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]), registers[rd][registerIndices[mode][rd]]);
 	}
 
 	const executeOpcode35 = function (instr, mode) { //35 - LDSB REG OFFSET Rd = BYTE[Rb+Ro]
@@ -388,7 +382,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let byte = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]), 1);
+		let byte = mmu.read8((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]));
 		byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
 		
 		registers[rd][registerIndices[mode][rd]] = byte;
@@ -399,7 +393,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let data = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFC, 4);
+		let data = mmu.read32((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFC);
 		if ((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 1)
 		{
 			data = rotateRight(data, 8);
@@ -412,7 +406,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let data = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE, 2);
+		let data = mmu.read16((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE);
 		
 		if ((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 1)
 		{
@@ -426,7 +420,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][registerIndices[mode][rd]] = mmu.readMem(registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]], 1);
+		registers[rd][registerIndices[mode][rd]] = mmu.read8(registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]);
 	}
 
 	const executeOpcode39 = function (instr, mode) { //39 - LDSH REG OFFSET Rd = HALFWORD[Rb+Ro]
@@ -434,7 +428,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let halfword = mmu.readMem((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE, 2);
+		let halfword = mmu.read16((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE);
 		halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
 		
 		registers[rd][registerIndices[mode][rd]] = halfword;
@@ -446,9 +440,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		mmu.writeMem((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFC,
-			registers[rd][registerIndices[mode][rd]], 
-			4);
+		mmu.write32((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFC, registers[rd][registerIndices[mode][rd]]);
 
 	}
 
@@ -458,7 +450,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rd = bitSlice(instr, 0, 2);
 		let addr = registers[rb][registerIndices[mode][rb]] + offset;
 
-		let data = mmu.readMem(addr & 0xFFFFFFFC, 4);
+		let data = mmu.read32(addr & 0xFFFFFFFC);
 		data = rotateRight(data, (addr & 3) << 3);
 
 		registers[rd][registerIndices[mode][rd]] = data;
@@ -469,9 +461,8 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		mmu.writeMem(registers[rb][registerIndices[mode][rb]] + offset,
-			registers[rd][registerIndices[mode][rd]], 
-			1);
+		mmu.write8(registers[rb][registerIndices[mode][rb]] + offset,
+			registers[rd][registerIndices[mode][rd]]);
 	}
 
 	const executeOpcode43 = function (instr, mode) { //43 - LDRB IMM OFFSET Rd = BYTE[Rb+nn]
@@ -479,7 +470,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		registers[rd][registerIndices[mode][rd]] = mmu.readMem(registers[rb][registerIndices[mode][rb]] + offset, 1);
+		registers[rd][registerIndices[mode][rd]] = mmu.read8(registers[rb][registerIndices[mode][rb]] + offset);
 	}
 
 	//THUMB.10------------------------------------------------------------------------------------------------------
@@ -488,9 +479,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		mmu.writeMem((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFC,
-			registers[rd][registerIndices[mode][rd]], 
-			2);
+		mmu.write16((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFC, registers[rd][registerIndices[mode][rd]]);
 	}
 
 	const executeOpcode45 = function (instr, mode) { //45 - LDRH IMM OFFSET Rd = HALFWORD[Rb+nn]
@@ -498,7 +487,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let data = mmu.readMem((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFE, 2);
+		let data = mmu.read16((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFE);
 		
 		if ((registers[rb][registerIndices[mode][rb]] + offset) & 1)
 		{
@@ -512,9 +501,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rd = bitSlice(instr, 8, 10);
 		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 
-		mmu.writeMem((registers[13][registerIndices[mode][13]] + offset) & 0xFFFFFFFC,
-			registers[rd][registerIndices[mode][rd]], 
-			4);
+		mmu.write32((registers[13][registerIndices[mode][13]] + offset) & 0xFFFFFFFC, registers[rd][registerIndices[mode][rd]]);
 	}
 
 	const executeOpcode47 = function (instr, mode) { //47 - LDR IMM OFFSET (SP) Rd = WORD[SP+nn]
@@ -522,7 +509,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 		let addr = registers[13][registerIndices[mode][13]] + offset;
 
-		let data = mmu.readMem(addr & 0xFFFFFFFC, 4);
+		let data = mmu.read32(addr & 0xFFFFFFFC);
 		data = rotateRight(data, (addr & 3) << 3);
 
 		registers[rd][registerIndices[mode][rd]] = data;
@@ -563,9 +550,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		{
 			registers[13][registerIndices[mode][13]] -= 4;
 			//console.log("pushing register 14 to mem addr 0x" + registers[13][registerIndices[mode][13]].toString(16));
-			mmu.writeMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC,
-				registers[14][registerIndices[mode][14]], 
-				4);
+			mmu.write32(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC, registers[14][registerIndices[mode][14]]);
 		}
 		for (let i = 7; i > -1; i --)
 		{
@@ -573,9 +558,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 			{
 				registers[13][registerIndices[mode][13]] -= 4;
 				//console.log("pushing register " + i + " to mem addr 0x" + registers[13][registerIndices[mode][13]].toString(16));
-				mmu.writeMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC,
-				registers[i][registerIndices[mode][i]], 
-				4);
+				mmu.write32(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC, registers[i][registerIndices[mode][i]]);
 			}
 		}
 	}
@@ -587,14 +570,14 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 			if (bitSlice(instr, i, i))
 			{
 				//console.log("popping register " + i + " from mem addr 0x" + registers[13][registerIndices[mode][13]].toString(16));
-				registers[i][registerIndices[mode][i]] = mmu.readMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC, 4)
+				registers[i][registerIndices[mode][i]] = mmu.read32(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC)
 				registers[13][registerIndices[mode][13]] += 4;
 			}
 		}
 		if (pclrbit)
 		{
 			//console.log("popping register 15 from mem addr 0x" + registers[13][registerIndices[mode][13]].toString(16));
-			registers[15][registerIndices[mode][15]] = mmu.readMem(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC, 4) & 0xFFFFFFFE;
+			registers[15][registerIndices[mode][15]] = mmu.read32(registers[13][registerIndices[mode][13]] & 0xFFFFFFFC) & 0xFFFFFFFE;
 			registers[13][registerIndices[mode][13]] += 4;
 			setPipelineResetFlag();
 		}
@@ -605,10 +588,8 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 8, 10);
 		if (!bitSlice(instr, 0, 7)) //empty rlist
 		{
-			mmu.writeMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC,
-					registers[15][0], 
-					4);
-					registers[rb][registerIndices[mode][rb]] += 4;
+			mmu.write32(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC, registers[15][0]);
+			registers[rb][registerIndices[mode][rb]] += 4;
 		}
 		else
 		{
@@ -616,9 +597,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 			{
 				if (bitSlice(instr, i, i))
 				{
-					mmu.writeMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC,
-					registers[i][registerIndices[mode][i]], 
-					4);
+					mmu.write32(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC, registers[i][registerIndices[mode][i]]);
 					registers[rb][registerIndices[mode][rb]] += 4;
 				}
 			}
@@ -629,7 +608,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 8, 10);
 		if (!bitSlice(instr, 0, 7)) //empty rlist
 		{
-			registers[15][0] = mmu.readMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC, 4)
+			registers[15][0] = mmu.read32(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC)
 			registers[rb][registerIndices[mode][rb]] += 4;
 			setPipelineResetFlag();
 		}
@@ -639,7 +618,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 			{
 				if (bitSlice(instr, i, i))
 				{
-					registers[i][registerIndices[mode][i]] = mmu.readMem(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC, 4)
+					registers[i][registerIndices[mode][i]] = mmu.read32(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC)
 					registers[rb][registerIndices[mode][rb]] += 4;
 				}
 			}
@@ -716,7 +695,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 
 		if (bitSlice(offset, 22, 22)) //msb set, negative offset
 		{
-			let offset2 = bitSlice(mmu.readMem(registers[15][registerIndices[mode][15]] - 2, 2), 0, 10) << 1; //get offset in the next instruction
+			let offset2 = bitSlice(mmu.read16(registers[15][registerIndices[mode][15]] - 2), 0, 10) << 1; //get offset in the next instruction
 
 			offset += offset2;
 			offset = (~(offset - 1)) & 0x7FFFFF; //convert offset to its absolute value
