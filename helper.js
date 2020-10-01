@@ -1,7 +1,7 @@
-const bits = new Array(32); //used for bitSlice
-for (let i = 0; i < 32; i ++)
+const masks = new Array(33); //used for bitSlice
+for (let i = 1; i <= 32; i ++)
 {
-	bits[i] = Math.pow(2, i);
+	masks[i] = Math.pow(2, i) - 1;
 }
 
 const ARMopcodes = [
@@ -50,7 +50,7 @@ const ARMopcodes = [
 "LDRSH p=1 i=0 check needed",
 "LDRSH p=1 i=1",
 "MRS check needed",
-"MRS register check needed",
+"MSR register check needed",
 "TST stt0",
 "TEQ stt0",
 "CMP stt0",
@@ -189,14 +189,6 @@ function bitSlice (num, startBit, endBit)
 	{
 		throw Error("bitSlice takes at least two arguments");
 	}
-	if (typeof startBit !== "number")
-	{
-		throw Error("starting bit must be a number");
-	}
-	if (typeof endBit !== "number")
-	{
-		throw Error("ending bit must be a number");
-	}
 	if ((startBit < 0) || (endBit > 31))
 	{
 		throw Error("starting bit or ending bit out of range");
@@ -206,12 +198,7 @@ function bitSlice (num, startBit, endBit)
 		throw Error("starting bit greater than ending bit");
 	}
 
-	let sum = 0;
-	for (let i = startBit; i <= endBit; i ++)
-	{
-		sum += bits[i];
-	}
-	return (num & sum) >>> startBit;
+	return (num >> startBit) & (masks[endBit - startBit + 1]);
 }
 
 //rotates a 32 bit number right by 0 to 31 bits
