@@ -43,13 +43,12 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = (registers[rs][registerIndices[mode][rs]] + registers[rn][registerIndices[mode][rn]]) & 0xFFFFFFFF;
+		let result = registers[rs][registerIndices[mode][rs]] + registers[rn][registerIndices[mode][rn]];
  		let vflag = bitSlice(registers[rs][registerIndices[mode][rs]], 31, 31) + bitSlice(registers[rn][registerIndices[mode][rn]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, result < registers[rs][registerIndices[mode][rs]], (vflag === 0) || (vflag === 3));
+		setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, (vflag === 0) || (vflag === 3));
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
-
 	const executeOpcode4 = function (instr, mode) { //4 - SUBTRACT REGISTER Rd=Rs-Rn
 		let rn = bitSlice(instr, 6, 8);
 		let rs = bitSlice(instr, 3, 5);
@@ -67,10 +66,10 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = (registers[rs][registerIndices[mode][rs]] + imm) & 0xFFFFFFFF;
+		let result = registers[rs][registerIndices[mode][rs]] + imm;
 		let vflag = bitSlice(registers[rs][registerIndices[mode][rs]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, result < imm, vflag === 0);
+		setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag === 0);
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 
@@ -108,10 +107,10 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rd = bitSlice(instr, 8, 10);
 		let imm = bitSlice(instr, 0, 7);
 
-		let result = (registers[rd][registerIndices[mode][rd]] + imm) & 0xFFFFFFFF;
+		let result = registers[rd][registerIndices[mode][rd]] + imm
 		let vflag = bitSlice(registers[rd][registerIndices[mode][rd]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, result < imm, vflag === 0);
+		setNZCV(bitSlice(result, 31, 31), result === 0, result > 4294967295, vflag === 0);
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 
@@ -185,7 +184,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let result = (registers[rd][registerIndices[mode][rd]] + registers[rs][registerIndices[mode][rs]] + carryFlag);
 		let vflag = bitSlice(registers[rd][registerIndices[mode][rd]], 31, 31) + bitSlice(registers[rs][registerIndices[mode][rs]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-		setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result >>> 32, (vflag === 0) || (vflag === 3));
+		setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, (vflag === 0) || (vflag === 3));
 		registers[rd][registerIndices[mode][rd]] = result;
 	} 
 	const executeOpcode17 = function (instr, mode) { //17 - SBC Rd = Rd - Rs - NOT Cy
@@ -224,7 +223,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let result = (0 - registers[rs][registerIndices[mode][rs]]) & 0xFFFFFFFF;
 		let vflag = (bitSlice(registers[rs][registerIndices[mode][rs]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, result !== 0, vflag === 0);
+		setNZCV(bitSlice(result, 31, 31), result === 0, result === 0, vflag === 0);
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 	const executeOpcode21 = function (instr, mode) { //21 - CMP Void = Rd - Rs
