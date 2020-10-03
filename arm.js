@@ -1972,7 +1972,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let rlist = bitSlice(instr, 0, 15); //register list, each bit corresponds to register (by position)
 
 			let addr = registers[rn][registerIndices[mode][rn]];
-			console.log(addr);
+
 			if (bitSlice(instr, 20, 20)) //LDM
 			{
 				if (!p) //IB/DB

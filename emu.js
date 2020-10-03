@@ -73,47 +73,47 @@ waitFile().then(async function (buffer) {
 	//of course, this means you need to optimize shit
 
 	// for debugging
-	while (i <= 349040)
-	{
+	// while (i <= 380000)
+	// {
 
-		try {
-			CPU.run(false, i);
-			// GRAPHICS.updateRegisters(CPU.getMode());
-			//GRAPHICS.updateScreen();
-		}
-		catch (err)
-		{
-			console.log("error on instruction " + i );
-			//download(strData, strFileName);
-			throw (err);
-		}
-		// await new Promise(function (resolve, reject)
-		// {
-		// 	resolve();
-		// 	//setTimeout(function(){resolve()}, 10);
-		// });
-		i ++;
-	}
+	// 	try {
+	// 		CPU.run(false, i);
+	// 		// GRAPHICS.updateRegisters(CPU.getMode());
+	// 		//GRAPHICS.updateScreen();
+	// 	}
+	// 	catch (err)
+	// 	{
+	// 		console.log("error on instruction " + i );
+	// 		//download(strData, strFileName);
+	// 		throw (err);
+	// 	}
+	// 	// await new Promise(function (resolve, reject)
+	// 	// {
+	// 	// 	resolve();
+	// 	// 	//setTimeout(function(){resolve()}, 10);
+	// 	// });
+	// 	i ++;
+	// }
 
 
 	// for graphics
-	// const executeFrame = function() {
-	// 	while (frameNotComplete)
-	// 	{
-	// 		CPU.run(false, i);
-	// 		GRAPHICS.updateScreen();
-	// 	}
-	// 	frameNotComplete = true;
-	// 	setTimeout(executeFrame, 10);
-	// }
-	// setTimeout(executeFrame, 10);
+	const executeFrame = function() {
+		while (frameNotComplete)
+		{
+			CPU.run(false, i);
+			GRAPHICS.updateScreen();
+		}
+		frameNotComplete = true;
+		setTimeout(executeFrame, 10);
+	};
+	setTimeout(executeFrame, 10);
 
 
 
 
 
 	//download(strData, strFileName);
-	alert("finished");
+	console.log("finished");
 
 	//let timeElapsed = new Date().getTime() - time;
 	//console.log("took " + timeElapsed / 1000 + " seconds to execute " + (i - 1)  + " instructions");

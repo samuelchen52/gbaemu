@@ -122,6 +122,7 @@ const cpu = function (pc, MMU) {
     registers[13][4] = 0x03007FA0; //IRQ
     registers[13][2] = 0x03007FE0; //SVC
 
+    MMU.write16(0x4000004, 1);
     //set default r0 and r14?
     //registers[0][0] = 0xCA5;
     //registers[14][0] = 0x8000000;
@@ -266,7 +267,7 @@ const cpu = function (pc, MMU) {
         try{
           if (debug)
           console.log("[" + inum +  "] executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
-          LOG.logRegs(mode);
+          //LOG.logRegs(mode);
           execute(pipelinecopy[1], pipelinecopy[2]);
         }
         catch (err)

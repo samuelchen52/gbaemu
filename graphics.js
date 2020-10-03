@@ -124,7 +124,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
   const vram = mmu.getMemoryRegion("VRAM"); //0x6000000
   const oam = mmu.getMemoryRegion("OAM"); //0x7000000
 
-  let pixel = 0; //current pixel we are drawing
+  let pixel = 0; //current pixel we are drawing on current scanline
   let scanline = 0; //current scanline we are drawing on
 
   let wait = 3;
@@ -136,19 +136,37 @@ const graphics = function(mmu, registers, setFrameComplete) {
   {	
   	if (wait !== 0)
   	{
+  		//counter ++;
   		wait --;
   	}
   	else
   	{
-  		counter ++;
-  		let vramPos = (pixel + (scanline * 240)) * 2;
-  		let imageDataPos = (pixel + (scanline * 240)) * 4;
+  		//counter ++;
+  		//pixel num = pixel + scanline * 240
+  		let vramPos = (pixel * 2) + (scanline * 240 * 2);
+  		let imageDataPos = (pixel * 4) + (scanline * 240 * 4);
+  		//let imageDataPos = (pixel * 8) + (scanline * 240 * 16);
 
   		let color = (vram[vramPos + 1] << 8) ^ vram[vramPos];
   		imageData.data[imageDataPos ] = (color & 31) << 3;
   		imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
   		imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
   		imageData.data[imageDataPos + 3] = 255;
+
+  		// imageData.data[imageDataPos + 4] = (color & 31) << 3;
+  		// imageData.data[imageDataPos + 5] = ((color & 992) >>> 5) << 3;
+  		// imageData.data[imageDataPos + 6] = ((color & 31744) >>> 10) << 3;
+  		// imageData.data[imageDataPos + 7] = 255;
+
+  		// imageData.data[imageDataPos + 1920] = (color & 31) << 3;
+  		// imageData.data[imageDataPos + 1921] = ((color & 992) >>> 5) << 3;
+  		// imageData.data[imageDataPos + 1922] = ((color & 31744) >>> 10) << 3;
+  		// imageData.data[imageDataPos + 1923] = 255;
+
+  		// imageData.data[imageDataPos + 1924] = (color & 31) << 3;
+  		// imageData.data[imageDataPos + 1925] = ((color & 992) >>> 5) << 3;
+  		// imageData.data[imageDataPos + 1926] = ((color & 31744) >>> 10) << 3;
+  		// imageData.data[imageDataPos + 1927] = 255;
 
   		pixel ++;
   		wait = 3;
@@ -164,6 +182,8 @@ const graphics = function(mmu, registers, setFrameComplete) {
   			wait = 83776; //(68 + 240) * 68 * 4
   			context.putImageData(imageData, 0, 0);
   			setFrameComplete();
+  			//console.log(counter);
+  			//counter = 0;
   			//console.log("rendered frame...");
   		}
   	}

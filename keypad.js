@@ -1,6 +1,7 @@
 const keypad = function(mmu) {
 
 	const ioregs = mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
+	const vram = mmu.getMemoryRegion("VRAM");
 	//KEYINPUT - Key Status (read-only) 0x4000130 -> ioregs[0x130] + ioregs[0x131] << 8
 	//bits being cleared represents the corresponding button being pressed
 	//bits 0 to 9 correspond to buttons
