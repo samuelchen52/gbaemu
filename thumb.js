@@ -478,7 +478,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		mmu.write16((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFC, registers[rd][registerIndices[mode][rd]]);
+		mmu.write16((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFE, registers[rd][registerIndices[mode][rd]]);
 	}
 
 	const executeOpcode45 = function (instr, mode) { //45 - LDRH IMM OFFSET Rd = HALFWORD[Rb+nn]
