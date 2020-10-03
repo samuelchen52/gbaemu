@@ -149,15 +149,15 @@ const THUMBopcodes = [
 "LONG BRANCH 1",
 "LONG BRANCH 2"
 ]
-var rgbstr = [ 'rgb(' , 0 , ',' , 0 , ',' , 0 , ')'];
+var rgbstr = [ 'rgb(' , 0 , ', ' , 0 , ', ' , 0 , ')'];
 
 //returns rgb string represented by 16bit num
 //xbbbbbgggggrrrrr
 function rgb(num)
 {
-	rgbstr[1] = (num & 31744) >>> 10;
-	rgbstr[3] = (num & 992) >>> 5;
-	rgbstr[5] = num & 31;
+	rgbstr[5] = ((num & 31744) >>> 10) * 8;
+	rgbstr[3] = ((num & 992) >>> 5) * 8;
+	rgbstr[1] = (num & 31) * 8;
 
 	return rgbstr.join('');
 }

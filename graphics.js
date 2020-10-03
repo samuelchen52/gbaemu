@@ -3,8 +3,8 @@
 // 59.73 fps
 // scanline -> entire row of pixels 
 // screen is updated by updating scanline by scanline (160 scanlines)
-// after each scanline is a pause called HBLANK (an interrupt)
-// after 160 scanlines is a pause called VBLANK (also an interrupt), which is usually when the screen data is updated to prevent "tearing"
+// after each scanline is a pause called HBLANK
+// after 160 scanlines is a pause called VBLANK, which is usually when the screen data is updated to prevent "tearing"
 // hblank and vblank are 68 pixels
 
 //each pixel takes 4 cycles, so entire scanline takes (240 + 68) * 4 = 1232 cycles, thus 228 (160 + VBLANK) scanlines (entire screen)
@@ -88,7 +88,7 @@
 //BLD ALPHA R/W Alpha Blending Coefficients addr - 0x4000052 (2 bytes)
 //BLDY W Brightness (Fade-In/Out) Coefficient addr - 0x4000054 (2 bytes)
 
-const graphics = function(mmu, registers) {
+const graphics = function(mmu, registers, setFrameComplete) {
 
 	const registersDOM = $(".register");
 	const cpsrDOM = $(".statusregister"); //N, Z, C, V, Q, I, F, T, Mode, all
@@ -116,10 +116,8 @@ const graphics = function(mmu, registers) {
 
 
 
-	const screenDOM = document.getElementById("screen").getContext("2d");
-	// screenDOM.fillStyle = 'rgb(255, 165, 0)';
-	// screenDOM.fillStyle = '#FFA500';
-	// screenDOM.fillRect(0, 0, 50, 50);
+	const context = document.getElementById("screen").getContext("2d");
+	const imageData = context.createImageData(240, 160);
 
   const ioregs = mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
   const paletteram = mmu.getMemoryRegion("PALETTERAM"); //0x5000000
@@ -127,21 +125,50 @@ const graphics = function(mmu, registers) {
   const oam = mmu.getMemoryRegion("OAM"); //0x7000000
 
   let pixel = 0; //current pixel we are drawing
+  let scanline = 0; //current scanline we are drawing on
+
+  let wait = 3;
+  let counter = 0;
+  //when we reach vblank, set frameNotComplete to false
 
 
-  const drawMode3 = function()
+  const rendermode3 = function()
   {	
-  	console.log("video mode 3...");
-  	for (let i = 0; i < 0x12C00; i += 2)
+  	if (wait !== 0)
   	{
-  		//xbbbbbgggggrrrrr
-  		let color = (vram[i + 1] << 8)  + vram[i];
-  		let row = Math.floor(i / 480);
-  		let col = (i % 480) / 2
-  		screenDOM.fillStyle = rgb(color);
-  		screenDOM.fillRect(col, row, 1, 1);
+  		wait --;
   	}
-  }
+  	else
+  	{
+  		counter ++;
+  		let vramPos = (pixel + (scanline * 240)) * 2;
+  		let imageDataPos = (pixel + (scanline * 240)) * 4;
+
+  		let color = (vram[vramPos + 1] << 8) ^ vram[vramPos];
+  		imageData.data[imageDataPos ] = (color & 31) << 3;
+  		imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
+  		imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
+  		imageData.data[imageDataPos + 3] = 255;
+
+  		pixel ++;
+  		wait = 3;
+  		if (pixel === 240)
+  		{
+  			pixel = 0;
+  			scanline ++;
+  			wait = 272; //68 * 4
+  		}
+  		if (scanline === 160)
+  		{
+  			scanline = 0;
+  			wait = 83776; //(68 + 240) * 68 * 4
+  			context.putImageData(imageData, 0, 0);
+  			setFrameComplete();
+  			//console.log("rendered frame...");
+  		}
+  	}
+  };
+
 	return {
 
 		//displays register values on screen for current mode
@@ -169,7 +196,7 @@ const graphics = function(mmu, registers) {
 		},
 
 		updateScreen : function(){
-			switch (bitSlice(ioregs[1], 0, 2))
+			switch (bitSlice(ioregs[0], 0, 2))
 			{
 				case 0:
 				//alert("0");
@@ -187,8 +214,8 @@ const graphics = function(mmu, registers) {
 				break;
 
 				case 3:
-				alert("3");
-				drawMode3();
+				//alert("3");
+				rendermode3();
 				break;
 
 				case 4:
