@@ -50,6 +50,8 @@
 //0-7 vcount (scanline number) -> range is [0, 227]
 
 //video modes 3, 4, 5 (bitmap modes) VRAM is at 0x6000000, only use one background -> BG_2
+//for page flipping, page 1 starts at VRAM, page 2 starts at 0x600A000 (some leftover memory for mode 4)
+//memory overlaps with sprite memory, so in bitmap modes can only use sprite tiles 512 to 1023
 //3- 240x160 16bpp -> 0x12C00 bytes no page flip
 //4- 240x160 8bpp -> 0x9600 * 2 bytes (page flip)
 //5- 160x128 16bpp -> 0xA000 * 2 bytes (page flip)
@@ -58,6 +60,11 @@
 //4 interprets the 0x9600 * 2 bytes as palette indices (8 bits per pixel / index)
 //  8 bits -> 256 possible indices -> corresponds to 256 (16 bit) colors in palette
 //5 works the same as 3, but has page flipping and a smaller resolution (for shifting magic)
+
+//page flipping (mode 4)-
+//
+
+
 
 //video modes 0, 1, 2
 
@@ -127,7 +134,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
   let pixel = 0; //current pixel we are drawing on current scanline
   let scanline = 0; //current scanline we are drawing on
 
-  let wait = 3;
+  let wait = 0;
   let counter = 0;
   //when we reach vblank, set frameNotComplete to false
 
@@ -143,8 +150,8 @@ const graphics = function(mmu, registers, setFrameComplete) {
   	{
   		//counter ++;
   		//pixel num = pixel + scanline * 240
-  		let vramPos = (pixel * 2) + (scanline * 240 * 2);
-  		let imageDataPos = (pixel * 4) + (scanline * 240 * 4);
+  		let vramPos = (pixel + (scanline * 240)) * 2;
+  		let imageDataPos = (pixel + (scanline * 240)) * 4;
   		//let imageDataPos = (pixel * 8) + (scanline * 240 * 16);
 
   		let color = (vram[vramPos + 1] << 8) ^ vram[vramPos];
@@ -187,6 +194,99 @@ const graphics = function(mmu, registers, setFrameComplete) {
   			//console.log("rendered frame...");
   		}
   	}
+  };
+
+  const rendermode4 = function()
+  {
+  	if (wait !== 0)
+  	{
+  		wait --;
+  	}
+  	else
+  	{
+  		if (scanline < 160)
+  		{
+  			//pixel num = pixel + scanline * 240
+	  		let vramPos = (pixel + (scanline * 240)) + ((ioregs[0] & 16) ? 0xA000 : 0);
+	  		let imageDataPos = (pixel + (scanline * 240)) * 4;
+	  		let paletteIndex = vram[vramPos] * 2;
+
+	  		let color = (paletteram[paletteIndex + 1] << 8) ^ paletteram[paletteIndex];
+
+	  		imageData.data[imageDataPos ] = (color & 31) << 3;
+	  		imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
+	  		imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
+	  		imageData.data[imageDataPos + 3] = 255;
+
+	  		pixel ++;
+	  		wait = 3;
+
+	  		if (pixel === 240)
+	  		{
+	  			pixel = 0;
+	  			scanline ++;
+	  			wait = 275; //68 * 4 + 3
+	  			ioregs[6] ++;
+	  		}
+  		}
+  		else
+  		{
+  			scanline ++;
+  			if (scanline === 228)
+  			{
+  				scanline = 0;
+  				context.putImageData(imageData, 0, 0);
+  				setFrameComplete();
+  			}
+  			ioregs[6] = scanline;
+  			wait = 1232;
+
+  		}
+
+  	}
+
+
+
+
+  	// if (wait !== 0)
+  	// {
+  	// 	wait --;
+  	// }
+  	// else
+  	// {
+  	// 	//pixel num = pixel + scanline * 240
+  	// 	let vramPos = (pixel + (scanline * 240)) + ((ioregs[0] & 16) ? 0xA000 : 0);
+  	// 	let imageDataPos = (pixel + (scanline * 240)) * 4;
+  	// 	let paletteIndex = vram[vramPos] * 2;
+
+  	// 	let color = (paletteram[paletteIndex + 1] << 8) ^ paletteram[paletteIndex];
+
+  	// 	imageData.data[imageDataPos ] = (color & 31) << 3;
+  	// 	imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
+  	// 	imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
+  	// 	imageData.data[imageDataPos + 3] = 255;
+
+  	// 	pixel ++;
+  	// 	wait = 3;
+  	// 	if (pixel === 240)
+  	// 	{
+  	// 		pixel = 0;
+  	// 		scanline ++;
+  	// 		wait = 272; //68 * 4
+  	// 		ioregs[6] ++;
+  	// 	}
+  	// 	if (scanline === 160)
+  	// 	{
+  	// 		ioregs[6] = 0;
+  	// 		scanline = 0;
+  	// 		wait = 83776; //(68 + 240) * 68 * 4
+  	// 		context.putImageData(imageData, 0, 0);
+  	// 		setFrameComplete();
+  	// 		//console.log(counter);
+  	// 		//counter = 0;
+  	// 		console.log("rendered frame...");
+  	// 	}
+  	// }
   };
 
 	return {
@@ -239,8 +339,8 @@ const graphics = function(mmu, registers, setFrameComplete) {
 				break;
 
 				case 4:
-				alert("4");
-				//drawMode3();
+				//alert("4");
+				rendermode4();
 				break;
 
 				case 5:

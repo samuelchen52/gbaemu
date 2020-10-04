@@ -435,7 +435,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 
 	//THUMB.9------------------------------------------------------------------------------------------------------
 	const executeOpcode40 = function (instr, mode) { //40 - STR IMM OFFSET WORD[Rb+nn] = Rd
-		let offset = bitSlice(instr, 6, 10);
+		let offset = bitSlice(instr, 6, 10) << 2;
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
@@ -444,14 +444,15 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 	}
 
 	const executeOpcode41 = function (instr, mode) { //41 - LDR IMM OFFSET Rd = WORD[Rb+nn]
-		let offset = bitSlice(instr, 6, 10);
+		let offset = bitSlice(instr, 6, 10) << 2;
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 		let addr = registers[rb][registerIndices[mode][rb]] + offset;
 
 		let data = mmu.read32(addr & 0xFFFFFFFC);
 		data = rotateRight(data, (addr & 3) << 3);
-
+//01010000010100101001000000100101
+//10010000001001010101000001010010
 		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
@@ -474,7 +475,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 
 	//THUMB.10------------------------------------------------------------------------------------------------------
 	const executeOpcode44 = function (instr, mode) { //44 - STRH IMM OFFSET HALFWORD[Rb+nn] = Rd
-		let offset = bitSlice(instr, 6, 10);
+		let offset = bitSlice(instr, 6, 10) << 1;
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
@@ -482,7 +483,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 	}
 
 	const executeOpcode45 = function (instr, mode) { //45 - LDRH IMM OFFSET Rd = HALFWORD[Rb+nn]
-		let offset = bitSlice(instr, 6, 10);
+		let offset = bitSlice(instr, 6, 10) << 1;
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
@@ -649,9 +650,9 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 			break;
 			case 7: execute = flags & 0x1 ? false : true; //BVC V=0
 			break;
-			case 8: execute = (flags & 0x2) && !(flags & 0x4) ? true : false; //BHI C=1, Z=0 
+			case 8: execute = (flags & 0x2) && !(flags & 0x4) ? true : false; //BHI C=1 and Z=0 
 			break;
-			case 9: execute = !(flags & 0x2) && (flags & 0x4) ? true : false; //BLS C=0, Z=1
+			case 9: execute = !(flags & 0x2) || (flags & 0x4) ? true : false; //BLS C=0 or Z=1
 			break;
 			case 10: execute = (flags & 0x8) === (flags & 0x1) ? true : false; //BGE N=V
 			break;

@@ -23,20 +23,20 @@ const keypad = function(mmu) {
 	keyCodeToKeyDown.fill(65565, 0, 255);
 	keyCodeToKeyDown[65] = 254; //11111110
 	keyCodeToKeyDown[83] = 253; //11111101
-	keyCodeToKeyDown[40] = 247; //11110111
-	keyCodeToKeyDown[39] = 239; //11101111
-	keyCodeToKeyDown[38] = 223; //11011111
-	keyCodeToKeyDown[37] = 191; //10111111
-	keyCodeToKeyDown[13] = 127; //01111111
+	keyCodeToKeyDown[13] = 247; //11110111
+	keyCodeToKeyDown[40] = 239; //11101111
+	keyCodeToKeyDown[39] = 223; //11011111
+	keyCodeToKeyDown[38] = 191; //10111111
+	keyCodeToKeyDown[37] = 127; //01111111
 
 	keyCodeToKeyUp.fill(0, 0, 255);
 	keyCodeToKeyUp[65] = ~254;
 	keyCodeToKeyUp[83] = ~253;
-	keyCodeToKeyUp[40] = ~247;
-	keyCodeToKeyUp[39] = ~239;
-	keyCodeToKeyUp[38] = ~223;
-	keyCodeToKeyUp[37] = ~191;
-	keyCodeToKeyUp[13] = ~127;
+	keyCodeToKeyUp[13] = ~247; 
+	keyCodeToKeyUp[40] = ~239;
+	keyCodeToKeyUp[39] = ~223;
+	keyCodeToKeyUp[38] = ~191;
+	keyCodeToKeyUp[37] = ~127;
 
 	//only dealing with the first 8 bits (for now), L and R buttons in next two bits in next byte
 	ioregs[0x130] = 255; 
