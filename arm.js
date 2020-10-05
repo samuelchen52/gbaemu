@@ -228,6 +228,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
+			console.log(registers[rn][registerIndices[mode][rn]].toString(16));
 			let data = mmu.read16(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE);
 			registers[rd][registerIndices[mode][rd]] = data;
 			if (rd === 15)
@@ -737,7 +738,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 		}
 	
 
-	const executeOpcode23 = function (instr, mode) { //23 - ADC 0tt1 Rd = Rn+Op2+Cy
+	const executeOpcode23 = function (instr, mode) { //23 - ADC stt0 Rd = Rn+Op2+Cy
 			let rn = bitSlice(instr, 16, 19);
 			let rd = bitSlice(instr, 12, 15);
 			let rm = bitSlice(instr, 0, 3); //second operand
@@ -1851,12 +1852,20 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let mask = (size === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
 			let w = bitSlice(instr, 21, 21); //writeback
 
+			//console.log("base: " + rn);
+			//console.log("offset: " + offset);
+			//console.log("size: " + size);
+			//console.log("dest: " + rd);
+
+
 			if (bitSlice(instr, 20, 20)) //LDR
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
-					let addr = registers[rn][registerIndices[mode][rn]] & mask;
-					let data = mmu.read(addr, size);
+					let addr = registers[rn][registerIndices[mode][rn]];
+					//console.log("addr1: " + addr.toString(16));
+					let data = mmu.read(addr & mask, size);
+					if (size === 4)
 					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
@@ -1864,8 +1873,10 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					let addr = registers[rn][registerIndices[mode][rn]] + offset * sign;
+					let addr = (registers[rn][registerIndices[mode][rn]] + (offset * sign));
+					//console.log("addr2: " + addr.toString(16));
 					let data = mmu.read(addr & mask, size);
+					if (size === 4)
 					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
@@ -1914,8 +1925,9 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
-					let addr =registers[rn][registerIndices[mode][rn]]
+					let addr = registers[rn][registerIndices[mode][rn]]
 					let data = mmu.read(addr & mask, size);
+					if (size === 4)
 					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
@@ -1925,6 +1937,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				{
 					let addr = registers[rn][registerIndices[mode][rn]] + offset * sign;
 					let data = mmu.read(addr & mask, size);
+					if (size === 4)
 					data = rotateRight(data, (addr & 3) << 3);
 					registers[rd][registerIndices[mode][rd]] = data;
 
@@ -1970,12 +1983,29 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let w = bitSlice(instr, 21, 21); //if set, writeback final address into rn
 			let rn = bitSlice(instr, 16, 19); //base address
 			let rlist = bitSlice(instr, 0, 15); //register list, each bit corresponds to register (by position)
+			let l = bitSlice(instr, 20, 20);
 
-			let addr = registers[rn][registerIndices[mode][rn]];
+			let addr = registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFC;
 
-			if (bitSlice(instr, 20, 20)) //LDM
+			// console.log("rn: " + rn);
+			// console.log("incramt: " + incramt);
+			// console.log("rlist: " + rlist);
+			// console.log("writeback ?" + w);
+			// console.log("increment after? " + p);
+
+			if (!rlist) //empty rlist strange effect
 			{
-				if (!p) //IB/DB
+				instr &= 0xFFFF7FFF; //11111111111111110111111111111111 -> insert r15 into rlist
+				incramt <<= 4; //
+				if (l)
+				{
+					setPipelineResetFlag();
+				}
+			}
+
+			if (l) //LDM
+			{
+				if (p) //IB/DB
 				{
 					addr += incramt;
 				}
@@ -1986,31 +2016,32 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					{
 						if (bitSlice(instr, i, i))
 						{
-							registers[i][registerIndices[mode][i]] = mmu.read32(addr & 0xFFFFFFFC);
+							//console.log(addr.toString(16));
+							registers[i][registerIndices[mode][i]] = mmu.read32(addr);
+							addr += incramt;
 						}
-						addr += incramt;
 					}
 				}
-				else
+				else 
 				{
-					for (let i = 15; i > 0; i--) //start from top of list
+					for (let i = 15; i >= 0; i--) //start from top of list
 					{
 						if (bitSlice(instr, i, i))
 						{
-							registers[i][registerIndices[mode][i]] = mmu.read32(addr & 0xFFFFFFFC);
+							registers[i][registerIndices[mode][i]] = mmu.read32(addr);
+							addr += incramt;
 						}
-						addr += incramt;
 					}
 				}
 
-				if (!p)
+				if (p)
 				{
 					addr -= incramt;
 				}
 			}
 			else //STM
 			{
-				if (!p) //IB/DB
+				if (p) //IB/DB
 				{
 					addr += incramt;
 				}
@@ -2021,24 +2052,27 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					{
 						if (bitSlice(instr, i, i))
 						{
-							mmu.write32(addr & 0xFFFFFFFC, registers[i][registerIndices[mode][i]]);
+							//console.log("pushing " + i + "...")
+							mmu.write32(addr, registers[i][registerIndices[mode][i]]);
+							addr += incramt;
 						}
-						addr += incramt;
 					}
 				}
 				else
 				{
-					for (let i = 15; i > 0; i--) //start from top of list
+					for (let i = 15; i >= 0; i--) //start from top of list
 					{
+						//console.log(addr.toString(16));
 						if (bitSlice(instr, i, i))
 						{
-							mmu.write32(addr & 0xFFFFFFFC, registers[i][registerIndices[mode][i]]);
+							//console.log("pushing " + i + " to mem addr 0x" + addr.toString(16));
+							mmu.write32(addr, registers[i][registerIndices[mode][i]]);
+							addr += incramt;
 						}
-						addr += incramt;
 					}
 				}
 
-				if (!p)
+				if (p)
 				{
 					addr -= incramt;
 				}
@@ -2056,7 +2090,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let signedOffset = bitSlice(instr, 0 , 23);
 			if (signedOffset >>> 23)
 			{
-				signedOffset = -1 * (~(signedOffset - 1));
+				signedOffset = -1 * ((~(signedOffset - 1)) & 0xFFFFFF);
 			}
 
 			if (bitSlice(instr, 24, 24)) //BL, set link register
@@ -2239,7 +2273,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 							break;	//SWP check if a bunch of bits are zero
 
 							case 1:
-							switch ((bitSlice(instr, 20, 20) << 1) + bitSlice(instr, 23, 23))
+							switch ((bitSlice(instr, 22, 22) << 1) + bitSlice(instr, 20, 20))
 							{
 								case 0:
 								return 36;

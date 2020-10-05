@@ -163,7 +163,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let sh = (registers[rs][registerIndices[mode][rs]] & 0xFF) % 32;
 		let result = registers[rd][registerIndices[mode][rd]] >>> sh;
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][registerIndices[mode][rd]], offset - 1, offset - 1));
+		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][registerIndices[mode][rd]], sh - 1, sh - 1));
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 	const executeOpcode15 = function (instr, mode) { //15 - ASR Rd = Rd SAR (Rs AND 0FFh)
@@ -171,9 +171,10 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rd = bitSlice(instr, 0, 2);
 
 		let sh = (registers[rs][registerIndices[mode][rs]] & 0xFF);
-		let result = (registers[rd][registerIndices[mode][rd]] >>> sh) + (sigbit ? (((1 << offset) - 1) << (32 - offset)) : 0);
+		let sigbit = bitSlice(registers[rs][registerIndices[mode][rs]], 31 , 31);
+		let result = (registers[rd][registerIndices[mode][rd]] >>> sh) + (sigbit ? (((1 << sh) - 1) << (32 - sh)) : 0);
 		
-		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][registerIndices[mode][rd]], offset - 1, offset - 1));
+		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][registerIndices[mode][rd]], sh - 1, sh - 1));
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 	const executeOpcode16 = function (instr, mode) { //16 - ADC Rd = Rd + Rs + Cy
@@ -205,7 +206,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let ro = (registers[rs][registerIndices[mode][rs]] & 0xFF);
 		let result = rotateRight(registers[rd][registerIndices[mode][rd]], (registers[rs][registerIndices[mode][rs]] & 0xFF));
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, ro === 0 ? undefined : bitSlice(registers[rd][registerIndices[mode][rd]], offset - 1, offset - 1));
+		setNZCV(bitSlice(result, 31, 31), result === 0, ro === 0 ? undefined : bitSlice(registers[rd][registerIndices[mode][rd]], ro - 1, ro - 1));
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 	const executeOpcode19 = function (instr, mode) { //19 - TST Void = Rd AND Rs
@@ -451,8 +452,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 
 		let data = mmu.read32(addr & 0xFFFFFFFC);
 		data = rotateRight(data, (addr & 3) << 3);
-//01010000010100101001000000100101
-//10010000001001010101000001010010
+
 		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
