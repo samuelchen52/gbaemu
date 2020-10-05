@@ -27,7 +27,7 @@ const mmu = function(memory) {
 	//checks that a memory address refers to a usable portion of memory (taking into account mirrors)
 	//returns an index into the memory array that refers to that region of memory
 	const checkMemBounds = function (memAddr, numBytes) {
-		let region = memAddr & 0xFF000000;
+		let region = (memAddr & 0xFF000000) >>> 0;
 		memAddr &= 0xFFFFFF;
 		switch (region)
 		{
@@ -120,7 +120,7 @@ const mmu = function(memory) {
 	return {
 
 		read: function (memAddr, numBytes) {
-			if (numBytes === 4 ? memAddr & 3 : memAddr & 1)
+			if (numBytes === 4 ? memAddr & 3 : (numBytes === 2 ? memAddr & 1 : 0))
 			{
 				throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
 			}
@@ -168,7 +168,7 @@ const mmu = function(memory) {
 		},
 
 		write: function(memAddr, val, numBytes) {
-			if (numBytes === 4 ? memAddr & 3 : memAddr & 1)
+			if (numBytes === 4 ? memAddr & 3 : (numBytes === 2 ? memAddr & 1 : 0))
 			{
 				throw Error("memory address is not aligned!");
 			}
