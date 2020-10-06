@@ -294,10 +294,13 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = (registers[rd][registerIndices[mode][rd]] + registers[rs][registerIndices[mode][rs]]) & 0xFFFFFFFF;
+		let result = registers[rd][registerIndices[mode][rd]] + registers[rs][registerIndices[mode][rs]];
  		let vflag = bitSlice(registers[rd][registerIndices[mode][rd]], 31, 31) + bitSlice(registers[rs][registerIndices[mode][rs]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
-
-		setNZCV(bitSlice(result, 31, 31), result === 0, result < registers[rd][registerIndices[mode][rd]], (vflag === 0) || (vflag === 3));
+ 		// console.log("rd: " + registers[rd][registerIndices[mode][rd]].toString(16));
+ 		// console.log("rs: " + registers[rs][registerIndices[mode][rs]].toString(16));
+ 		// console.log("result: " + result.toString(16));
+ 		// console.log("vflag: "+ vflag);
+		setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF ) === 0, result > 4294967295, (vflag === 0) || (vflag === 3));
 	}
 	const executeOpcode23 = function (instr, mode) { //23 - OR Rd = Rd OR Rs
 		let rs = bitSlice(instr, 3, 5);
@@ -437,7 +440,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rd = bitSlice(instr, 0, 2);
 
 		let byte = mmu.read8((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]));
-		byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+		byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 		
 		registers[rd][registerIndices[mode][rd]] = byte;
 	}
@@ -483,7 +486,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rd = bitSlice(instr, 0, 2);
 
 		let halfword = mmu.read16((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE);
-		halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+		halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
 		
 		registers[rd][registerIndices[mode][rd]] = halfword;
 	}
