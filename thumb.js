@@ -1,5 +1,60 @@
 const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipelineResetFlag, registerIndices) {
 	
+	let shiftCarryFlag = undefined;
+
+	const LSLRegByReg = function (register, shiftamt) {
+		if (shiftamt === 0)
+		{
+			shiftCarryFlag = undefined;
+			return register;
+		}
+		if (shiftamt > 32)
+		{
+			shiftCarryFlag = 0;
+			return 0;
+		}
+		else //1-32
+		{ 
+			shiftCarryFlag = bitSlice(register, 32 - shiftamt, 32 - shiftamt);
+			return shiftamt === 32 ? 0 : register << shiftamt;
+		}
+	}
+
+	const LSRRegByReg = function (register, shiftamt) {
+		if (shiftamt === 0)
+		{
+			shiftCarryFlag = undefined;
+			return register;
+		}	
+		if (shiftamt > 32)
+		{
+			shiftCarryFlag = 0;
+			return 0;
+		}
+		else //1-32
+		{
+			shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+			return shiftamt === 32 ? 0 : register >>> shiftamt;
+		}
+	}
+
+	const ASRRegByReg = function (register, shiftamt) {
+		if (shiftamt === 0)
+		{
+			shiftCarryFlag = undefined;
+			return register;
+		}	
+		if (shiftamt >= 32)
+		{
+			shiftCarryFlag = register >>> 31;
+			return shiftCarryFlag ? 4294967295 : 0; //2 ^ 32 - 1 === 4294967295
+		}
+		else //1-31
+		{
+			shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
+			return register >> shiftamt;
+		}
+	}
 	//THUMB.1------------------------------------------------------------------------------------------------------
 	const executeOpcode0 = function (instr, mode) { //0 - LSL IMM5 Rd,Rs,#Offset 
 		let offset = bitSlice(instr, 6, 10);
@@ -14,11 +69,11 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 
 	const executeOpcode1 = function (instr, mode) { //1 - LSR IMM5 Rd,Rs,#Offset (shifts in zeroes)
 		let offset = bitSlice(instr, 6, 10);
-				offset = offset ? offset : 32;
+				offset = offset === 0 ? 32 : offset;
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = registers[rs][registerIndices[mode][rs]] >>> offset;
+		let result = offset === 32 ? 0 : registers[rs][registerIndices[mode][rs]] >>> offset;
 		
 		setNZCV(bitSlice(result, 31, 31), result === 0, bitSlice(registers[rs][registerIndices[mode][rs]], offset - 1, offset - 1));
 		registers[rd][registerIndices[mode][rd]] = result;
@@ -26,12 +81,12 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 
 	const executeOpcode2 = function (instr, mode) { //2 - ASR IMM5 Rd,Rs,#Offset (shifts in most significant bit)
 		let offset = bitSlice(instr, 6, 10);
-				offset = offset ? offset : 32;
+				offset = offset === 0 ? 32 : offset;
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
 		let sigbit = bitSlice(registers[rs][registerIndices[mode][rs]], 31 , 31);
-		let result = registers[rs][registerIndices[mode][rs]] >>> offset + (sigbit ? (((1 << offset) - 1) << (32 - offset)) : 0); //we shift right by offset bits, then add the sig bits to the left
+		let result = (offset === 32 ? 0 : registers[rs][registerIndices[mode][rs]] >>> offset) + (sigbit ? (((1 << offset) - 1) << (32 - offset)) : 0); //we shift right by offset bits, then add the sig bits to the left
 
 		setNZCV(bitSlice(result, 31, 31), result === 0, bitSlice(registers[rs][registerIndices[mode][rs]], offset - 1, offset - 1));
 		registers[rd][registerIndices[mode][rd]] = result;
@@ -150,31 +205,30 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let sh = (registers[rs][registerIndices[mode][rs]] & 0xFF) % 32;
-		let result = (registers[rd][registerIndices[mode][rd]] << sh) & 0xFFFFFFFF;
+		let sh = registers[rs][registerIndices[mode][rs]] & 0xFF;
+		let result = LSLRegByReg(registers[rd][registerIndices[mode][rd]], sh);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][registerIndices[mode][rd]], 32 - sh, 32 - sh));
+		setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 	const executeOpcode14 = function (instr, mode) { //14 - LSR Rd = Rd >> (Rs AND 0FFh)
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let sh = (registers[rs][registerIndices[mode][rs]] & 0xFF) % 32;
-		let result = registers[rd][registerIndices[mode][rd]] >>> sh;
+		let sh = registers[rs][registerIndices[mode][rs]] & 0xFF;
+		let result = LSRRegByReg(registers[rd][registerIndices[mode][rd]], sh);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][registerIndices[mode][rd]], sh - 1, sh - 1));
+		setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 	const executeOpcode15 = function (instr, mode) { //15 - ASR Rd = Rd SAR (Rs AND 0FFh)
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let sh = (registers[rs][registerIndices[mode][rs]] & 0xFF);
-		let sigbit = bitSlice(registers[rs][registerIndices[mode][rs]], 31 , 31);
-		let result = (registers[rd][registerIndices[mode][rd]] >>> sh) + (sigbit ? (((1 << sh) - 1) << (32 - sh)) : 0);
+		let sh = registers[rs][registerIndices[mode][rs]] & 0xFF;
+		let result = ASRRegByReg(registers[rd][registerIndices[mode][rd]], sh);
 		
-		setNZCV(bitSlice(result, 31, 31), result === 0, sh === 0 ? undefined : bitSlice(registers[rd][registerIndices[mode][rd]], sh - 1, sh - 1));
+		setNZCV(bitSlice(result, 31, 31), result === 0, shiftCarryFlag);
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 	const executeOpcode16 = function (instr, mode) { //16 - ADC Rd = Rd + Rs + Cy
@@ -258,7 +312,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = (registers[rd][registerIndices[mode][rd]] * registers[rs][registerIndices[mode][rs]]) & 0xFFFFFFFF;
+		let result = Number((BigInt(registers[rd][registerIndices[mode][rd]]) * BigInt(registers[rs][registerIndices[mode][rs]])) & 0xFFFFFFFFn);
 
 		setNZCV(bitSlice(result, 31, 31), result === 0);
 		registers[rd][registerIndices[mode][rd]] = result;
