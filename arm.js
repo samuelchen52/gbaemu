@@ -309,7 +309,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
 			let halfword = mmu.read16(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE);
-			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
 			registers[rd][registerIndices[mode][rd]] = halfword;
 			if (rd === 15)
 			{
@@ -328,7 +328,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
 			let halfword = mmu.read16(registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFE);
-			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
 			registers[rd][registerIndices[mode][rd]] = halfword;
 			if (rd === 15)
 			{
@@ -1221,7 +1221,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let w = bitSlice(instr, 21, 21); //writeback
 
 			let halfword = mmu.read16((registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE);
-			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
 			registers[rd][registerIndices[mode][rd]] = halfword;
 			if (rd === 15)
 			{
@@ -1244,7 +1244,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let w = bitSlice(instr, 21, 21); //writeback
 
 			let halfword = mmu.read16((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE);
-			halfword += halfword & 32768 ? (0xFFFFFF << 16) : 0; //sign extend halfword
+			halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
 			registers[rd][registerIndices[mode][rd]] = halfword;
 			if (rd === 15)
 			{
