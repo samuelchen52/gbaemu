@@ -1,9 +1,8 @@
 const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipelineResetFlag, registerIndices) {
 	
-	var shiftCarryFlag = undefined;
+	let shiftCarryFlag = undefined;
 
-	const shiftRegByImm = function (register, shiftamt, type)
-	{
+	const shiftRegByImm = function (register, shiftamt, type) {
 		if (shiftamt === 0)
 		{
 			if (type === 0) //LSL #0, do nothing
@@ -31,7 +30,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			case 2: //ASR #[1,32]
 			shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
-			return (shiftamt === 32 ? 0 : register >>> shiftamt) + ((register >> 31) ? (((1 << shiftamt) - 1) << (32 - shiftamt)) : 0);
+			return shiftamt === 32 ? 0 : register >> shiftamt;// + ((register >> 31) ? (((1 << shiftamt) - 1) << (32 - shiftamt)) : 0);
 			break;
 
 			case 3: //ROR #[1,32]
@@ -45,8 +44,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 	}
 
 	//shiftamt will be contained in bottom byte of a register (0 - 255)
-	const shiftRegByReg = function (register, shiftamt, type)
-	{
+	const shiftRegByReg = function (register, shiftamt, type) {
 		//if shift register bottom byte is zero, do nothing
 		if (shiftamt === 0)
 		{
@@ -63,7 +61,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				shiftCarryFlag = 0;
 				return 0;
 			}
-			else //1-31
+			else //1-32
 			{ 
 				shiftCarryFlag = bitSlice(register, 32 - shiftamt, 32 - shiftamt);
 				return shiftamt === 32 ? 0 : register << shiftamt;
@@ -76,7 +74,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				shiftCarryFlag = 0;
 				return 0;
 			}
-			else //1-31
+			else //1-32
 			{
 				shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
 				return shiftamt === 32 ? 0 : register >>> shiftamt;
@@ -84,7 +82,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			break;
 
 			case 2: //ASR
-			if (gt32)
+			if (gt32 || (shiftamt === 32))
 			{
 				shiftCarryFlag = register >>> 31;
 				return shiftCarryFlag ? 4294967295 : 0; //2 ^ 32 - 1 === 4294967295
@@ -92,23 +90,22 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			else //1-31
 			{
 				shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
-				return (register >>> shiftamt) + ((register >> 31) ? (((1 << shiftamt) - 1) << (32 - shiftamt)) : 0);
+				return register >> shiftamt;
 			}
 			break;
 
 			case 3: //ROR
-			shiftamt %= 32; //0 to 31
+			shiftamt %= 32;
 			if (shiftamt === 0) //if shiftamt is zero here, then it was a multiple of 32
 			{
 				shiftCarryFlag = register >>> 31;
 				return register;
 			}
-			else//1 - 31
+			else//1-31
 			{
 				shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
 				return rotateRight(register, shiftamt);
 			}
-			
 			break;
 
 			default:
