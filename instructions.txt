@@ -391,6 +391,7 @@ instructions here are grouped up by their first four bits (after the condition b
 [ 'cccc 0000 101S nnnn dddd ssss 0tt1 mmmm |ADC add with carry' ]
 [ 'cccc 0000 110S nnnn dddd ssss 0tt1 mmmm |SBC subtract with carry' ]
 [ 'cccc 0000 111S nnnn dddd ssss 0tt1 mmmm |RSC reverse subtract with carry' ]
+[ 'cccc 0000 11as hhhh llll ssss 1001 mmmm |SIGNED MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG' ]
 [ 'cccc 0000 10as hhhh llll ssss 1001 mmmm |MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG' ]
 [ 'cccc 0000 00as dddd nnnn ssss 1001 mmmm |MULTIPLY AND MULTIPLY-ACCUMULATE' ]
 [ 'cccc 0000 u000 nnnn dddd 0000 1011 mmmm |p=0 i=0 STRH' ]
@@ -548,6 +549,8 @@ ARM opcode map -
 76 - CDP (Coproc Instructions [11])
 77 - MRC / MCR (Coproc Instructions [11])
 78 - SWI (SOFTWARE INTERRUPT [3])
+
+79 - SMULL / SMLAL (MULTIPLY AND MULTIPLY ACCUMULATE [5]) (skipped over this instruction somehow, so its all the way here at the bottom) 
 
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________

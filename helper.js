@@ -83,7 +83,8 @@ const ARMopcodes = [
 "LDC / STC",
 "CDP",
 "MRC / MCR",
-"SWP"
+"SWP",
+"SMULL / SMLAL",
 ]
 
 const THUMBopcodes = [

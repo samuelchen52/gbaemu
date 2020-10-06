@@ -2144,6 +2144,27 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 		
 	}
 
+	//ARM[5]-----------------------------------------------------------------------------------------------------
+	const executeOpcode79 = function (instr, mode) { //79 - SMULL / SMLAL RdHiLo=Rm*Rs / RdHiLo=Rm*Rs+RdHiLo
+			let rdhi = bitSlice(instr, 16, 19);
+			let rdlo = bitSlice(instr, 12, 15);
+			let rs = bitSlice(instr, 8, 11);
+			let rm = bitSlice(instr, 0, 3);
+
+			let result = BigInt(registers[rm][registerIndices[mode][rm]] >> 0) * BigInt(registers[rs][registerIndices[mode][rs]] >> 0);
+			if (bitSlice(instr, 21, 21)) //accumulate bit
+			{
+				result += (BigInt(registers[rdhi][registerIndices[mode][rdhi]]) << 32n) + BigInt(registers[rdlo][registerIndices[mode][rdlo]]);
+			}
+
+			if (bitSlice(instr, 20, 20))
+			{
+				setNZCV((result >> 63n) == 1, result == 0);
+			}
+			registers[rdhi][registerIndices[mode][rdhi]] = Number(result >> 32n);
+			registers[rdlo][registerIndices[mode][rdlo]] = Number(result & 0xFFFFFFFFn);
+		}
+
 	return {
 		decode : function (instr) {
 			//3322 2222 2222 1111 1111 1100 0000 0000
@@ -2164,13 +2185,13 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 						switch (bitSlice(instr, 4, 7))
 						{
 							case 9: 
-							if (bitSlice(instr, 23, 23)) //MULL / MLAL
+							switch (bitSlice(instr, 22, 23))
 							{
-								return 0;
-							}
-							else //MUL / MLA
-							{ 
-								return 1;
+								case 0: return 1; break;	//MUL / MLA
+
+								case 2: return 0; break;	//UMULL / UMLAL
+
+								case 3: return 79; break;	//SMULL / SMLAL
 							}
 							break;
 
@@ -2558,6 +2579,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				case 76: executeOpcode76(instr, mode); break;
 				case 77: executeOpcode77(instr, mode); break;
 				case 78: executeOpcode78(instr, mode); break;
+				case 79: executeOpcode79(instr, mode); break;
 				default: throw Error("invalid arm opcode: " + opcode);
 			}
 		}
