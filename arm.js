@@ -172,7 +172,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			if (bitSlice(instr, 20, 20))
 			{
-				setNZCV((result >> 63n) == 1, result == 0);
+				setNZCV((result >> 64n) !== 0n, result == 0);
 			}
 			registers[rdhi][registerIndices[mode][rdhi]] = Number(result >> 32n);
 			registers[rdlo][registerIndices[mode][rdlo]] = Number(result & 0xFFFFFFFFn);
@@ -271,7 +271,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
 			let byte = mmu.read8(registers[rn][registerIndices[mode][rn]]);
-			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+			byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
 			if (rd === 15)
 			{
@@ -290,7 +290,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
 			let byte = mmu.read8(registers[rn][registerIndices[mode][rn]]);
-			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+			byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
 			if (rd === 15)
 			{
@@ -1176,7 +1176,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let w = bitSlice(instr, 21, 21); //writeback
 
 			let byte = mmu.read8(registers[rn][registerIndices[mode][rn]] + registers[rm][registerIndices[mode][rm]] * (u ? 1 : -1));
-			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+			byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
 			if (rd === 15)
 			{
@@ -1198,7 +1198,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let w = bitSlice(instr, 21, 21); //writeback
 
 			let byte = mmu.read8(registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1));
-			byte += byte & 128 ? (0xFFFFFF << 24) : 0; //sign extend byte
+			byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
 			if (rd === 15)
 			{
@@ -2159,7 +2159,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			if (bitSlice(instr, 20, 20))
 			{
-				setNZCV((result >> 63n) == 1, result == 0);
+				setNZCV((result >> 64n) !== 0n, result == 0);
 			}
 			registers[rdhi][registerIndices[mode][rdhi]] = Number(result >> 32n);
 			registers[rdlo][registerIndices[mode][rdlo]] = Number(result & 0xFFFFFFFFn);
