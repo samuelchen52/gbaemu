@@ -81,7 +81,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let result = (registers[rs][registerIndices[mode][rs]] << offset) & 0xFFFFFFFF;
+		let result = registers[rs][registerIndices[mode][rs]] << offset;
 		
 		setNZCV(bitSlice(result, 31, 31), result === 0, offset === 0 ? undefined : bitSlice(registers[rs][registerIndices[mode][rs]], 32 - offset, 32 - offset));
 		registers[rd][registerIndices[mode][rd]] = result;
@@ -105,8 +105,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rs = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let sigbit = bitSlice(registers[rs][registerIndices[mode][rs]], 31 , 31);
-		let result = (offset === 32 ? 0 : registers[rs][registerIndices[mode][rs]] >>> offset) + (sigbit ? (((1 << offset) - 1) << (32 - offset)) : 0); //we shift right by offset bits, then add the sig bits to the left
+		let result = offset === 32 ? ((registers[rs][registerIndices[mode][rs]] >>> 31) === 1 ? 0xFFFFFFFF : 0) : registers[rs][registerIndices[mode][rs]] >> offset;
 
 		setNZCV(bitSlice(result, 31, 31), result === 0, bitSlice(registers[rs][registerIndices[mode][rs]], offset - 1, offset - 1));
 		registers[rd][registerIndices[mode][rd]] = result;
@@ -185,7 +184,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let result = registers[rd][registerIndices[mode][rd]] + imm
 		let vflag = bitSlice(registers[rd][registerIndices[mode][rd]], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
-		setNZCV(bitSlice(result, 31, 31), result === 0, result > 4294967295, vflag === 0);
+		setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag === 0);
 		registers[rd][registerIndices[mode][rd]] = result;
 	}
 
@@ -422,8 +421,8 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rd = bitSlice(instr, 8, 10);
 		let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 		let addr = ((registers[15][registerIndices[mode][15]] & ~2) + offset);
-
-		let data = mmu.read32(addr & 0xFFFFFFFC);		
+		//console.log("hello1");
+		let data = mmu.read32(addr);		
 		data = rotateRight(data, (addr & 3) << 3);
 
 		registers[rd][registerIndices[mode][rd]] = data;
@@ -526,9 +525,11 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 		let addr = registers[rb][registerIndices[mode][rb]] + offset;
-
+		//console.log("hello2");
 		let data = mmu.read32(addr & 0xFFFFFFFC);
 		data = rotateRight(data, (addr & 3) << 3);
+
+		//console.log(data);
 
 		registers[rd][registerIndices[mode][rd]] = data;
 	}
@@ -954,7 +955,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 				break;
 			}
 			//undefined instruction
-			throw Error("encountered undefined instruction!");
+			return 100;
 		},
 		execute : function (instr, opcode, mode) {
 			switch (opcode)
@@ -1020,7 +1021,8 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 				case 58: executeOpcode58(instr, mode); break;
 				case 59: executeOpcode59(instr, mode); break;
 				case 60: executeOpcode60(instr, mode); break;
-				default: throw Error("invalid thumb opcode: " + opcode);
+				case 100: throw Error("executing undefined instruction");
+				default: throw Error("invalid thumb opcode: " + opcode); //should never happen
 			}
 		}
 	}
