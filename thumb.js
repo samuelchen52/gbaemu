@@ -469,11 +469,11 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let data = mmu.read32((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFC);
-		if ((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 1)
-		{
-			data = rotateRight(data, 8);
-		}
+		let addr = registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]];
+		
+		let data = mmu.read32(addr & 0xFFFFFFFC);
+		data = rotateRight(data, (addr & 3) << 3);
+
 		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
@@ -482,12 +482,9 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let data = mmu.read16((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE);
-		
-		if ((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 1)
-		{
-			data = rotateRight(data, 8);
-		}
+		let addr = registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]];
+		let data = rotateRight(mmu.read16(addr & 0xFFFFFFFE), (addr & 1) << 3);
+
 		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
