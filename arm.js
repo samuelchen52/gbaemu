@@ -30,7 +30,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			case 2: //ASR #[1,32]
 			shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
-			return shiftamt === 32 ? 0 : register >> shiftamt;// + ((register >> 31) ? (((1 << shiftamt) - 1) << (32 - shiftamt)) : 0);
+			return shiftamt === 32 ? (shiftCarryFlag === 1 ? 0xFFFFFFFF : 0) : register >> shiftamt;
 			break;
 
 			case 3: //ROR #[1,32]
@@ -146,7 +146,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			break;
 			case 12: return (((flags & 0x8) === (flags & 0x1)) && !(flags & 0x4)) ? true : false; //BGT N=V, Z=0
 			break;
-			case 13: return (((flags & 0x8) !== (flags & 0x1)) || (flags & 0x4)) ? true : false; //BGT N<>V or Z=1
+			case 13: return (((flags & 0x8) !== (flags & 0x1)) || (flags & 0x4)) ? true : false; //BLE N<>V or Z=1
 			break;
 			case 14: return true;
 			break;
@@ -566,7 +566,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand - 1) <= registers[rn][registerIndices[mode][rn]] + carryFlag, (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= registers[rn][registerIndices[mode][rn]] + carryFlag, (vflag === 0) || (vflag === 3));
 			}
 			if (rd === 15)
 			{
@@ -602,7 +602,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, (registers[rn][registerIndices[mode][rn]] + carryFlag - 1) <= secondOperand, (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, (registers[rn][registerIndices[mode][rn]] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
 			}
 			if (rd === 15)
 			{
@@ -808,7 +808,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand - 1) <= registers[rn][registerIndices[mode][rn]] + carryFlag , (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= registers[rn][registerIndices[mode][rn]] + carryFlag , (vflag === 0) || (vflag === 3));
 			}
 			if (rd === 15)
 			{
@@ -838,7 +838,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, (registers[rn][registerIndices[mode][rn]] + carryFlag - 1) <= secondOperand, (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, (registers[rn][registerIndices[mode][rn]] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
 			}
 			if (rd === 15)
 			{
@@ -1156,6 +1156,11 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			let data = mmu.read16((registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE);
 			registers[rd][registerIndices[mode][rd]] = data;
+
+			// console.log("base: " + rn);
+			// console.log("offset: " + offset);
+			// console.log("dest: " + rd);
+			// console.log("addr: " + (registers[rn][registerIndices[mode][rn]] + offset * (u ? 1 : -1)).toString(16));
 			if (rd === 15)
 			{
 				setPipelineResetFlag();
@@ -1643,7 +1648,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand - 1) <= registers[rn][registerIndices[mode][rn]] + carryFlag , (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= registers[rn][registerIndices[mode][rn]] + carryFlag , (vflag === 0) || (vflag === 3));
 			}
 			if (rd === 15)
 			{
@@ -1670,7 +1675,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			if (s)
 			{
-				setNZCV(bitSlice(result, 31, 31), result === 0, (registers[rn][registerIndices[mode][rn]] + carryFlag - 1) <= secondOperand, (vflag === 0) || (vflag === 3));
+				setNZCV(bitSlice(result, 31, 31), result === 0, (registers[rn][registerIndices[mode][rn]] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
 			}
 			if (rd === 15)
 			{
@@ -2491,7 +2496,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 
 			}
 			//undefined instruction
-			throw Error("encountered undefined instruction!");
+			return 100;
 		},
 		execute : function (instr, opcode, mode) {
 			if (!checkCondition(bitSlice(instr, 28, 31)))
@@ -2580,7 +2585,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				case 77: executeOpcode77(instr, mode); break;
 				case 78: executeOpcode78(instr, mode); break;
 				case 79: executeOpcode79(instr, mode); break;
-				default: throw Error("invalid arm opcode: " + opcode);
+				case 100: throw Error("executing undefined instruction");
+				default: throw Error("invalid arm opcode: " + opcode); //should never happen
 			}
 		}
 	}
