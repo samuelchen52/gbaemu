@@ -50,6 +50,7 @@ waitFile().then(async function (buffer) {
 
 
 	let i = 1;
+	let frames = 0;
 	$("#runbutton").click(function()
 	{
 		CPU.run(true, i);
@@ -73,7 +74,7 @@ waitFile().then(async function (buffer) {
 	//of course, this means you need to optimize shit
 
 	// for debugging
-	// while (i <= 380000)
+	// while (i <= 1500000)
 	// {
 
 	// 	try {
@@ -95,19 +96,28 @@ waitFile().then(async function (buffer) {
 	// 	i ++;
 	// }
 
+	const printFPS = function () {
+		setTimeout(function (){
+			console.log("FPS: " + frames / 30);
+			frames = 0;
+			printFPS();
+		}, 30000);
+	}
 
-	// for graphics
+	//for input
 	const executeFrame = function() {
 		while (frameNotComplete)
 		{
 			CPU.run(false, i);
 			GRAPHICS.updateScreen();
+			i ++;
 		}
 		frameNotComplete = true;
+		frames ++;
 		setTimeout(executeFrame, 10);
 	};
 	setTimeout(executeFrame, 10);
-
+	printFPS();
 
 
 
