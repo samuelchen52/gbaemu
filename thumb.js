@@ -501,10 +501,20 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let halfword = mmu.read16((registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]]) & 0xFFFFFFFE);
-		halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
-		
-		registers[rd][registerIndices[mode][rd]] = halfword;
+		let addr = registers[rb][registerIndices[mode][rb]] + registers[ro][registerIndices[mode][ro]];
+
+		if (addr & 1)
+		{
+			let byte = mmu.read8(addr);
+			halfword += halfword & 128 ? 0xFFFFFF00 : 0; //sign extend byte
+			registers[rd][registerIndices[mode][rd]] = byte;
+		}
+		else
+		{
+			let halfword = mmu.read16(addr);
+			halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
+			registers[rd][registerIndices[mode][rd]] = halfword;
+		}
 	}
 
 	//THUMB.9------------------------------------------------------------------------------------------------------
@@ -562,12 +572,9 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		let rb = bitSlice(instr, 3, 5);
 		let rd = bitSlice(instr, 0, 2);
 
-		let data = mmu.read16((registers[rb][registerIndices[mode][rb]] + offset) & 0xFFFFFFFE);
-		
-		if ((registers[rb][registerIndices[mode][rb]] + offset) & 1)
-		{
-			data = rotateRight(data, 8);
-		}
+		let addr = registers[rb][registerIndices[mode][rb]] + offset;
+		let data = rotateRight(mmu.read16(addr & 0xFFFFFFFE), (addr & 1) << 3);
+
 		registers[rd][registerIndices[mode][rd]] = data;
 	}
 
