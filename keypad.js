@@ -21,22 +21,23 @@ const keypad = function(mmu) {
 	const keyCodeToKeyUp = new Uint8Array(255);
 
 	keyCodeToKeyDown.fill(65565, 0, 255);
+															//0A 1B 2select 3start 4right 5left 6up 7down 8r 9l
 	keyCodeToKeyDown[65] = 254; //11111110
 	keyCodeToKeyDown[83] = 253; //11111101
 	keyCodeToKeyDown[13] = 247; //11110111
-	keyCodeToKeyDown[40] = 239; //11101111
-	keyCodeToKeyDown[39] = 223; //11011111
+	keyCodeToKeyDown[39] = 239; //11101111
+	keyCodeToKeyDown[37] = 223; //11011111
 	keyCodeToKeyDown[38] = 191; //10111111
-	keyCodeToKeyDown[37] = 127; //01111111
+	keyCodeToKeyDown[40] = 127; //01111111
 
 	keyCodeToKeyUp.fill(0, 0, 255);
 	keyCodeToKeyUp[65] = ~254;
 	keyCodeToKeyUp[83] = ~253;
 	keyCodeToKeyUp[13] = ~247; 
-	keyCodeToKeyUp[40] = ~239;
-	keyCodeToKeyUp[39] = ~223;
+	keyCodeToKeyUp[39] = ~239;
+	keyCodeToKeyUp[37] = ~223;
 	keyCodeToKeyUp[38] = ~191;
-	keyCodeToKeyUp[37] = ~127;
+	keyCodeToKeyUp[40] = ~127;
 
 	//only dealing with the first 8 bits (for now), L and R buttons in next two bits in next byte
 	ioregs[0x130] = 255; 
@@ -46,10 +47,12 @@ const keypad = function(mmu) {
 		setup : function ()
 		{
 			$(document).keydown(function(e) {
+				//console.log("keydown");
 			 	ioregs[0x130] &= keyCodeToKeyDown[e.keyCode];
 			});
 
 			$(document).keyup(function(e) {
+				//console.log("keyup");
 			  ioregs[0x130] |= keyCodeToKeyUp[e.keyCode];
 			});
 		}
