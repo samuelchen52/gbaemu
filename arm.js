@@ -421,6 +421,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -454,6 +456,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -489,6 +493,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -524,6 +530,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -559,6 +567,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -595,6 +605,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -631,6 +643,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -667,6 +681,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -699,6 +715,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -726,6 +744,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -755,6 +775,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -784,6 +806,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -813,6 +837,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -843,6 +869,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -873,6 +901,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -903,6 +933,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1024,6 +1056,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1055,6 +1089,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1088,6 +1124,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1119,6 +1157,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1482,6 +1522,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1507,6 +1549,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1534,6 +1578,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1559,6 +1605,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1584,6 +1632,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1608,6 +1658,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1634,6 +1686,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1660,6 +1714,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1686,6 +1742,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1713,6 +1771,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1740,6 +1800,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1767,6 +1829,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1878,6 +1942,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1901,6 +1967,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1925,6 +1993,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -1948,6 +2018,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				setPipelineResetFlag();
 				if (s) //set CPSR to SPSR_current_mode
 				{
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
 					registers[16][0] = registers[17][registerIndices[mode][17]];
 				}
 			}
@@ -2114,21 +2186,30 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let rlist = bitSlice(instr, 0, 15); //register list, each bit corresponds to register (by position)
 			let l = bitSlice(instr, 20, 20);
 
+			let addrn; //if stm and rn in rlist, will hold address where rn is stored (super scuffed)
+			let oldAddr = registers[rn][registerIndices[mode][rn]];
 			let addr = registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFC;
 
-			// console.log("rn: " + rn);
-			// console.log("incramt: " + incramt);
-			// console.log("rlist: " + rlist);
-			// console.log("writeback ?" + w);
-			// console.log("increment after? " + p);
 
 			if (!rlist) //empty rlist strange effect
 			{
-				instr &= 0xFFFF7FFF; //11111111111111110111111111111111 -> insert r15 into rlist
-				incramt <<= 4; //
-				if (l)
+				console.log("empty rlist...");
+				rlist = 32768; //set rlist to only r15
+				incramt = 0x40;
+				w = 1;
+			}
+
+			if (s)
+			{
+				if (l && (bitSlice(rlist, 15, 15)))
 				{
-					setPipelineResetFlag();
+					if (mode === 0)
+						console.log("transferring user/system SPSR?");
+					registers[16][0] = registers[17][registerIndices[mode][17]];
+				}
+				else
+				{
+					mode = 0;
 				}
 			}
 
@@ -2143,9 +2224,10 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				{
 					for (let i = 0; i <= 15; i++)
 					{
-						if (bitSlice(instr, i, i))
+						if (bitSlice(rlist, i, i))
 						{
-							//console.log(addr.toString(16));
+							if (i === rn)
+								addrn = addr;
 							registers[i][registerIndices[mode][i]] = mmu.read32(addr);
 							addr += incramt;
 						}
@@ -2155,8 +2237,10 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				{
 					for (let i = 15; i >= 0; i--) //start from top of list
 					{
-						if (bitSlice(instr, i, i))
+						if (bitSlice(rlist, i, i))
 						{
+							if (i === rn)
+								addrn = addr;
 							registers[i][registerIndices[mode][i]] = mmu.read32(addr);
 							addr += incramt;
 						}
@@ -2167,9 +2251,17 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				{
 					addr -= incramt;
 				}
+
+				if (rlist & 32768) //if r15 loaded
+				{
+					registers[15][0] &= 0xFFFFFFFC;
+					setPipelineResetFlag();
+				}
 			}
 			else //STM
 			{
+				registers[15][0] += 4; //set r15 to instruction address + 12
+
 				if (p) //IB/DB
 				{
 					addr += incramt;
@@ -2179,7 +2271,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				{
 					for (let i = 0; i <= 15; i++)
 					{
-						if (bitSlice(instr, i, i))
+						if (bitSlice(rlist, i, i))
 						{
 							//console.log("pushing " + i + "...")
 							mmu.write32(addr, registers[i][registerIndices[mode][i]]);
@@ -2192,7 +2284,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					for (let i = 15; i >= 0; i--) //start from top of list
 					{
 						//console.log(addr.toString(16));
-						if (bitSlice(instr, i, i))
+						if (bitSlice(rlist, i, i))
 						{
 							//console.log("pushing " + i + " to mem addr 0x" + addr.toString(16));
 							mmu.write32(addr, registers[i][registerIndices[mode][i]]);
@@ -2205,11 +2297,28 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				{
 					addr -= incramt;
 				}
+
+				registers[15][0] -= 4; //set r15 back to instruction address + 8
 			}
 
-			if (w)
+			if (w) //handle writeback
 			{
-				registers[rn][registerIndices[mode][rn]] = addr;
+				if (bitSlice(rlist, rn, rn)) //handle base reg in rlist
+				{
+					if (!l) //STM 
+					{
+						if (bitSlice(rlist, 0, rn - 1)) //if base reg not first entry in rlist, store modified base
+						{
+							mmu.write32(addrn, addr | (oldAddr & 3));
+						}
+						registers[rn][registerIndices[mode][rn]] = addr | (oldAddr & 3);
+					}
+					//do nothing if LDM
+				}
+				else
+				{
+					registers[rn][registerIndices[mode][rn]] = addr | (oldAddr & 3);
+				}
 			}
 
 		}

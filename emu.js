@@ -74,18 +74,18 @@ waitFile().then(async function (buffer) {
 	//of course, this means you need to optimize shit
 
 	// for debugging
-	// while (i <= 1500000)
+	// while (i <= 208700)
 	// {
 
 	// 	try {
 	// 		CPU.run(false, i);
 	// 		// GRAPHICS.updateRegisters(CPU.getMode());
-	// 		//GRAPHICS.updateScreen();
+	// 		GRAPHICS.updateScreen();
 	// 	}
 	// 	catch (err)
 	// 	{
 	// 		console.log("error on instruction " + i );
-	// 		//download(strData, strFileName);
+	// 		download(strData, strFileName);
 	// 		throw (err);
 	// 	}
 	// 	// await new Promise(function (resolve, reject)

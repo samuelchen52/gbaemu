@@ -191,7 +191,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
   			setFrameComplete();
   			//console.log(counter);
   			//counter = 0;
-  			//console.log("rendered frame...");
+  			console.log("rendered frame...");
   		}
   	}
   };
@@ -206,6 +206,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
   	{
   		if (scanline < 160)
   		{
+  			ioregs[4] = 0;
   			//pixel num = pixel + scanline * 240
 	  		let vramPos = (pixel + (scanline * 240)) + ((ioregs[0] & 16) ? 0xA000 : 0);
 	  		let imageDataPos = (pixel + (scanline * 240)) * 4;
@@ -223,6 +224,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
 
 	  		if (pixel === 240)
 	  		{
+	  			ioregs[4] |= 3;
 	  			pixel = 0;
 	  			scanline ++;
 	  			wait = 275; //68 * 4 + 3
@@ -231,12 +233,14 @@ const graphics = function(mmu, registers, setFrameComplete) {
   		}
   		else
   		{
+  			ioregs[4] |= 1;
   			scanline ++;
   			if (scanline === 228)
   			{
   				scanline = 0;
   				context.putImageData(imageData, 0, 0);
   				setFrameComplete();
+  				//console.log("rendered frame...");
   			}
   			ioregs[6] = scanline;
   			wait = 1232;

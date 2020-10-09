@@ -164,7 +164,7 @@ const cpu = function (pc, MMU) {
       {
         throw Error("changing mode to undefined value");
       }
-      console.log("set mode to " + valToMode[newModeVal]);
+      //console.log("set mode to " + valToMode[newModeVal]);
     };
 
     //CPSR nzcv xxxx xxxx xxxx xxxx xxxx xxxx xxxx 
@@ -273,16 +273,19 @@ const cpu = function (pc, MMU) {
 
 
         try{
-          if (debug)
-          console.log("[" + inum +  "] executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
-          if (inum >= 1000001)
+          //if (debug)
+          //console.log("[" + inum +  "] executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
+          if (inum >= 1)
           {
             //LOG.logRegs(mode);
           }
+          //if ((pipelinecopy[2] === 35) && (state === 0))
+            //console.log("[" + inum +  "] executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
           execute(pipelinecopy[1], pipelinecopy[2]);
         }
         catch (err)
         {
+          console.log(pipelinecopy[1].toString(16));
           console.log("[" + inum +  "] executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
           console.log(err);
           throw Error(err);
