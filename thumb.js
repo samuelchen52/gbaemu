@@ -506,7 +506,7 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 		if (addr & 1)
 		{
 			let byte = mmu.read8(addr);
-			halfword += halfword & 128 ? 0xFFFFFF00 : 0; //sign extend byte
+			byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 			registers[rd][registerIndices[mode][rd]] = byte;
 		}
 		else
@@ -668,10 +668,13 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 	//THUMB.15------------------------------------------------------------------------------------------------------
 	const executeOpcode54 = function (instr, mode) { //54 - STMIA store in memory, increments Rb
 		let rb = bitSlice(instr, 8, 10);
+		let addr = registers[rb][registerIndices[mode][rb]]; 
+		let addrb;
+
 		if (!bitSlice(instr, 0, 7)) //empty rlist
 		{
-			mmu.write32(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC, registers[15][0]);
-			registers[rb][registerIndices[mode][rb]] += 4;
+			mmu.write32(addr & 0xFFFFFFFC, registers[15][0] + 2);
+			registers[rb][registerIndices[mode][rb]] += 0x40;
 		}
 		else
 		{
@@ -679,19 +682,31 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 			{
 				if (bitSlice(instr, i, i))
 				{
-					mmu.write32(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC, registers[i][registerIndices[mode][i]]);
-					registers[rb][registerIndices[mode][rb]] += 4;
+					if (i === rb)
+								addrb = addr;
+					mmu.write32(addr & 0xFFFFFFFC, registers[i][registerIndices[mode][i]]);
+					addr += 4;
 				}
 			}
+			if (bitSlice(instr, rb, rb)) //if rb in rlist
+			{
+				if (bitSlice(instr, 0, rb - 1)) //if base reg not first entry in rlist, store modified base
+				{
+					mmu.write32(addrb & 0xFFFFFFFC, addr);
+				}
+			}
+			registers[rb][registerIndices[mode][rb]] = addr;
 		}
 	}
 
 	const executeOpcode55 = function (instr, mode) { //55 - LDMIA load from memory, increments Rb
 		let rb = bitSlice(instr, 8, 10);
+		let addr = registers[rb][registerIndices[mode][rb]];
+
 		if (!bitSlice(instr, 0, 7)) //empty rlist
 		{
-			registers[15][0] = mmu.read32(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC)
-			registers[rb][registerIndices[mode][rb]] += 4;
+			registers[15][0] = mmu.read32(addr & 0xFFFFFFFC) & 0xFFFFFFFC;
+			registers[rb][registerIndices[mode][rb]] += 0x40;
 			setPipelineResetFlag();
 		}
 		else
@@ -700,9 +715,13 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 			{
 				if (bitSlice(instr, i, i))
 				{
-					registers[i][registerIndices[mode][i]] = mmu.read32(registers[rb][registerIndices[mode][rb]] & 0xFFFFFFFC)
-					registers[rb][registerIndices[mode][rb]] += 4;
+					registers[i][registerIndices[mode][i]] = mmu.read32(addr & 0xFFFFFFFC)
+					addr += 4;
 				}
+			}
+			if (!bitSlice(instr, rb, rb)) //only write back final addr if rb not in rlist
+			{
+				registers[rb][registerIndices[mode][rb]] = addr;
 			}
 		}
 	}
