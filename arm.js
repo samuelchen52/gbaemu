@@ -1369,7 +1369,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let rd = bitSlice(instr, 12, 15);
 
 			registers[rd][registerIndices[mode][rd]] = registers[16 + psrBit][registerIndices[mode][16 + psrBit]];
-			if (registers[rd][registerIndices[mode][rd]] === undefined)
+			if (registers[16 + psrBit][registerIndices[mode][16 + psrBit]] === undefined)
 			{
 				registers[rd][registerIndices[mode][rd]] = registers[16][0]; //read from CPSR if no SPSR
 				console.log("trying to move PSR to rd in MRS with psr bit set when in USER/SYSTEM MODE");
@@ -2008,7 +2008,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					data = size === 4 ? rotateRight(data, (addr & 3) << 3) : data;
 					registers[rd][registerIndices[mode][rd]] = data;
 
-					if (rd !== rn)
+					if (rd !== rn) //dont overwrite loaded value (occurs when rd === rn)
 					{
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
 					}
@@ -2021,7 +2021,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					data = size === 4 ? rotateRight(data, (addr & 3) << 3) : data;
 					registers[rd][registerIndices[mode][rd]] = data;
 
-					if (w && (rd !== rn))
+					if (w && (rd !== rn)) //dont overwrite loaded value if w enabled (occurs when rd === rn)
 					{
 						registers[rn][registerIndices[mode][rn]] += sign * offset;
 					}
@@ -2041,10 +2041,12 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					mmu.write((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
-					if (w)
+					//weird behavior, if rn === rd, then we want to store rn + offset at rn + offset (compared to before, where we stored rn at rn + offset)
+					registers[rn][registerIndices[mode][rn]] += sign * offset;
+					mmu.write((registers[rn][registerIndices[mode][rn]]) & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
+					if (!w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
 					{
-						registers[rn][registerIndices[mode][rn]] += sign * offset;
+						registers[rn][registerIndices[mode][rn]] -= sign * offset;
 					}
 				}
 			}
