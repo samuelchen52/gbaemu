@@ -2226,8 +2226,6 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					{
 						if (bitSlice(rlist, i, i))
 						{
-							if (i === rn)
-								addrn = addr;
 							registers[i][registerIndices[mode][i]] = mmu.read32(addr);
 							addr += incramt;
 						}
@@ -2239,8 +2237,6 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					{
 						if (bitSlice(rlist, i, i))
 						{
-							if (i === rn)
-								addrn = addr;
 							registers[i][registerIndices[mode][i]] = mmu.read32(addr);
 							addr += incramt;
 						}
@@ -2273,7 +2269,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 					{
 						if (bitSlice(rlist, i, i))
 						{
-							//console.log("pushing " + i + "...")
+							if (i === rn)
+								addrn = addr;
 							mmu.write32(addr, registers[i][registerIndices[mode][i]]);
 							addr += incramt;
 						}
@@ -2286,7 +2283,8 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 						//console.log(addr.toString(16));
 						if (bitSlice(rlist, i, i))
 						{
-							//console.log("pushing " + i + " to mem addr 0x" + addr.toString(16));
+							if (i === rn)
+								addrn = addr;
 							mmu.write32(addr, registers[i][registerIndices[mode][i]]);
 							addr += incramt;
 						}
@@ -2343,19 +2341,29 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 	//ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
 	const executeOpcode75 = function (instr, mode) { //75 - LDC / STC
 		//gba does not use this instruction
+		console.log("???1");
 	}
 
 	const executeOpcode76 = function (instr, mode) { //76 - CDP
 		//gba does not use this instruction
+		console.log("???2");
 	}
 
 	const executeOpcode77 = function (instr, mode) { //77 - MRC / MCR
 		//gba does not use this instruction
+		console.log("???3");
 	}
 
 	//ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
 	const executeOpcode78 = function (instr, mode) { //78 - SWI
-		
+		console.log("SWI called");
+		//filler code for SWI #6h (used by gba-suite )
+		let numerator = registers[0][registerIndices[mode][0]];
+		let denominator = registers[1][registerIndices[mode][1]];
+
+		registers[0][registerIndices[mode][0]] = Math.floor(numerator / denominator);
+		registers[1][registerIndices[mode][1]] = numerator % denominator;
+		registers[3][registerIndices[mode][3]] = Math.abs(Math.floor(numerator / denominator));
 	}
 
 	//ARM[5]-----------------------------------------------------------------------------------------------------
