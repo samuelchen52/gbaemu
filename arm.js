@@ -2078,16 +2078,6 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let mask = (size === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
 			let w = bitSlice(instr, 21, 21); //writeback
 
-			//console.log((rn === 15)  && (!p || w) );
-			//console.log("offset: " + offset);
-			//console.log("size: " + size);
-			//console.log("dest: " + rd);
-			if (rd === rn){
-				//console.log("hallo");
-			}
-
-
-			
 			if (bitSlice(instr, 20, 20)) //LDR
 			{
 				if (!p) //add offset after (writeback always enabled)
@@ -2137,13 +2127,6 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					//weird behavior, if rn === rd, then we want to store rn + offset at rn + offset (compared to before, where we stored rn at rn + offset)
-					// registers[rn][registerIndices[mode][rn]] += sign * offset;
-					// mmu.write((registers[rn][registerIndices[mode][rn]]) & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
-					// if (!w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
-					// {
-					// 	registers[rn][registerIndices[mode][rn]] -= sign * offset;
-					// }
 					let addr = registers[rn][registerIndices[mode][rn]] + sign * offset;
 					mmu.write(addr & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
 					if (w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
@@ -2156,10 +2139,6 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 	
 
 	//ARM[9]-------------------------------------------------------------------------------------------------------------------------------------------------------
-	//IB p = 1 u = 1 -> descending empty stack
-	//IA p = 0 u = 1 -> descending full stack
-	//DB p = 1 u = 0 -> ascending empty stack
-	//DA p = 0 u = 0 -> ascending full stack
 	const executeOpcode73 = function (instr, mode) { //73 - LDM / STM 
 			let p = bitSlice(instr, 24, 24);
 			let incramt = bitSlice(instr, 23, 23) ? 4 : -4;

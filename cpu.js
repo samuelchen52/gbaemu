@@ -258,7 +258,15 @@ const cpu = function (pc, MMU) {
         pipelinecopy[1] = pipeline[1];
         pipelinecopy[2] = pipeline[2];
 
-        pipeline[0] = fetch();
+        try {
+          pipeline[0] = fetch();
+        }        
+        catch (err)
+        {
+          console.log("undefined on instruction [" + inum + "]");
+          console.log(registers[12][0]);
+          throw Error(err);
+        }
 
         pipeline[1] = pipelinecopy[0];
 
@@ -273,12 +281,16 @@ const cpu = function (pc, MMU) {
 
 
         try{
-          //if (debug)
-          //console.log("[" + inum +  "] executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
+          if (debug)
+            console.log("[" + inum +  "] executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
           if (inum >= 1)
           {
             //LOG.logRegs(mode);
           }
+          // if (registers[12][0] === 0x212) //1260
+          // {
+          //   throw Error("HALLO");
+          // }
           //if ((pipelinecopy[2] === 35) && (state === 0))
             //console.log("[" + inum +  "] executing opcode: " + (state ? THUMBopcodes[pipelinecopy[2]] : ARMopcodes[pipelinecopy[2]]) + " at Memory addr: 0x" + (registers[15][0] - (state ? 4 : 8)).toString(16));
           execute(pipelinecopy[1], pipelinecopy[2]);

@@ -113,7 +113,8 @@ const mmu = function(memory) {
 			break;
 
 		}
-		throw Error("accessing unused memory: 0x " + memAddr.toString(16) + "!");
+		console.log("accessing unused memory: 0x" + (region + memAddr).toString(16) + "!");
+		return 10;
 	}
 
 
@@ -125,6 +126,8 @@ const mmu = function(memory) {
 				throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
 			}
 			let memRegion = memory[checkMemBounds(memAddr, numBytes)];
+			if (memRegion === undefined)
+				return 0;
 			switch(numBytes)
 			{
 				case 1: //byte
@@ -173,6 +176,8 @@ const mmu = function(memory) {
 				throw Error("memory address is not aligned!");
 			}
 			let memRegion = memory[checkMemBounds(memAddr, numBytes)];
+			if (memRegion === undefined)
+				return;
 			switch(numBytes)
 			{
 				case 1: //byte
@@ -200,6 +205,10 @@ const mmu = function(memory) {
 		write8 : function(memAddr, val) {
 			let memRegion = memory[checkMemBounds(memAddr, 1)];
 			memRegion[memAddr & 0x00FFFFFF] = val & 0xFF;
+			if (checkMemBounds(memAddr, 1) === 5)
+			{
+				//console.log("8 VRAM AT addr 0x" + memAddr.toString(16));
+			}
 		},
 
 		write16: function(memAddr, val) {
@@ -211,6 +220,10 @@ const mmu = function(memory) {
 			let memRegion = memory[checkMemBounds(memAddr, 2)];
 			memRegion[memAddr & 0x00FFFFFF] = val & 0xFF;
 			memRegion[(memAddr + 1) & 0x00FFFFFF] = (val & 0xFF00) >> 8;
+			if (checkMemBounds(memAddr, 2) === 5)
+			{
+				//console.log("16 VRAM AT addr 0x" + memAddr.toString(16));
+			}
 		},
 
 		write32: function(memAddr, val) {
@@ -223,6 +236,14 @@ const mmu = function(memory) {
 			memRegion[(memAddr + 1) & 0x00FFFFFF] = (val & 0xFF00) >> 8;
 			memRegion[(memAddr + 2) & 0x00FFFFFF] = (val & 0xFF0000) >> 16;
 			memRegion[(memAddr + 3) & 0x00FFFFFF] = (val & 0xFF000000) >> 24;
+			if (checkMemBounds(memAddr, 4) === 5)
+			{
+				//console.log("32 VRAM AT addr 0x" + memAddr.toString(16));
+			}
+			if (memAddr === 0x02000340)
+			{
+				//throw Error("poopoo");
+			}
 		},
 
 		getMemoryRegion: function(region)

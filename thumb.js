@@ -628,10 +628,6 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 	//THUMB.14------------------------------------------------------------------------------------------------------
 	const executeOpcode52 = function (instr, mode) { //52 - PUSH store in memory, decrements SP (R13) STMDB=PUSH
 		let pclrbit = bitSlice(instr, 8, 8);
-		if (!bitSlice(instr, 0, 7))
-		{
-			console.log("empty rlist in THUMB push?")
-		}
 		if (pclrbit)
 		{
 			registers[13][registerIndices[mode][13]] -= 4;
@@ -651,10 +647,6 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 
 	const executeOpcode53 = function (instr, mode) { //53 - POP load from memory, increments SP (R13) LDMIA=POP
 		let pclrbit = bitSlice(instr, 8, 8);
-		if (!bitSlice(instr, 0, 7))
-		{
-			console.log("empty rlist in THUMB pop?")
-		}
 		for (let i = 0; i < 8; i ++)
 		{
 			if (bitSlice(instr, i, i))

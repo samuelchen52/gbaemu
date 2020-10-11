@@ -61,20 +61,8 @@ waitFile().then(async function (buffer) {
 	});
 	KEYPAD.setup();
 
-	//let time = new Date().getTime();
-
-	//to execute frame by frame, while allowing for events in the event loop to execute
-	//cant do in linear fashion
-	//use a recursive function
-	//the function should execute instruction, and cycle through hardware (graphics, sound) for one frame
-	//when everything is done, it should call itself again, using set time out
-	//setimeout with a delay allows for keyboard events to propagate through e.g. -> event loop [executeFrame, keypress, keypress]
-	//at 60 fps (the frame rate of gba), there would be 60 settimeout delays to allow for keyboard events to come through, solving the issue of the 
-	//blocking code
-	//of course, this means you need to optimize shit
-
 	// for debugging
-	// while (i <= 208700)
+	// while (i <= 1200)
 	// {
 
 	// 	try {
@@ -85,7 +73,7 @@ waitFile().then(async function (buffer) {
 	// 	catch (err)
 	// 	{
 	// 		console.log("error on instruction " + i );
-	// 		download(strData, strFileName);
+	// 		//download(strData, strFileName);
 	// 		throw (err);
 	// 	}
 	// 	// await new Promise(function (resolve, reject)

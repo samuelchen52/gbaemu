@@ -126,6 +126,8 @@ const graphics = function(mmu, registers, setFrameComplete) {
 	const context = document.getElementById("screen").getContext("2d");
 	const imageData = context.createImageData(240, 160);
 
+	//document.imageData = imageData;
+
   const ioregs = mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
   const paletteram = mmu.getMemoryRegion("PALETTERAM"); //0x5000000
   const vram = mmu.getMemoryRegion("VRAM"); //0x6000000
