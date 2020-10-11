@@ -354,7 +354,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			if (addr & 1)
 			{
 				let byte = mmu.read8(addr);
-				halfword += halfword & 128 ? 0xFFFFFF00 : 0; //sign extend byte
+				byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 				registers[rd][registerIndices[mode][rd]] = byte;
 			}
 			else
@@ -388,7 +388,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			if (addr & 1)
 			{
 				let byte = mmu.read8(addr);
-				halfword += halfword & 128 ? 0xFFFFFF00 : 0; //sign extend byte
+				byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 				registers[rd][registerIndices[mode][rd]] = byte;
 			}
 			else
@@ -1305,7 +1305,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			if (addr & 1)
 			{
 				let byte = mmu.read8(addr);
-				halfword += halfword & 128 ? 0xFFFFFF00 : 0; //sign extend byte
+				byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 				registers[rd][registerIndices[mode][rd]] = byte;
 			}
 			else
@@ -1340,7 +1340,7 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			if (addr & 1)
 			{
 				let byte = mmu.read8(addr);
-				halfword += halfword & 128 ? 0xFFFFFF00 : 0; //sign extend byte
+				byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 				registers[rd][registerIndices[mode][rd]] = byte;
 			}
 			else
@@ -2002,6 +2002,10 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
+					if (w) //w serves as t bit
+					{
+						mode = 0; //force non-priveleged access
+					}
 					let addr = registers[rn][registerIndices[mode][rn]];
 					//console.log("addr1: " + addr.toString(16));
 					let data = mmu.read(addr & mask, size);
@@ -2036,17 +2040,27 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
+					if (w) //w serves as t bit
+					{
+						mode = 0; //force non-priveleged access
+					}
 					mmu.write(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
 					//weird behavior, if rn === rd, then we want to store rn + offset at rn + offset (compared to before, where we stored rn at rn + offset)
-					registers[rn][registerIndices[mode][rn]] += sign * offset;
-					mmu.write((registers[rn][registerIndices[mode][rn]]) & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
-					if (!w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
+					// registers[rn][registerIndices[mode][rn]] += sign * offset;
+					// mmu.write((registers[rn][registerIndices[mode][rn]]) & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
+					// if (!w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
+					// {
+					// 	registers[rn][registerIndices[mode][rn]] -= sign * offset;
+					// }
+					let addr = registers[rn][registerIndices[mode][rn]] + sign * offset;
+					mmu.write(addr & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
+					if (w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
 					{
-						registers[rn][registerIndices[mode][rn]] -= sign * offset;
+						registers[rn][registerIndices[mode][rn]] = addr;
 					}
 				}
 			}
@@ -2078,6 +2092,10 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
+					if (w) //w serves as t bit
+					{
+						mode = 0; //force non-priveleged access
+					}
 					let addr = registers[rn][registerIndices[mode][rn]];
 					let data = mmu.read(addr & mask, size);
 					data = size === 4 ? rotateRight(data, (addr & 3) << 3) : data;
@@ -2110,15 +2128,27 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			{
 				if (!p) //add offset after (writeback always enabled)
 				{
+					if (w) //w serves as t bit
+					{
+						mode = 0; //force non-priveleged access
+					}
 					mmu.write(registers[rn][registerIndices[mode][rn]] & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
 					registers[rn][registerIndices[mode][rn]] += sign * offset;
 				}
 				else //add offset before (check if writeback enabled)
 				{
-					mmu.write((registers[rn][registerIndices[mode][rn]] + offset * sign) & mask, registers[rd][registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
-					if (w)
+					//weird behavior, if rn === rd, then we want to store rn + offset at rn + offset (compared to before, where we stored rn at rn + offset)
+					// registers[rn][registerIndices[mode][rn]] += sign * offset;
+					// mmu.write((registers[rn][registerIndices[mode][rn]]) & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
+					// if (!w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
+					// {
+					// 	registers[rn][registerIndices[mode][rn]] -= sign * offset;
+					// }
+					let addr = registers[rn][registerIndices[mode][rn]] + sign * offset;
+					mmu.write(addr & mask, registers[rd][registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
+					if (w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
 					{
-						registers[rn][registerIndices[mode][rn]] += sign * offset;
+						registers[rn][registerIndices[mode][rn]] = addr;
 					}
 				}
 			}
@@ -2140,16 +2170,44 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 			let l = bitSlice(instr, 20, 20);
 
 			let addrn; //if stm and rn in rlist, will hold address where rn is stored (super scuffed)
-			let oldAddr = registers[rn][registerIndices[mode][rn]];
+			let baseAddr = registers[rn][registerIndices[mode][rn]];
 			let addr = registers[rn][registerIndices[mode][rn]] & 0xFFFFFFFC;
 
-
-			if (!rlist) //empty rlist strange effect
+			//handle empty rlist
+			if (!rlist)
 			{
 				console.log("empty rlist...");
-				rlist = 32768; //set rlist to only r15
-				incramt = 0x40;
-				w = 1;
+				let positive = incramt === 4 ? 1 : 0;
+				switch((positive << 1) + p)
+				{
+					case 0: //00 -> da
+					addr = baseAddr - 0x3C;
+					break;
+
+					case 1: //01 -> db
+					addr = baseAddr - 0x40;
+					break;
+
+					case 2: //10 -> ia
+					addr = baseAddr + 0x00;
+					break;
+
+					case 3: //11 -> ib
+					addr = baseAddr + 0x04;
+					break;
+				}
+
+				if (l)
+				{
+					registers[15][0] = mmu.read32(addr & 0xFFFFFFFC) & 0xFFFFFFFC;
+					setPipelineResetFlag();
+				}
+				else
+				{
+					mmu.write32(addr & 0xFFFFFFFC, registers[15][0] + 4);
+				}
+				registers[rn][registerIndices[mode][rn]] += (incramt << 4);
+				return;
 			}
 
 			if (s)
@@ -2256,17 +2314,17 @@ const arm = function(mmu, registers, changeState, changeMode, setNZCV, setPipeli
 				{
 					if (!l) //STM 
 					{
-						if (bitSlice(rlist, 0, rn - 1)) //if base reg not first entry in rlist, store modified base
+						if ((rn !== 0) && bitSlice(rlist, 0, rn - 1)) //if base reg not first entry in rlist, store modified base
 						{
-							mmu.write32(addrn, addr | (oldAddr & 3));
+							mmu.write32(addrn, addr | (baseAddr & 3));
 						}
-						registers[rn][registerIndices[mode][rn]] = addr | (oldAddr & 3);
+						registers[rn][registerIndices[mode][rn]] = addr | (baseAddr & 3);
 					}
 					//do nothing if LDM
 				}
 				else
 				{
-					registers[rn][registerIndices[mode][rn]] = addr | (oldAddr & 3);
+					registers[rn][registerIndices[mode][rn]] = addr | (baseAddr & 3);
 				}
 			}
 
