@@ -167,27 +167,14 @@ const cpu = function (pc, MMU) {
       //console.log("set mode to " + valToMode[newModeVal]);
     };
 
-    //CPSR nzcv xxxx xxxx xxxx xxxx xxxx xxxx xxxx 
-    const setNZCV = function (nflag, zflag, cflag, vflag) { 
-      let newNZCV = 0;
-
-      newNZCV = nflag ? 1 : 0;
-      newNZCV = zflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
-      newNZCV = cflag === undefined ? ((newNZCV << 1) + bitSlice(registers[16][0], 29, 29)) : (cflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
-      newNZCV = vflag === undefined ? ((newNZCV << 1) + bitSlice(registers[16][0], 28, 28)) : (vflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
-
-      registers[16][0] &= 0x00FFFFFF; //set first byte to zero
-      registers[16][0] += (newNZCV << 28); //add new flags to CPSR
-    }
-
     //tell cpu to reset pipeline
     const setPipelineResetFlag = function () {
       pipelineResetFlag = true;
     }
 
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-  	const THUMB = thumb(MMU, registers, changeState, changeMode, setNZCV, setPipelineResetFlag, registerIndices);
-  	const ARM = arm(MMU, registers, changeState, changeMode, setNZCV, setPipelineResetFlag,  registerIndices);
+  	const THUMB = thumb(MMU, registers, changeState, changeMode, setPipelineResetFlag, registerIndices);
+  	const ARM = arm(MMU, registers, changeState, changeMode, setPipelineResetFlag,  registerIndices);
 
     const fetch = function() {
         if (state === stateENUMS["ARM"])

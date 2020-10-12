@@ -1,4 +1,4 @@
-const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipelineResetFlag, registerIndices) {
+const thumb = function(mmu, registers, changeState, changeMode, setPipelineResetFlag, registerIndices) {
 	
 	let shiftCarryFlag = undefined;
 
@@ -74,6 +74,19 @@ const thumb = function(mmu, registers, changeState, changeMode, setNZCV, setPipe
 			return rotateRight(register, shiftamt);
 		}
 	}
+
+	//CPSR nzcv xxxx xxxx xxxx xxxx xxxx xxxx xxxx 
+    const setNZCV = function (nflag, zflag, cflag, vflag) { 
+      let newNZCV = 0;
+
+      newNZCV = nflag ? 1 : 0;
+      newNZCV = zflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
+      newNZCV = cflag === undefined ? ((newNZCV << 1) + bitSlice(registers[16][0], 29, 29)) : (cflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
+      newNZCV = vflag === undefined ? ((newNZCV << 1) + bitSlice(registers[16][0], 28, 28)) : (vflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
+
+      registers[16][0] &= 0x00FFFFFF; //set first byte to zero
+      registers[16][0] += (newNZCV << 28); //add new flags to CPSR
+    }
 
 	//THUMB.1------------------------------------------------------------------------------------------------------
 	const executeOpcode0 = function (instr, mode) { //0 - LSL IMM5 Rd,Rs,#Offset 
