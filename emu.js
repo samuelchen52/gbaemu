@@ -17,32 +17,31 @@ const waitFile = function() //waits for file input (chip8 rom)
 	});
 };
 
-const memory = [
-	new Uint8Array(16 * 1024), //16 kb of BIOS
-	new Uint8Array(256 * 1024), //256 kb of on board work ram (EWRAM)
-	new Uint8Array(32 * 1024), //32 kb of on chip work ram (IEWRAM)
-	new Uint8Array(1023), //1023 bytes for io registers
-	new Uint8Array(1 * 1024), //1 kb for palette ram
-	new Uint8Array(96 * 1024), //96 kb for vram
-	new Uint8Array(1 * 1024), //1kb for oam
-	new Uint8Array(32 * 1024 * 1024), //32mb for game rom
-	new Uint8Array(64 * 1024) //64 kb for sram
-];
-
 
 waitFile().then(async function (buffer) {
-	let ROM = memory[7];
-	for (let i = 0; i < buffer.length; i+=4) //copy game into memory
+	const MMU = mmu();
+
+	//copy ROM into memory
+	let ROM = MMU.getMemoryRegion("ROM");
+	let ROM2 = MMU.getMemoryRegion("ROM2");
+	for (let i = 0; i < Math.min(ROM.length, buffer.length); i+=4)
 	{
 		ROM[i] = buffer[i]; //LSB
 		ROM[i + 1] = buffer[i + 1];
 		ROM[i + 2] = buffer[i + 2];
 		ROM[i + 3] = buffer[i + 3]; //MSB
 	}
-	//console.log(ROM);
+	for (let i = ROM.length; i < buffer.length; i ++)
+	{
+		let p = i & 0xFFFFFF;
+		ROM2[p] = buffer[p]; //LSB
+		ROM2[p + 1] = buffer[p + 1];
+		ROM2[p + 2] = buffer[p + 2];
+		ROM2[p + 3] = buffer[p + 3]; //MSB
+	}
+
 	let frameNotComplete = true;
 
-	const MMU = mmu(memory);
 	const CPU = cpu(0x08000000, MMU);
 	const GRAPHICS = graphics(MMU, CPU.getRegisters(), function(){frameNotComplete = false;});
 	const KEYPAD = keypad(MMU);
