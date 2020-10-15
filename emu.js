@@ -1,9 +1,9 @@
 
-const waitFile = function() //waits for file input (chip8 rom)
+const waitFile = function(fileName) //waits for file input (chip8 rom)
 {
 	return new Promise(function (resolve, reject)
 	{
-		let fileInput = document.getElementById('fileInput');
+		let fileInput = document.getElementById(fileName);
 
     fileInput.addEventListener('change', function(e) {
         let file = fileInput.files[0];
@@ -17,9 +17,27 @@ const waitFile = function() //waits for file input (chip8 rom)
 	});
 };
 
+var biosBuffer;
 
-waitFile().then(async function (buffer) {
-	const MMU = mmu();
+waitFile("biosInput").then(function (buffer) {biosBuffer = buffer;})
+
+
+waitFile("romInput").then(async function (buffer) {
+	const MMU = new mmu();
+
+	//copy BIOS into memory
+	if (biosBuffer !== undefined)
+	{
+		let BIOS = MMU.getMemoryRegion("BIOS");
+		for (let i = 0; i < biosBuffer.length; i ++)
+		{
+			BIOS[i] = biosBuffer[i]; //LSB
+			BIOS[i + 1] = biosBuffer[i + 1];
+			BIOS[i + 2] = biosBuffer[i + 2];
+			BIOS[i + 3] = biosBuffer[i + 3]; //MSB
+		}
+		console.log("copied BIOS into memory");
+	}
 
 	//copy ROM into memory
 	let ROM = MMU.getMemoryRegion("ROM");
@@ -39,29 +57,36 @@ waitFile().then(async function (buffer) {
 		ROM2[p + 2] = buffer[p + 2];
 		ROM2[p + 3] = buffer[p + 3]; //MSB
 	}
+	console.log("copied ROM into memory");
 
+	buffer = null;
+	biosBuffer = null;
+
+	//set up hardware
 	let frameNotComplete = true;
 
-	const CPU = cpu(0x08000000, MMU);
-	const GRAPHICS = graphics(MMU, CPU.getRegisters(), function(){frameNotComplete = false;});
-	const KEYPAD = keypad(MMU);
+	const CPU = new cpu(0x08000000, MMU);
+	const GRAPHICS = new graphics(MMU, CPU.registers, function(){frameNotComplete = false;});
+	const KEYPAD = new keypad(MMU);
+
+	CPU.initPipeline();
+	KEYPAD.initInput();
 
 
-
+	//for debugging
 	let i = 1;
 	let frames = 0;
 	$("#runbutton").click(function()
 	{
 		CPU.run(true, i);
-		GRAPHICS.updateRegisters(CPU.getMode());
+		GRAPHICS.updateRegisters(CPU.mode);
 		GRAPHICS.updateScreen();
 		i ++;
 		//console.log(i);
 	});
-	KEYPAD.setup();
 
-	// for debugging
-	// while (i <= 1200)
+	//for debugging
+	// while (i <= 208830)
 	// {
 
 	// 	try {
@@ -82,6 +107,7 @@ waitFile().then(async function (buffer) {
 	// 	// });
 	// 	i ++;
 	// }
+	console.log("finished");
 
 	const printFPS = function () {
 		setTimeout(function (){
@@ -110,9 +136,4 @@ waitFile().then(async function (buffer) {
 
 
 	//download(strData, strFileName);
-	console.log("finished");
-
-	//let timeElapsed = new Date().getTime() - time;
-	//console.log("took " + timeElapsed / 1000 + " seconds to execute " + (i - 1)  + " instructions");
-
 });

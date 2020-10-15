@@ -1,7 +1,8 @@
 const keypad = function(mmu) {
+	this.mmu = mmu;
 
-	const ioregs = mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
-	const vram = mmu.getMemoryRegion("VRAM");
+	this.ioregs = mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
+	this.vram = mmu.getMemoryRegion("VRAM");
 	//KEYINPUT - Key Status (read-only) 0x4000130 -> ioregs[0x130] + ioregs[0x131] << 8
 	//bits being cleared represents the corresponding button being pressed
 	//bits 0 to 9 correspond to buttons
@@ -17,48 +18,44 @@ const keypad = function(mmu) {
 	//directional buttons -> arrow keys (keycode: down, right, up, left -> 40, 39, 38, 37)
 	//start -> enter (keycode 13)
 
-	const keyCodeToKeyDown = new Uint8Array(255);
-	const keyCodeToKeyUp = new Uint8Array(255);
+	this.keyCodeToKeyDown = new Uint8Array(255);
+	this.keyCodeToKeyUp = new Uint8Array(255);
 
-	keyCodeToKeyDown.fill(65565, 0, 255);
+	this.keyCodeToKeyDown.fill(65565, 0, 255);
 															//0A 1B 2select 3start 4right 5left 6up 7down 8r 9l
-	keyCodeToKeyDown[65] = 254; //11111110
-	keyCodeToKeyDown[83] = 253; //11111101
-	keyCodeToKeyDown[13] = 247; //11110111
-	keyCodeToKeyDown[39] = 239; //11101111
-	keyCodeToKeyDown[37] = 223; //11011111
-	keyCodeToKeyDown[38] = 191; //10111111
-	keyCodeToKeyDown[40] = 127; //01111111
+	this.keyCodeToKeyDown[65] = 254; //11111110
+	this.keyCodeToKeyDown[83] = 253; //11111101
+	this.keyCodeToKeyDown[13] = 247; //11110111
+	this.keyCodeToKeyDown[39] = 239; //11101111
+	this.keyCodeToKeyDown[37] = 223; //11011111
+	this.keyCodeToKeyDown[38] = 191; //10111111
+	this.keyCodeToKeyDown[40] = 127; //01111111
 
-	keyCodeToKeyUp.fill(0, 0, 255);
-	keyCodeToKeyUp[65] = ~254;
-	keyCodeToKeyUp[83] = ~253;
-	keyCodeToKeyUp[13] = ~247; 
-	keyCodeToKeyUp[39] = ~239;
-	keyCodeToKeyUp[37] = ~223;
-	keyCodeToKeyUp[38] = ~191;
-	keyCodeToKeyUp[40] = ~127;
+	this.keyCodeToKeyUp.fill(0, 0, 255);
+	this.keyCodeToKeyUp[65] = ~254;
+	this.keyCodeToKeyUp[83] = ~253;
+	this.keyCodeToKeyUp[13] = ~247; 
+	this.keyCodeToKeyUp[39] = ~239;
+	this.keyCodeToKeyUp[37] = ~223;
+	this.keyCodeToKeyUp[38] = ~191;
+	this.keyCodeToKeyUp[40] = ~127;
 
 	//only dealing with the first 8 bits (for now), L and R buttons in next two bits in next byte
-	ioregs[0x130] = 255; 
+	this.ioregs[0x130] = 255; 
+};
+	
 
-	return {
+keypad.prototype.initInput = function ()
+{
+	$(document).keydown(function(e) {
+		//console.log("keydown");
+	 	this.ioregs[0x130] &= this.keyCodeToKeyDown[e.keyCode];
+	}.bind(this));
 
-		setup : function ()
-		{
-			$(document).keydown(function(e) {
-				//console.log("keydown");
-			 	ioregs[0x130] &= keyCodeToKeyDown[e.keyCode];
-			});
-
-			$(document).keyup(function(e) {
-				//console.log("keyup");
-			  ioregs[0x130] |= keyCodeToKeyUp[e.keyCode];
-			});
-		}
-
-
-	}
+	$(document).keyup(function(e) {
+		//console.log("keyup");
+	  this.ioregs[0x130] |= this.keyCodeToKeyUp[e.keyCode];
+	}.bind(this));
+};
 
 
-}

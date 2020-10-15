@@ -97,18 +97,24 @@
 
 const graphics = function(mmu, registers, setFrameComplete) {
 
-	const registersDOM = $(".register");
-	const cpsrDOM = $(".statusregister"); //N, Z, C, V, Q, I, F, T, Mode, all
-	const valToMode = []; //modes indexed by their value in the CPSR
-  valToMode[31] = "SYSTEM";
-  valToMode[16] = "USER";
-  valToMode[17] = "FIQ"; //never used
-  valToMode[19] = "SVC";
-  valToMode[23] = "ABT";
-  valToMode[18] = "IRQ";
-  valToMode[27] = "UND";
+  this.mmu = mmu;
+  this.registers = registers;
+  this.setFrameComplete = setFrameComplete;
 
-	const registerIndices = [
+
+  //debugging stuff
+	this.registersDOM = $(".register");
+	this.cpsrDOM = $(".statusregister"); //N, Z, C, V, Q, I, F, T, Mode, all
+	this.valToMode = []; //modes indexed by their value in the CPSR
+  this.valToMode[31] = "SYSTEM";
+  this.valToMode[16] = "USER";
+  this.valToMode[17] = "FIQ"; //never used
+  this.valToMode[19] = "SVC";
+  this.valToMode[23] = "ABT";
+  this.valToMode[18] = "IRQ";
+  this.valToMode[27] = "UND";
+
+	this.registerIndices = [
     //                     1 1 1 1 1 1
     //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
       [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"]
@@ -122,239 +128,184 @@ const graphics = function(mmu, registers, setFrameComplete) {
 
 
 
+  //graphics stuff
+	this.context = document.getElementById("screen").getContext("2d");
+	this.imageData = this.context.createImageData(240, 160);
 
-	const context = document.getElementById("screen").getContext("2d");
-	const imageData = context.createImageData(240, 160);
+  this.ioregs = this.mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
+  this.paletteram = this.mmu.getMemoryRegion("PALETTERAM"); //0x5000000
+  this.vram = this.mmu.getMemoryRegion("VRAM"); //0x6000000
+  this.oam = this.mmu.getMemoryRegion("OAM"); //0x7000000
 
-	//document.imageData = imageData;
+  this.pixel = 0; //current pixel we are drawing on current scanline
+  this.scanline = 0; //current scanline we are drawing on
 
-  const ioregs = mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
-  const paletteram = mmu.getMemoryRegion("PALETTERAM"); //0x5000000
-  const vram = mmu.getMemoryRegion("VRAM"); //0x6000000
-  const oam = mmu.getMemoryRegion("OAM"); //0x7000000
-
-  let pixel = 0; //current pixel we are drawing on current scanline
-  let scanline = 0; //current scanline we are drawing on
-
-  let wait = 0;
-  let counter = 0;
+  this.wait = 0;
   //when we reach vblank, set frameNotComplete to false
+};
 
+graphics.prototype.rendermode3 = function()
+{	
+	if (this.wait !== 0)
+	{
+		this.wait --;
+	}
+	else
+	{
+		//pixel num = pixel + scanline * 240
+		let vramPos = (this.pixel + (this.scanline * 240)) * 2;
+		let imageDataPos = (this.pixel + (this.scanline * 240)) * 4;
+		//let imageDataPos = (pixel * 8) + (scanline * 240 * 16);
 
-  const rendermode3 = function()
-  {	
-  	if (wait !== 0)
-  	{
-  		//counter ++;
-  		wait --;
-  	}
-  	else
-  	{
-  		//counter ++;
-  		//pixel num = pixel + scanline * 240
-  		let vramPos = (pixel + (scanline * 240)) * 2;
-  		let imageDataPos = (pixel + (scanline * 240)) * 4;
-  		//let imageDataPos = (pixel * 8) + (scanline * 240 * 16);
+		let color = (this.vram[vramPos + 1] << 8) ^ this.vram[vramPos];
+		this.imageData.data[imageDataPos ] = (color & 31) << 3;
+		this.imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
+		this.imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
+		this.imageData.data[imageDataPos + 3] = 255;
 
-  		let color = (vram[vramPos + 1] << 8) ^ vram[vramPos];
-  		imageData.data[imageDataPos ] = (color & 31) << 3;
-  		imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
-  		imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
-  		imageData.data[imageDataPos + 3] = 255;
+		// this.imageData.data[imageDataPos + 4] = (color & 31) << 3;
+		// this.imageData.data[imageDataPos + 5] = ((color & 992) >>> 5) << 3;
+		// this.imageData.data[imageDataPos + 6] = ((color & 31744) >>> 10) << 3;
+		// this.imageData.data[imageDataPos + 7] = 255;
 
-  		// imageData.data[imageDataPos + 4] = (color & 31) << 3;
-  		// imageData.data[imageDataPos + 5] = ((color & 992) >>> 5) << 3;
-  		// imageData.data[imageDataPos + 6] = ((color & 31744) >>> 10) << 3;
-  		// imageData.data[imageDataPos + 7] = 255;
+		// this.imageData.data[imageDataPos + 1920] = (color & 31) << 3;
+		// this.imageData.data[imageDataPos + 1921] = ((color & 992) >>> 5) << 3;
+		// this.imageData.data[imageDataPos + 1922] = ((color & 31744) >>> 10) << 3;
+		// this.imageData.data[imageDataPos + 1923] = 255;
 
-  		// imageData.data[imageDataPos + 1920] = (color & 31) << 3;
-  		// imageData.data[imageDataPos + 1921] = ((color & 992) >>> 5) << 3;
-  		// imageData.data[imageDataPos + 1922] = ((color & 31744) >>> 10) << 3;
-  		// imageData.data[imageDataPos + 1923] = 255;
+		// this.imageData.data[imageDataPos + 1924] = (color & 31) << 3;
+		// this.imageData.data[imageDataPos + 1925] = ((color & 992) >>> 5) << 3;
+		// this.imageData.data[imageDataPos + 1926] = ((color & 31744) >>> 10) << 3;
+		// this.imageData.data[imageDataPos + 1927] = 255;
 
-  		// imageData.data[imageDataPos + 1924] = (color & 31) << 3;
-  		// imageData.data[imageDataPos + 1925] = ((color & 992) >>> 5) << 3;
-  		// imageData.data[imageDataPos + 1926] = ((color & 31744) >>> 10) << 3;
-  		// imageData.data[imageDataPos + 1927] = 255;
-
-  		pixel ++;
-  		wait = 3;
-  		if (pixel === 240)
-  		{
-  			pixel = 0;
-  			scanline ++;
-  			wait = 272; //68 * 4
-  		}
-  		if (scanline === 160)
-  		{
-  			scanline = 0;
-  			wait = 83776; //(68 + 240) * 68 * 4
-  			context.putImageData(imageData, 0, 0);
-  			setFrameComplete();
-  			//console.log(counter);
-  			//counter = 0;
-  			console.log("rendered frame...");
-  		}
-  	}
-  };
-
-  const rendermode4 = function()
-  {
-  	if (wait !== 0)
-  	{
-  		wait --;
-  	}
-  	else
-  	{
-  		if (scanline < 160)
-  		{
-  			ioregs[4] = 0;
-  			//pixel num = pixel + scanline * 240
-	  		let vramPos = (pixel + (scanline * 240)) + ((ioregs[0] & 16) ? 0xA000 : 0);
-	  		let imageDataPos = (pixel + (scanline * 240)) * 4;
-	  		let paletteIndex = vram[vramPos] * 2;
-
-	  		let color = (paletteram[paletteIndex + 1] << 8) ^ paletteram[paletteIndex];
-
-	  		imageData.data[imageDataPos ] = (color & 31) << 3;
-	  		imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
-	  		imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
-	  		imageData.data[imageDataPos + 3] = 255;
-
-	  		pixel ++;
-	  		wait = 3;
-
-	  		if (pixel === 240)
-	  		{
-	  			ioregs[4] |= 3;
-	  			pixel = 0;
-	  			scanline ++;
-	  			wait = 275; //68 * 4 + 3
-	  			ioregs[6] ++;
-	  		}
-  		}
-  		else
-  		{
-  			ioregs[4] |= 1;
-  			scanline ++;
-  			if (scanline === 228)
-  			{
-  				scanline = 0;
-  				context.putImageData(imageData, 0, 0);
-  				setFrameComplete();
-  				//console.log("rendered frame...");
-  			}
-  			ioregs[6] = scanline;
-  			wait = 1232;
-
-  		}
-
-  	}
-
-
-
-
-  	// if (wait !== 0)
-  	// {
-  	// 	wait --;
-  	// }
-  	// else
-  	// {
-  	// 	//pixel num = pixel + scanline * 240
-  	// 	let vramPos = (pixel + (scanline * 240)) + ((ioregs[0] & 16) ? 0xA000 : 0);
-  	// 	let imageDataPos = (pixel + (scanline * 240)) * 4;
-  	// 	let paletteIndex = vram[vramPos] * 2;
-
-  	// 	let color = (paletteram[paletteIndex + 1] << 8) ^ paletteram[paletteIndex];
-
-  	// 	imageData.data[imageDataPos ] = (color & 31) << 3;
-  	// 	imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
-  	// 	imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
-  	// 	imageData.data[imageDataPos + 3] = 255;
-
-  	// 	pixel ++;
-  	// 	wait = 3;
-  	// 	if (pixel === 240)
-  	// 	{
-  	// 		pixel = 0;
-  	// 		scanline ++;
-  	// 		wait = 272; //68 * 4
-  	// 		ioregs[6] ++;
-  	// 	}
-  	// 	if (scanline === 160)
-  	// 	{
-  	// 		ioregs[6] = 0;
-  	// 		scanline = 0;
-  	// 		wait = 83776; //(68 + 240) * 68 * 4
-  	// 		context.putImageData(imageData, 0, 0);
-  	// 		setFrameComplete();
-  	// 		//console.log(counter);
-  	// 		//counter = 0;
-  	// 		console.log("rendered frame...");
-  	// 	}
-  	// }
-  };
-
-	return {
-
-		//displays register values on screen for current mode
-		updateRegisters : function(mode) {
-			for (let i = 0; i <= 15; i++)
-			{
-				registersDOM[i].textContent = parseInt(registers[i][registerIndices[mode][i]]).toString(16);
-			}
-			//show SPSR
-			if (mode)
-			{
-				registersDOM[16].textContent = parseInt(registers[17][registerIndices[mode][17]]).toString(16);
-			}
-			let CPSR = registers[16][0];
-			cpsrDOM[0].textContent = bitSlice(CPSR, 31, 31);
-			cpsrDOM[1].textContent = bitSlice(CPSR, 30, 30);
-			cpsrDOM[2].textContent = bitSlice(CPSR, 29, 29);
-			cpsrDOM[3].textContent = bitSlice(CPSR, 28, 28);
-			cpsrDOM[5].textContent = bitSlice(CPSR, 7, 7);
-			cpsrDOM[6].textContent = bitSlice(CPSR, 6, 6);
-			cpsrDOM[7].textContent = bitSlice(CPSR, 5, 5);
-			cpsrDOM[8].textContent = valToMode[bitSlice(CPSR, 0, 4)] + "(" + bitSlice(CPSR, 0, 4) + ")";
-			cpsrDOM[9].textContent = getBytes(CPSR, 0);
-
-		},
-
-		updateScreen : function(){
-			switch (bitSlice(ioregs[0], 0, 2))
-			{
-				case 0:
-				//alert("0");
-				//drawMode3();
-				break;
-
-				case 1:
-				alert("1");
-				//drawMode3();
-				break;
-
-				case 2:
-				alert("2");
-				//drawMode3();
-				break;
-
-				case 3:
-				//alert("3");
-				rendermode3();
-				break;
-
-				case 4:
-				//alert("4");
-				rendermode4();
-				break;
-
-				case 5:
-				alert("5");
-				//drawMode3();
-				break;
-			}
+		this.pixel ++;
+		this.wait = 3;
+		if (this.pixel === 240)
+		{
+			this.pixel = 0;
+			this.scanline ++;
+			this.wait = 272; //68 * 4
+		}
+		if (this.scanline === 160)
+		{
+			this.scanline = 0;
+			this.wait = 83776; //(68 + 240) * 68 * 4
+			this.context.putImageData(this.imageData, 0, 0);
+			this.setFrameComplete();
+			console.log("rendered frame...");
 		}
 	}
+};
 
-}
+graphics.prototype.rendermode4 = function()
+{
+	if (this.wait !== 0)
+	{
+		this.wait --;
+	}
+	else
+	{
+		if (this.scanline < 160)
+		{
+			this.ioregs[4] = 0;
+			//pixel num = pixel + scanline * 240
+  		let vramPos = (this.pixel + (this.scanline * 240)) + ((this.ioregs[0] & 16) ? 0xA000 : 0);
+  		let imageDataPos = (this.pixel + (this.scanline * 240)) * 4;
+  		let paletteIndex = this.vram[vramPos] * 2;
+
+  		let color = (this.paletteram[paletteIndex + 1] << 8) ^ this.paletteram[paletteIndex];
+
+  		this.imageData.data[imageDataPos ] = (color & 31) << 3;
+  		this.imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
+  		this.imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
+  		this.imageData.data[imageDataPos + 3] = 255;
+
+  		this.pixel ++;
+  		this.wait = 3;
+
+  		if (this.pixel === 240)
+  		{
+  			this.ioregs[4] |= 3;
+  			this.pixel = 0;
+  			this.scanline ++;
+  			this.wait = 275; //68 * 4 + 3
+  			this.ioregs[6] ++;
+  		}
+		}
+		else
+		{
+			this.ioregs[4] |= 1;
+			this.scanline ++;
+			if (this.scanline === 228)
+			{
+				this.scanline = 0;
+				this.context.putImageData(this.imageData, 0, 0);
+				this.setFrameComplete();
+				//console.log("rendered frame...");
+			}
+			this.ioregs[6] = this.scanline;
+			this.wait = 1232;
+
+		}
+	}
+};
+
+
+//debugging
+graphics.prototype.updateRegisters = function(mode) {
+	for (let i = 0; i <= 15; i++)
+	{
+		this.registersDOM[i].textContent = parseInt(this.registers[i][this.registerIndices[mode][i]]).toString(16);
+	}
+	//show SPSR
+	if (mode)
+	{
+		this.registersDOM[16].textContent = parseInt(this.registers[17][this.registerIndices[mode][17]]).toString(16);
+	}
+	let CPSR = this.registers[16][0];
+	this.cpsrDOM[0].textContent = bitSlice(CPSR, 31, 31);
+	this.cpsrDOM[1].textContent = bitSlice(CPSR, 30, 30);
+	this.cpsrDOM[2].textContent = bitSlice(CPSR, 29, 29);
+	this.cpsrDOM[3].textContent = bitSlice(CPSR, 28, 28);
+	this.cpsrDOM[5].textContent = bitSlice(CPSR, 7, 7);
+	this.cpsrDOM[6].textContent = bitSlice(CPSR, 6, 6);
+	this.cpsrDOM[7].textContent = bitSlice(CPSR, 5, 5);
+	this.cpsrDOM[8].textContent = this.valToMode[bitSlice(CPSR, 0, 4)] + "(" + bitSlice(CPSR, 0, 4) + ")";
+	this.cpsrDOM[9].textContent = getBytes(CPSR, 0);
+};
+
+//render graphics
+graphics.prototype.updateScreen = function(){
+	switch (bitSlice(this.ioregs[0], 0, 2))
+	{
+		case 0:
+		//alert("0");
+		//drawMode3();
+		break;
+
+		case 1:
+		alert("1");
+		//drawMode3();
+		break;
+
+		case 2:
+		alert("2");
+		//drawMode3();
+		break;
+
+		case 3:
+		//alert("3");
+		this.rendermode3();
+		break;
+
+		case 4:
+		//alert("4");
+		this.rendermode4();
+		break;
+
+		case 5:
+		alert("5");
+		//drawMode3();
+		break;
+	}
+};
