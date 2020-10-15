@@ -83,7 +83,7 @@ const ARMopcodes = [
 "LDC / STC [ARM]",
 "CDP [ARM]",
 "MRC / MCR [ARM]",
-"SWP [ARM]",
+"SWI [ARM]",
 "SMULL / SMLAL [ARM]"
 ]
 
