@@ -231,21 +231,18 @@ cpu.prototype.resetPipeline = function (){
 };
 
 //interrupt handling functions -------------------------------------------------------------------
-cpu.prototype.startSWI = function (inum) {
-  if (swi)
-  {
-    console.log("[" + inum + "]swi at: " + (registers[15][0]).toString(16));
-    registers[14][2] = registers[15][0] - (state ? 4 : 8); //set r14_svc to return address (PC is three instructions ahead)
-    registers[17][1] = registers[16][0]; //save CPSR in SPSR_svc
-    registers[16][0] = 147; //128 (i bit) + 19 (svc mode)
-    mode = 2; //set internal mode
-    state = 0; //set internal state
-    insize = 4;
-    registers[15][0] = 8; //set pc to swi exception vector
+cpu.prototype.startSWI = function () {
+  console.log("swi at: " + (this.registers[15][0]).toString(16));
 
-    resetPipeline();
-    swi = false;
-  }
+  this.registers[14][2] = this.registers[15][0] - (this.state ? 2 : 4); //set r14_svc to return address (PC is two instructions ahead)
+  this.registers[17][1] = this.registers[16][0]; //save CPSR in SPSR_svc
+  this.registers[16][0] = 147; //128 (i bit) + 19 (svc mode)
+  this.mode = 2; //set internal mode
+  this.state = 0; //set internal state
+  this.insize = 4;
+  this.registers[15][0] = 8; //set pc to swi exception vector
+
+  this.resetPipeline();
 }
 
 

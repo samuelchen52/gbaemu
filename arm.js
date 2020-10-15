@@ -156,15 +156,15 @@ arm.prototype.checkCondition = function (condition)
 		break;
 		case 7: return (flags & 0x1) ? false : true; //BVC V=0
 		break;
-		case 8: return ((flags & 0x2) && !(flags & 0x4)) ? true : false; //BHI C=1, Z=0 
+		case 8: return ((flags & 0x2) && !(flags & 0x4)) ? true : false; //BHI C=1 and Z=0 
 		break;
-		case 9: return (!(flags & 0x2) && (flags & 0x4)) ? true : false; //BLS C=0, Z=1
+		case 9: return (!(flags & 0x2) || (flags & 0x4)) ? true : false; //BLS C=0 or Z=1
 		break;
 		case 10: return (!!(flags & 0x8) === !!(flags & 0x1)) ? true : false; //BGE N=V
 		break;
 		case 11: return (!!(flags & 0x8) !== !!(flags & 0x1)) ? true : false; //BLT N<>V
 		break;
-		case 12: return ((!!(flags & 0x8) === !!(flags & 0x1)) && !(flags & 0x4)) ? true : false; //BGT N=V, Z=0
+		case 12: return ((!!(flags & 0x8) === !!(flags & 0x1)) && !(flags & 0x4)) ? true : false; //BGT N=V and Z=0
 		break;
 		case 13: return ((!!(flags & 0x8) !== !!(flags & 0x1)) || (flags & 0x4)) ? true : false; //BLE N<>V or Z=1
 		break;
@@ -2293,9 +2293,7 @@ arm.prototype.executeOpcode77 = function (instr, mode) { //77 - MRC / MCR
 
 //ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
 arm.prototype.executeOpcode78 = function (instr, mode) { //78 - SWI
-	console.log("SWI called");
-
-	startSWI();
+	this.startSWI();
 	//filler code for SWI #6h (used by gba-suite )
 	// let numerator = this.registers[0][this.registerIndices[mode][0]];
 	// let denominator = this.registers[1][this.registerIndices[mode][1]];

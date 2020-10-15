@@ -762,33 +762,33 @@ thumb.prototype.executeOpcode56 = function (instr, mode) { //56 - CONDITIONAL BR
 
 	switch(condition)
 	{
-		case 0: execute = flags & 0x4 ? true : false; //BEQ Z=1
+		case 0: execute = (flags & 0x4) ? true : false; //BEQ Z=1
 		break;
-		case 1: execute = flags & 0x4 ? false : true; //BNE Z=0
+		case 1: execute = (flags & 0x4) ? false : true; //BNE Z=0
 		break;
-		case 2: execute = flags & 0x2 ? true : false; //BCS/BHS C=1
+		case 2: execute = (flags & 0x2) ? true : false; //BCS/BHS C=1
 		break;
-		case 3: execute = flags & 0x2 ? false : true; //BCC/BLO C=0
+		case 3: execute = (flags & 0x2) ? false : true; //BCC/BLO C=0
 		break;
-		case 4: execute = flags & 0x8 ? true : false; //BMI N=1
+		case 4: execute = (flags & 0x8) ? true : false; //BMI N=1
 		break;
-		case 5: execute = flags & 0x8 ? false : true; //BPL N=0
+		case 5: execute = (flags & 0x8) ? false : true; //BPL N=0
 		break;
-		case 6: execute = flags & 0x1 ? true : false; //BVS V=1
+		case 6: execute = (flags & 0x1) ? true : false; //BVS V=1
 		break;
-		case 7: execute = flags & 0x1 ? false : true; //BVC V=0
+		case 7: execute = (flags & 0x1) ? false : true; //BVC V=0
 		break;
-		case 8: execute = (flags & 0x2) && !(flags & 0x4) ? true : false; //BHI C=1 and Z=0 
+		case 8: execute = ((flags & 0x2) && !(flags & 0x4)) ? true : false; //BHI C=1 and Z=0 
 		break;
-		case 9: execute = !(flags & 0x2) || (flags & 0x4) ? true : false; //BLS C=0 or Z=1
+		case 9: execute = (!(flags & 0x2) || (flags & 0x4)) ? true : false; //BLS C=0 or Z=1
 		break;
-		case 10: execute = (flags & 0x8) === (flags & 0x1) ? true : false; //BGE N=V
+		case 10: execute = (!!(flags & 0x8) === !!(flags & 0x1)) ? true : false; //BGE N=V
 		break;
-		case 11: execute = (flags & 0x8) !== (flags & 0x1) ? true : false; //BLT N<>V
+		case 11: execute = (!!(flags & 0x8) !== !!(flags & 0x1)) ? true : false; //BLT N<>V
 		break;
-		case 12: execute = ((flags & 0x8) === (flags & 0x1)) && !(flags & 0x4) ? true : false; //BGT N=V, Z=0
+		case 12: execute = ((!!(flags & 0x8) === !!(flags & 0x1)) && !(flags & 0x4)) ? true : false; //BGT N=V and Z=0
 		break;
-		case 13: execute = ((flags & 0x8) !== (flags & 0x1)) || (flags & 0x4) ? true : false; //BGT N<>V or Z=1
+		case 13: execute = ((!!(flags & 0x8) !== !!(flags & 0x1)) || (flags & 0x4)) ? true : false; //BLE N<>V or Z=1
 		break;
 		case 14: throw Error("invalid opcode (0xE) with THUMB conditional branch");
 		break;
@@ -805,7 +805,6 @@ thumb.prototype.executeOpcode56 = function (instr, mode) { //56 - CONDITIONAL BR
 
 //THUMB.17------------------------------------------------------------------------------------------------------
 thumb.prototype.executeOpcode57 = function (instr, mode) { //57 - SWI
-	console.log("SWI called");
 	this.startSWI();
 };
 
