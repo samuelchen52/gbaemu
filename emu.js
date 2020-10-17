@@ -40,16 +40,16 @@ waitFile("romInput").then(async function (buffer) {
 	}
 
 	//copy ROM into memory
-	let ROM = MMU.getMemoryRegion("ROM");
+	let ROM1 = MMU.getMemoryRegion("ROM1");
 	let ROM2 = MMU.getMemoryRegion("ROM2");
-	for (let i = 0; i < Math.min(ROM.length, buffer.length); i+=4)
+	for (let i = 0; i < Math.min(ROM1.length, buffer.length); i+=4)
 	{
-		ROM[i] = buffer[i]; //LSB
-		ROM[i + 1] = buffer[i + 1];
-		ROM[i + 2] = buffer[i + 2];
-		ROM[i + 3] = buffer[i + 3]; //MSB
+		ROM1[i] = buffer[i]; //LSB
+		ROM1[i + 1] = buffer[i + 1];
+		ROM1[i + 2] = buffer[i + 2];
+		ROM1[i + 3] = buffer[i + 3]; //MSB
 	}
-	for (let i = ROM.length; i < buffer.length; i ++)
+	for (let i = ROM1.length; i < buffer.length; i ++)
 	{
 		let p = i & 0xFFFFFF;
 		ROM2[p] = buffer[p]; //LSB
@@ -86,7 +86,7 @@ waitFile("romInput").then(async function (buffer) {
 	});
 
 	//for debugging
-	// while (i <= 208830)
+	// while (i <= 2206)
 	// {
 
 	// 	try {
@@ -123,7 +123,7 @@ waitFile("romInput").then(async function (buffer) {
 		{
 			CPU.run(false, i);
 			GRAPHICS.updateScreen();
-			i ++;
+			//i ++;
 		}
 		frameNotComplete = true;
 		frames ++;
