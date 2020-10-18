@@ -124,11 +124,12 @@ const cpu = function (pc, MMU) {
     //cpu pipeline (pipeline[0] holds instruction to be decoded, pipeline[1] and pipeline[2] hold the opcode and the instruction itself to be executed)
     this.pipeline = new Uint32Array(3);
     this.pipelinecopy = new Uint32Array(3);
-
+    
     //ARM and THUMB 
     this.THUMB = new thumb(this.MMU, this.registers, this.changeState.bind(this), this.changeMode.bind(this), this.resetPipeline.bind(this), this.startSWI.bind(this), this.registerIndices);
     this.ARM = new arm(this.MMU, this.registers, this.changeState.bind(this), this.changeMode.bind(this), this.resetPipeline.bind(this), this.startSWI.bind(this), this.registerIndices);
 
+    this.initPipeline();
 
     //debugging stuff
     const ARM = this.ARM;
@@ -273,7 +274,6 @@ cpu.prototype.run = function(debug, inum) {
   catch (err)
   {
     console.log("[" + inum +  "] executing opcode: " + (this.state ? THUMBopcodes[this.pipelinecopy[2]] : ARMopcodes[this.pipelinecopy[2]]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
-    console.log(err);
     throw Error(err);
   }
 

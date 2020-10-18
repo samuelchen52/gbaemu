@@ -42,11 +42,7 @@ const keypad = function(mmu) {
 
 	//only dealing with the first 8 bits (for now), L and R buttons in next two bits in next byte
 	this.ioregs[0x130] = 255; 
-};
-	
 
-keypad.prototype.initInput = function ()
-{
 	$(document).keydown(function(e) {
 		//console.log("keydown");
 	 	this.ioregs[0x130] &= this.keyCodeToKeyDown[e.keyCode];
@@ -57,5 +53,5 @@ keypad.prototype.initInput = function ()
 	  this.ioregs[0x130] |= this.keyCodeToKeyUp[e.keyCode];
 	}.bind(this));
 };
-
+	
 

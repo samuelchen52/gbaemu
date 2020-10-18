@@ -69,9 +69,6 @@ waitFile("romInput").then(async function (buffer) {
 	const GRAPHICS = new graphics(MMU, CPU.registers, function(){frameNotComplete = false;});
 	const KEYPAD = new keypad(MMU);
 
-	CPU.initPipeline();
-	KEYPAD.initInput();
-
 
 	//for debugging
 	let i = 1;
