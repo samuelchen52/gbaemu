@@ -6,7 +6,7 @@ const mmu = function() {
 	new memRegionBIOS("BIOS", 16 * 1024), //16 kb of BIOS
 	new memRegion("BOARDWORKRAM", 256 * 1024), //256 kb of on board work ram (EWRAM)
 	new memRegion("CHIPWORKRAM", 32 * 1024), //32 kb of on chip work ram (IEWRAM)
-	new memRegion("IOREGISTERS", 1023), //1023 bytes for io registers
+	new ioRegion(), //1023 bytes for io registers
 	new memRegionDisplay("PALETTERAM", 1 * 1024), //1 kb for palette ram
 	new memRegionDisplay("VRAM", 96 * 1024), //96 kb for vram
 	new memRegionDisplay("OAM", 1 * 1024), //1kb for oam
