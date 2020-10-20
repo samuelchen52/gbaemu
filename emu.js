@@ -28,34 +28,34 @@ waitFile("romInput").then(async function (buffer) {
 	//copy BIOS into memory
 	if (biosBuffer !== undefined)
 	{
-		let BIOS = MMU.getMemoryRegion("BIOS");
+		let biosMem = MMU.getMemoryRegion("BIOS").memory;
 		for (let i = 0; i < biosBuffer.length; i ++)
 		{
-			BIOS[i] = biosBuffer[i]; //LSB
-			BIOS[i + 1] = biosBuffer[i + 1];
-			BIOS[i + 2] = biosBuffer[i + 2];
-			BIOS[i + 3] = biosBuffer[i + 3]; //MSB
+			biosMem[i] = biosBuffer[i]; //LSB
+			biosMem[i + 1] = biosBuffer[i + 1];
+			biosMem[i + 2] = biosBuffer[i + 2];
+			biosMem[i + 3] = biosBuffer[i + 3]; //MSB
 		}
 		console.log("copied BIOS into memory");
 	}
 
 	//copy ROM into memory
-	let ROM1 = MMU.getMemoryRegion("ROM1");
-	let ROM2 = MMU.getMemoryRegion("ROM2");
-	for (let i = 0; i < Math.min(ROM1.length, buffer.length); i+=4)
+	let rom1Mem = MMU.getMemoryRegion("ROM1").memory;
+	let rom2Mem = MMU.getMemoryRegion("ROM2").memory;
+	for (let i = 0; i < Math.min(rom1Mem.length, buffer.length); i+=4)
 	{
-		ROM1[i] = buffer[i]; //LSB
-		ROM1[i + 1] = buffer[i + 1];
-		ROM1[i + 2] = buffer[i + 2];
-		ROM1[i + 3] = buffer[i + 3]; //MSB
+		rom1Mem[i] = buffer[i]; //LSB
+		rom1Mem[i + 1] = buffer[i + 1];
+		rom1Mem[i + 2] = buffer[i + 2];
+		rom1Mem[i + 3] = buffer[i + 3]; //MSB
 	}
-	for (let i = ROM1.length; i < buffer.length; i ++)
+	for (let i = rom1Mem.length; i < buffer.length; i ++)
 	{
 		let p = i & 0xFFFFFF;
-		ROM2[p] = buffer[p]; //LSB
-		ROM2[p + 1] = buffer[p + 1];
-		ROM2[p + 2] = buffer[p + 2];
-		ROM2[p + 3] = buffer[p + 3]; //MSB
+		rom2Mem[p] = buffer[p]; //LSB
+		rom2Mem[p + 1] = buffer[p + 1];
+		rom2Mem[p + 2] = buffer[p + 2];
+		rom2Mem[p + 3] = buffer[p + 3]; //MSB
 	}
 	console.log("copied ROM into memory");
 
@@ -120,7 +120,7 @@ waitFile("romInput").then(async function (buffer) {
 		{
 			CPU.run(false, i);
 			GRAPHICS.updateScreen();
-			//i ++;
+			i ++;
 		}
 		frameNotComplete = true;
 		frames ++;
