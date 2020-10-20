@@ -45,6 +45,7 @@ ioReg.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
 
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
+	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 //for now, assuming writes to read only / unused mem dont do anything, and reading from write only / unused mem just returns 0
@@ -186,20 +187,24 @@ ioRegByte.prototype.read16 = function (memAddr) {
 }
 
 ioRegByte.prototype.read32 = function (memAddr) {
-	return this.ioRegionMemory[memAddr] + (this.ioRegs[this.regIndex + 1].read8(memAddr) << 8) + (this.ioRegs[this.regIndex + 2].read16(memAddr) << 16) ;
+	return this.ioRegionMemory[memAddr] + (this.ioRegs[this.regIndex + 1].read8(memAddr) << 8) + (this.ioRegs[this.regIndex + 2].read16(memAddr) << 16);
 }
 
 ioRegByte.prototype.write16 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
 
 	this.ioRegs[this.regIndex + 1].write8(memAddr + 1, (val & 0xFF00) >>> 8); 
+	this.ioRegs[this.regIndex + 1].triggerCallbacks();
 }
 
 ioRegByte.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
 
 	this.ioRegs[this.regIndex + 1].write8(memAddr + 1, (val & 0xFF00) >>> 8); 
+	this.ioRegs[this.regIndex + 1].triggerCallbacks();
+
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
+	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 
@@ -239,13 +244,17 @@ ioRegByteWriteOnly.prototype.write16 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
 
 	this.ioRegs[this.regIndex + 1].write8(memAddr + 1, (val & 0xFF00) >>> 8); 
+	this.ioRegs[this.regIndex + 1].triggerCallbacks();
 }
 
 ioRegByteWriteOnly.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
 
 	this.ioRegs[this.regIndex + 1].write8(memAddr + 1, (val & 0xFF00) >>> 8); 
+	this.ioRegs[this.regIndex + 1].triggerCallbacks();
+
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
+	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 
@@ -272,16 +281,51 @@ ioRegIF.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
 
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
+	this.ioRegs[this.regIndex + 2].triggerCallbacks();
+}
+
+//represents register DISPSTAT (bits 0 - 2 are read only)
+const ioRegDISPSTAT = function (name, ioRegionMemory, ioRegs, regIndex) {
+	ioReg.call(this, name, ioRegionMemory, ioRegs, regIndex);
+}
+
+ioRegDISPSTAT.prototype = Object.create(ioReg.prototype);
+ioRegDISPSTAT.constructor = ioRegDISPSTAT;
+
+ioRegDISPSTAT.prototype.write8 = function (memAddr, val) {
+	if (memAddr === this.regIndex) //writing to lower byte with read only bits
+	{
+		val &= ~7;
+	}
+	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
+}
+
+ioRegDISPSTAT.prototype.write16 = function (memAddr, val) {
+	val &= ~7;
+	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
+	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
+}
+
+ioRegDISPSTAT.prototype.write32 = function (memAddr, val) {
+	val &= ~7;
+	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
+	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
+
+	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
+	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 //represents an unused IO register
 const ioRegUnused = function (name, ioRegionMemory, ioRegs, regIndex) {
 	ioReg.call(this, name, ioRegionMemory, ioRegs, regIndex);
-	this.callbacks = null;
 }
 
 ioRegUnused.prototype = Object.create(ioReg.prototype);
 ioRegUnused.constructor = ioRegUnused;
+
+ioRegUnused.prototype.triggerCallbacks = function (memAddr) {
+	return;
+}
 
 ioRegUnused.prototype.read8 = function (memAddr) {
 	console.log("not implemented: reading byte at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));

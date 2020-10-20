@@ -1,8 +1,8 @@
 const keypad = function(mmu) {
 	this.mmu = mmu;
 
-	this.ioregs = mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
-	this.vram = mmu.getMemoryRegion("VRAM");
+	this.ioregMem = mmu.getMemoryRegion("IOREGISTERS").memory; //0x4000000
+	this.vramMem = mmu.getMemoryRegion("VRAM").memory;
 	//KEYINPUT - Key Status (read-only) 0x4000130 -> ioregs[0x130] + ioregs[0x131] << 8
 	//bits being cleared represents the corresponding button being pressed
 	//bits 0 to 9 correspond to buttons
@@ -41,16 +41,16 @@ const keypad = function(mmu) {
 	this.keyCodeToKeyUp[40] = ~127;
 
 	//only dealing with the first 8 bits (for now), L and R buttons in next two bits in next byte
-	this.ioregs[0x130] = 255; 
+	this.ioregMem[0x130] = 255; 
 
 	$(document).keydown(function(e) {
 		//console.log("keydown");
-	 	this.ioregs[0x130] &= this.keyCodeToKeyDown[e.keyCode];
+	 	this.ioregMem[0x130] &= this.keyCodeToKeyDown[e.keyCode];
 	}.bind(this));
 
 	$(document).keyup(function(e) {
 		//console.log("keyup");
-	  this.ioregs[0x130] |= this.keyCodeToKeyUp[e.keyCode];
+	  this.ioregMem[0x130] |= this.keyCodeToKeyUp[e.keyCode];
 	}.bind(this));
 };
 	

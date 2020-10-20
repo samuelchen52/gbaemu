@@ -132,15 +132,36 @@ const graphics = function(mmu, registers, setFrameComplete) {
 	this.context = document.getElementById("screen").getContext("2d");
 	this.imageData = this.context.createImageData(240, 160);
 
-  this.ioregs = this.mmu.getMemoryRegion("IOREGISTERS"); //0x4000000
-  this.paletteram = this.mmu.getMemoryRegion("PALETTERAM"); //0x5000000
-  this.vram = this.mmu.getMemoryRegion("VRAM"); //0x6000000
-  this.oam = this.mmu.getMemoryRegion("OAM"); //0x7000000
+  this.ioregion = this.mmu.getMemoryRegion("IOREGISTERS");
+  this.ioregionMem = this.ioregion.memory; //0x4000000
+  this.paletteRamMem = this.mmu.getMemoryRegion("PALETTERAM").memory; //0x5000000
+  this.vramMem = this.mmu.getMemoryRegion("VRAM").memory; //0x6000000
+  this.oamMem = this.mmu.getMemoryRegion("OAM").memory; //0x7000000
 
   this.pixel = 0; //current pixel we are drawing on current scanline
   this.scanline = 0; //current scanline we are drawing on
 
   this.wait = 0;
+
+  //graphics hardware configuration
+  this.mode = 4;
+  this.frame = 0;
+
+  //graphics hardware ioregs
+  this.dispcnt = this.ioregion.getIOReg("DISPCNT");
+  this.dispcnt.addCallback((dispcntVal) => {
+    this.mode = dispcntVal & 7;
+    this.frame = dispcntVal & 16;
+  });
+
+  this.dispstat = this.ioregion.getIOReg("DISPSTAT");
+  this.dispstatAddr1 = this.dispstat.regIndex;
+  this.dispstatAddr2 = this.dispstat.regIndex + 1;
+
+  this.vcount = this.ioregion.getIOReg("VCOUNT");
+  this.vcountAddr1 = this.vcount.regIndex;
+
+
   //when we reach vblank, set frameNotComplete to false
 };
 
@@ -157,7 +178,7 @@ graphics.prototype.rendermode3 = function()
 		let imageDataPos = (this.pixel + (this.scanline * 240)) * 4;
 		//let imageDataPos = (pixel * 8) + (scanline * 240 * 16);
 
-		let color = (this.vram[vramPos + 1] << 8) ^ this.vram[vramPos];
+		let color = (this.vramMem[vramPos + 1] << 8) ^ this.vramMem[vramPos];
 		this.imageData.data[imageDataPos ] = (color & 31) << 3;
 		this.imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
 		this.imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
@@ -207,13 +228,13 @@ graphics.prototype.rendermode4 = function()
 	{
 		if (this.scanline < 160)
 		{
-			this.ioregs[4] = 0;
+			this.ioregionMem[this.dispstatAddr1] = 0;
 			//pixel num = pixel + scanline * 240
-  		let vramPos = (this.pixel + (this.scanline * 240)) + ((this.ioregs[0] & 16) ? 0xA000 : 0);
+  		let vramPos = (this.pixel + (this.scanline * 240)) + (this.frame ? 0xA000 : 0);
   		let imageDataPos = (this.pixel + (this.scanline * 240)) * 4;
-  		let paletteIndex = this.vram[vramPos] * 2;
+  		let paletteIndex = this.vramMem[vramPos] * 2;
 
-  		let color = (this.paletteram[paletteIndex + 1] << 8) ^ this.paletteram[paletteIndex];
+  		let color = (this.paletteRamMem[paletteIndex + 1] << 8) ^ this.paletteRamMem[paletteIndex];
 
   		this.imageData.data[imageDataPos ] = (color & 31) << 3;
   		this.imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
@@ -225,16 +246,16 @@ graphics.prototype.rendermode4 = function()
 
   		if (this.pixel === 240)
   		{
-  			this.ioregs[4] |= 3;
+  			this.ioregionMem[this.dispstatAddr1] |= 3;
   			this.pixel = 0;
   			this.scanline ++;
   			this.wait = 275; //68 * 4 + 3
-  			this.ioregs[6] ++;
+  			this.ioregionMem[this.vcountAddr1] ++;
   		}
 		}
 		else
 		{
-			this.ioregs[4] |= 1;
+			this.ioregionMem[this.dispstatAddr1] |= 1;
 			this.scanline ++;
 			if (this.scanline === 228)
 			{
@@ -243,7 +264,7 @@ graphics.prototype.rendermode4 = function()
 				this.setFrameComplete();
 				//console.log("rendered frame...");
 			}
-			this.ioregs[6] = this.scanline;
+			this.ioregionMem[this.vcountAddr1] = this.scanline;
 			this.wait = 1232;
 
 		}
@@ -276,7 +297,7 @@ graphics.prototype.updateRegisters = function(mode) {
 
 //render graphics
 graphics.prototype.updateScreen = function(){
-	switch (bitSlice(this.ioregs[0], 0, 2))
+	switch (this.mode)
 	{
 		case 0:
 		//alert("0");
@@ -309,3 +330,29 @@ graphics.prototype.updateScreen = function(){
 		break;
 	}
 };
+
+
+
+
+
+// let arr = [];
+// let typedarr = new Uint32Array(100);
+// let objects = [{"hello" : 5}, {"asdfasfasdfasfdasf" : "asdfa"}, {"fffffffffffffff" : {}}, {"fasdfasdfadsf" : []}]
+// for (let i = 0; i < 100; i ++)
+// {
+//   arr.push(objects[Math.floor(Math.random() * 4)]);
+// }
+
+// let timenow = (new Date).getTime();
+// for (let i = 0; i < 100000000; i++)
+// {
+//   let somevar = 0xFF ^ 0xFF00;
+// }
+// console.log((new Date).getTime() - timenow);
+
+// timenow = (new Date).getTime();
+// for (let i = 0; i < 100000000; i++)
+// {
+//   let somevar = 0xFF + 0xFF00;
+// }
+// console.log((new Date).getTime() - timenow);

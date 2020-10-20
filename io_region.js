@@ -1,6 +1,6 @@
 const ioRegion = function() {
 
-	let ioregENUMS = {IOREG : 0, IOREGREADONLY : 1, IOREGWRITEONLY : 2, IOREGBYTE : 3, IOREGBYTEWRITEONLY : 4, IOREGWORD : 5, IOREGWORDWRITEONLY : 6, IOREGIF : 7, UNUSED : 8};
+	let ioregENUMS = {IOREG : 0, IOREGREADONLY : 1, IOREGWRITEONLY : 2, IOREGBYTE : 3, IOREGBYTEWRITEONLY : 4, IOREGWORD : 5, IOREGWORDWRITEONLY : 6, IOREGIF : 7, IOREGDISPSTAT : 8, UNUSED : 9};
 
 	this.memory = new Uint8Array(1023);
 	this.ioregs = [];
@@ -176,7 +176,9 @@ const ioRegion = function() {
 			case ioregENUMS["IOREGWORD"]: newioreg = new ioRegWord(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 4; break;
 			case ioregENUMS["IOREGWORDWRITEONLY"]: newioreg = new ioRegWordWriteOnly(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 4; break;
 			case ioregENUMS["IOREGIF"]: newioreg = new ioRegIF(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGDISPSTAT"]: newioreg = new ioRegDISPSTAT(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
 			case ioregENUMS["UNUSED"]: newioreg = unusedreg; size = 2; break;
+			default: throw Error("undefined IO register type!");
 		}
 		for (let p = 0; p < size; p ++)
 		{
