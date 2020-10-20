@@ -196,7 +196,7 @@ mmu.prototype.getMemoryRegion = function(region)
 	}
 	else
 	{
-		return this.memRegions[this.memENUMS.indexOf(region)].memory;
+		return this.memRegions[this.memENUMS.indexOf(region)];
 	}
 }
 
