@@ -290,6 +290,18 @@ function shiftReg (register, shiftamt, type)
 	}
 }
 
+//https://stackoverflow.com/questions/7869752/javascript-typed-arrays-and-endianness?noredirect=1&lq=1
+function checkEndian() {
+    var arrayBuffer = new ArrayBuffer(2);
+    var uint8Array = new Uint8Array(arrayBuffer);
+    var uint16array = new Uint16Array(arrayBuffer);
+    uint8Array[0] = 0xAA; // set first byte
+    uint8Array[1] = 0xBB; // set second byte
+    if(uint16array[0] === 0xBBAA) return "little endian";
+    if(uint16array[0] === 0xAABB) throw Error ("this machine is big endian :(");
+    else throw Error("Something crazy just happened");
+}
+
 
 //assumes both instructions same length
 function cmp(instr1, instr2)

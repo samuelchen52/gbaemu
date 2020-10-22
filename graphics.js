@@ -56,13 +56,15 @@
 //4- 240x160 8bpp -> 0x9600 * 2 bytes (page flip)
 //5- 160x128 16bpp -> 0xA000 * 2 bytes (page flip)
 
+//summary: check dispcnt for bg2 screen display have to set vblank (throw if irq enable), have to set hblank (throw if hblank enable)
+//have to set vcounter flag if vcount === vcount setting
+//bg regs dont apply to modes 3- 5
+
 //3 interprets the 0x12C00 bytes starting at VRAM as a grid of pixels (16 bits per pixel)
 //4 interprets the 0x9600 * 2 bytes as palette indices (8 bits per pixel / index)
 //  8 bits -> 256 possible indices -> corresponds to 256 (16 bit) colors in palette
 //5 works the same as 3, but has page flipping and a smaller resolution (for shifting magic)
 
-//page flipping (mode 4)-
-//
 
 
 
@@ -125,234 +127,301 @@ const graphics = function(mmu, registers, setFrameComplete) {
       [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,4], //modeENUMS["UND"]
     ];
 
+  this.displayENUMS = {
+    VBLANKSET : 1,
+    HBLANKSET : 2, 
+    VCOUNTERSET : 4,
+    VBLANKCLEAR : ~1,
+    HBLANKCLEAR : ~2,
+    VCOUNTERCLEAR : ~4,
+
+    BGMODE : 7,
+    DISPLAYFRAME : 16,
+
+  }
 
 
 
   //graphics stuff
 	this.context = document.getElementById("screen").getContext("2d");
 	this.imageData = this.context.createImageData(240, 160);
+  this.imageDataArr = new Uint32Array(this.imageData.data.buffer); //new Uint32Array(this.imageData.data.buffer);
 
+  //graphics related memory
   this.ioregion = this.mmu.getMemoryRegion("IOREGISTERS");
   this.ioregionMem = this.ioregion.memory; //0x4000000
   this.paletteRamMem = this.mmu.getMemoryRegion("PALETTERAM").memory; //0x5000000
   this.vramMem = this.mmu.getMemoryRegion("VRAM").memory; //0x6000000
   this.oamMem = this.mmu.getMemoryRegion("OAM").memory; //0x7000000
 
+  //state variables
   this.pixel = 0; //current pixel we are drawing on current scanline
   this.scanline = 0; //current scanline we are drawing on
 
-  this.wait = 0;
+  this.hblank = false;
+  this.vblank = false;
+
+  this.frameComplete = false;
+
 
   //graphics hardware configuration
   this.mode = 4;
-  this.frame = 0;
+  this.displayFrame = 0;
+
+  this.hblankIRQEnable = false;
+  this.vblankIRQEnable = false;
+  this.vCountIRQEnable = false;
+
+  this.vCountSetting = 0;
+
 
   //graphics hardware ioregs
   this.dispcnt = this.ioregion.getIOReg("DISPCNT");
   this.dispcnt.addCallback((dispcntVal) => {
-    this.mode = dispcntVal & 7;
-    this.frame = dispcntVal & 16;
+    this.mode = dispcntVal & this.displayENUMS["BGMODE"];
+    this.frame = dispcntVal & this.displayENUMS["DISPLAYFRAME"];
   });
 
   this.dispstat = this.ioregion.getIOReg("DISPSTAT");
-  this.dispstatAddr1 = this.dispstat.regIndex;
-  this.dispstatAddr2 = this.dispstat.regIndex + 1;
+  this.dispstatByte1 = this.dispstat.regIndex;
+  this.dispstatByte2 = this.dispstat.regIndex + 1;
 
   this.vcount = this.ioregion.getIOReg("VCOUNT");
-  this.vcountAddr1 = this.vcount.regIndex;
+  this.vcountByte1 = this.vcount.regIndex;
 
 
-  //when we reach vblank, set frameNotComplete to false
+  this.init();
+
 };
 
-graphics.prototype.rendermode3 = function()
+graphics.prototype.init = function (){
+  //table for converting 15 bit colors to 32 bit abgr (alpha value set to full opacity)
+  this.convertColor = new Uint32Array(32768);
+  for (let i = 0; i < this.convertColor.length; i ++)
+  {
+    this.convertColor[i] = 0xFF000000 + ((i & 31744) << 9) + ((i & 992) << 6) + ((i & 31) << 3);
+  }  
+}
+
+graphics.prototype.renderScanlineMode3 = function()
 {	
-	if (this.wait !== 0)
-	{
-		this.wait --;
-	}
-	else
-	{
-		//pixel num = pixel + scanline * 240
-		let vramPos = (this.pixel + (this.scanline * 240)) * 2;
-		let imageDataPos = (this.pixel + (this.scanline * 240)) * 4;
-		//let imageDataPos = (pixel * 8) + (scanline * 240 * 16);
+  let vramMem = this.vramMem;
+  let imageDataArr = this.imageDataArr;
+  let convertColor = this.convertColor;
 
-		let color = (this.vramMem[vramPos + 1] << 8) ^ this.vramMem[vramPos];
-		this.imageData.data[imageDataPos ] = (color & 31) << 3;
-		this.imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
-		this.imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
-		this.imageData.data[imageDataPos + 3] = 255;
+  let imageDataPos = this.scanline * 240;
+  let vramPos = imageDataPos * 2;
+  let color;
 
-		// this.imageData.data[imageDataPos + 4] = (color & 31) << 3;
-		// this.imageData.data[imageDataPos + 5] = ((color & 992) >>> 5) << 3;
-		// this.imageData.data[imageDataPos + 6] = ((color & 31744) >>> 10) << 3;
-		// this.imageData.data[imageDataPos + 7] = 255;
+  for (let i = 0; i < 240; i ++)
+  {
+    color = (vramMem[vramPos + 1] << 8) + vramMem[vramPos];
+    imageDataArr[imageDataPos] = convertColor[color];
 
-		// this.imageData.data[imageDataPos + 1920] = (color & 31) << 3;
-		// this.imageData.data[imageDataPos + 1921] = ((color & 992) >>> 5) << 3;
-		// this.imageData.data[imageDataPos + 1922] = ((color & 31744) >>> 10) << 3;
-		// this.imageData.data[imageDataPos + 1923] = 255;
+    imageDataPos ++;
+    vramPos += 2;
+  }
 
-		// this.imageData.data[imageDataPos + 1924] = (color & 31) << 3;
-		// this.imageData.data[imageDataPos + 1925] = ((color & 992) >>> 5) << 3;
-		// this.imageData.data[imageDataPos + 1926] = ((color & 31744) >>> 10) << 3;
-		// this.imageData.data[imageDataPos + 1927] = 255;
-
-		this.pixel ++;
-		this.wait = 3;
-		if (this.pixel === 240)
-		{
-			this.pixel = 0;
-			this.scanline ++;
-			this.wait = 272; //68 * 4
-		}
-		if (this.scanline === 160)
-		{
-			this.scanline = 0;
-			this.wait = 83776; //(68 + 240) * 68 * 4
-			this.context.putImageData(this.imageData, 0, 0);
-			this.setFrameComplete();
-			console.log("rendered frame...");
-		}
-	}
 };
 
-graphics.prototype.rendermode4 = function()
+graphics.prototype.renderScanlineMode4 = function()
 {
-	if (this.wait !== 0)
-	{
-		this.wait --;
-	}
-	else
-	{
-		if (this.scanline < 160)
-		{
-			this.ioregionMem[this.dispstatAddr1] = 0;
-			//pixel num = pixel + scanline * 240
-  		let vramPos = (this.pixel + (this.scanline * 240)) + (this.frame ? 0xA000 : 0);
-  		let imageDataPos = (this.pixel + (this.scanline * 240)) * 4;
-  		let paletteIndex = this.vramMem[vramPos] * 2;
+  let vramMem = this.vramMem;
+  let paletteRamMem = this.paletteRamMem;
+  let imageDataArr = this.imageDataArr;
+  let convertColor = this.convertColor;
 
-  		let color = (this.paletteRamMem[paletteIndex + 1] << 8) ^ this.paletteRamMem[paletteIndex];
+  let imageDataPos = this.scanline * 240;
+  let vramPos = imageDataPos + (this.frame ? 0xA000 : 0);
+  let paletteIndex;
+  let color;
 
-  		this.imageData.data[imageDataPos ] = (color & 31) << 3;
-  		this.imageData.data[imageDataPos + 1] = ((color & 992) >>> 5) << 3;
-  		this.imageData.data[imageDataPos + 2] = ((color & 31744) >>> 10) << 3;
-  		this.imageData.data[imageDataPos + 3] = 255;
+  for (let i = 0; i < 240; i ++)
+  {
+    paletteIndex = vramMem[vramPos] * 2;
+    color = paletteRamMem[paletteIndex] + (paletteRamMem[paletteIndex + 1] << 8);
+    imageDataArr[imageDataPos] = convertColor[color];
 
-  		this.pixel ++;
-  		this.wait = 3;
-
-  		if (this.pixel === 240)
-  		{
-  			this.ioregionMem[this.dispstatAddr1] |= 3;
-  			this.pixel = 0;
-  			this.scanline ++;
-  			this.wait = 275; //68 * 4 + 3
-  			this.ioregionMem[this.vcountAddr1] ++;
-  		}
-		}
-		else
-		{
-			this.ioregionMem[this.dispstatAddr1] |= 1;
-			this.scanline ++;
-			if (this.scanline === 228)
-			{
-				this.scanline = 0;
-				this.context.putImageData(this.imageData, 0, 0);
-				this.setFrameComplete();
-				//console.log("rendered frame...");
-			}
-			this.ioregionMem[this.vcountAddr1] = this.scanline;
-			this.wait = 1232;
-
-		}
-	}
+    imageDataPos ++;
+    vramPos ++;
+  }
 };
 
+graphics.prototype.renderScanlineMode5 = function () {
+  //if (this.scanline > 127) return;
+  let vramMem = this.vramMem;
+  let imageDataArr = this.imageDataArr;
+  let convertColor = this.convertColor;
+
+  let imageDataPos = this.scanline * 240;
+  let vramPos = (this.scanline * 160 * 2) + (this.frame ? 0xA000 : 0);
+  let color;
+
+  for (let i = 0; i < 240; i ++)
+  {
+    color = (vramMem[vramPos + 1] << 8) + vramMem[vramPos];
+    imageDataArr[imageDataPos] = convertColor[color];
+
+    imageDataPos ++;
+    vramPos += 2;
+  }
+}
+
+graphics.prototype.renderScanline = function (mode) {
+  switch (mode)
+  {
+    case 0:
+    break;
+
+    case 1:
+    break;
+
+    case 2:
+    break;
+
+    case 3: this.renderScanlineMode3();
+    break;
+
+    case 4: this.renderScanlineMode4();
+    break;
+
+    case 5: this.renderScanlineMode5()
+    break;
+  }
+}
+//called every 4 cpu cycles
+graphics.prototype.pushPixel = function() {
+  if (this.vblank)
+  {
+    this.pixel ++;
+    if (this.pixel === 240)
+    {
+      this.setHblank();
+    }
+    else if (this.pixel === 308)
+    {
+      this.pixel = 0;
+      this.hblank = false;
+      this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["HBLANKCLEAR"];
+      this.scanline ++;
+      if (this.scanline === 228)
+      {
+        this.scanline = 0;
+        this.vblank = false;
+        this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["VBLANKCLEAR"];
+      }
+      this.updateVCount(this.scanline);
+    }
+  }
+  else if (this.hblank)
+  {
+    this.pixel ++;
+    if (this.pixel === 308) //go to next scanline
+    {
+      this.pixel = 0;
+      this.hblank = false;
+      this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["HBLANKCLEAR"];
+      this.scanline ++;
+      if (this.scanline === 160)
+      {
+        this.setVblank();
+        this.finishDraw();
+      }
+      this.updateVCount(this.scanline);
+    }
+  }
+  else
+  {
+    this.pixel ++;
+    if (this.pixel === 240)
+    {
+      this.setHblank();
+      this.renderScanline(this.mode);
+    }
+  }
+};
+
+graphics.prototype.finishDraw = function () {
+  this.context.putImageData(this.imageData, 0, 0);
+  this.setFrameComplete();
+}
+
+graphics.prototype.setHblank = function () {
+  this.hblank = true;
+  this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["HBLANKSET"];
+
+  //if hblank irq, throw interrupt
+};
+
+graphics.prototype.setVblank = function () {
+  this.vblank = true;
+  this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["VBLANKSET"];
+
+  //if vblank irq, throw interrupt
+};
+
+graphics.prototype.updateVCount = function (scanline) {
+  if (this.vCountSetting === scanline)
+  {
+    this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["VCOUNTERSET"];
+    //throw interrupt if vcount irq enabled
+  }
+  else
+  {
+    this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["VCOUNTERCLEAR"];
+  }
+  this.ioregionMem[this.vcountByte1] = scanline;
+};
 
 //debugging
 graphics.prototype.updateRegisters = function(mode) {
-	for (let i = 0; i <= 15; i++)
-	{
-		this.registersDOM[i].textContent = parseInt(this.registers[i][this.registerIndices[mode][i]]).toString(16);
-	}
-	//show SPSR
-	if (mode)
-	{
-		this.registersDOM[16].textContent = parseInt(this.registers[17][this.registerIndices[mode][17]]).toString(16);
-	}
-	let CPSR = this.registers[16][0];
-	this.cpsrDOM[0].textContent = bitSlice(CPSR, 31, 31);
-	this.cpsrDOM[1].textContent = bitSlice(CPSR, 30, 30);
-	this.cpsrDOM[2].textContent = bitSlice(CPSR, 29, 29);
-	this.cpsrDOM[3].textContent = bitSlice(CPSR, 28, 28);
-	this.cpsrDOM[5].textContent = bitSlice(CPSR, 7, 7);
-	this.cpsrDOM[6].textContent = bitSlice(CPSR, 6, 6);
-	this.cpsrDOM[7].textContent = bitSlice(CPSR, 5, 5);
-	this.cpsrDOM[8].textContent = this.valToMode[bitSlice(CPSR, 0, 4)] + "(" + bitSlice(CPSR, 0, 4) + ")";
-	this.cpsrDOM[9].textContent = getBytes(CPSR, 0);
-};
-
-//render graphics
-graphics.prototype.updateScreen = function(){
-	switch (this.mode)
-	{
-		case 0:
-		//alert("0");
-		//drawMode3();
-		break;
-
-		case 1:
-		alert("1");
-		//drawMode3();
-		break;
-
-		case 2:
-		alert("2");
-		//drawMode3();
-		break;
-
-		case 3:
-		//alert("3");
-		this.rendermode3();
-		break;
-
-		case 4:
-		//alert("4");
-		this.rendermode4();
-		break;
-
-		case 5:
-		alert("5");
-		//drawMode3();
-		break;
-	}
+  for (let i = 0; i <= 15; i++)
+  {
+    this.registersDOM[i].textContent = parseInt(this.registers[i][this.registerIndices[mode][i]]).toString(16);
+  }
+  //show SPSR
+  if (mode)
+  {
+    this.registersDOM[16].textContent = parseInt(this.registers[17][this.registerIndices[mode][17]]).toString(16);
+  }
+  let CPSR = this.registers[16][0];
+  this.cpsrDOM[0].textContent = bitSlice(CPSR, 31, 31);
+  this.cpsrDOM[1].textContent = bitSlice(CPSR, 30, 30);
+  this.cpsrDOM[2].textContent = bitSlice(CPSR, 29, 29);
+  this.cpsrDOM[3].textContent = bitSlice(CPSR, 28, 28);
+  this.cpsrDOM[5].textContent = bitSlice(CPSR, 7, 7);
+  this.cpsrDOM[6].textContent = bitSlice(CPSR, 6, 6);
+  this.cpsrDOM[7].textContent = bitSlice(CPSR, 5, 5);
+  this.cpsrDOM[8].textContent = this.valToMode[bitSlice(CPSR, 0, 4)] + "(" + bitSlice(CPSR, 0, 4) + ")";
+  this.cpsrDOM[9].textContent = getBytes(CPSR, 0);
 };
 
 
-
-
-
-// let arr = [];
-// let typedarr = new Uint32Array(100);
+//let arr8 = new Uint8Array(2);
+//let arr16 = new Uint16Array(arr8.buffer);
 // let objects = [{"hello" : 5}, {"asdfasfasdfasfdasf" : "asdfa"}, {"fffffffffffffff" : {}}, {"fasdfasdfadsf" : []}]
 // for (let i = 0; i < 100; i ++)
 // {
 //   arr.push(objects[Math.floor(Math.random() * 4)]);
 // }
 
+
+// let func = function () {let somevar = 4; return somevar};
+// let funcArr = [];
+// funcArr[5] = func;
+
+// let somevar;
 // let timenow = (new Date).getTime();
-// for (let i = 0; i < 100000000; i++)
+
+// for (let i = 0; i < 1000000000; i++)
 // {
-//   let somevar = 0xFF ^ 0xFF00;
+//   funcArr[5]();
 // }
 // console.log((new Date).getTime() - timenow);
 
 // timenow = (new Date).getTime();
-// for (let i = 0; i < 100000000; i++)
+// for (let i = 0; i < 1000000000; i++)
 // {
-//   let somevar = 0xFF + 0xFF00;
+//   func();
 // }
 // console.log((new Date).getTime() - timenow);

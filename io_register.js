@@ -58,6 +58,21 @@ const ioRegReadOnly = function (name, ioRegionMemory, ioRegs, regIndex) {
 ioRegReadOnly.prototype = Object.create(ioReg.prototype);
 ioRegReadOnly.constructor = ioRegReadOnly;
 
+ioRegReadOnly.prototype.read8 = function (memAddr) {
+	//console.log("AYOOO3");
+	return this.ioRegionMemory[memAddr];
+}
+
+ioRegReadOnly.prototype.read16 = function (memAddr) {
+	//console.log("AYOOO2");
+	return this.ioRegionMemory[memAddr] + (this.ioRegionMemory[(memAddr + 1)] << 8);
+}
+
+ioRegReadOnly.prototype.read32 = function (memAddr) {
+	//console.log("AYOOO1");
+	return this.ioRegionMemory[memAddr] + (this.ioRegionMemory[(memAddr + 1)] << 8) + (this.ioRegs[this.regIndex + 2].read16(memAddr) << 16);
+}
+
 ioRegReadOnly.prototype.write8 = function (memAddr, val) {
 	console.log("ignored: writing byte to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
 }

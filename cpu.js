@@ -123,8 +123,9 @@ const cpu = function (pc, MMU) {
 
     //cpu pipeline (pipeline[0] holds instruction to be decoded, pipeline[1] and pipeline[2] hold the opcode and the instruction itself to be executed)
     this.pipeline = new Uint32Array(3);
-    this.pipelinecopy = new Uint32Array(3);
-    
+    this.reset = false;
+    //this.pipelinecopy = new Uint32Array(3);
+
     //ARM and THUMB 
     this.THUMB = new thumb(this.MMU, this.registers, this.changeState.bind(this), this.changeMode.bind(this), this.resetPipeline.bind(this), this.startSWI.bind(this), this.registerIndices);
     this.ARM = new arm(this.MMU, this.registers, this.changeState.bind(this), this.changeMode.bind(this), this.resetPipeline.bind(this), this.startSWI.bind(this), this.registerIndices);
@@ -229,6 +230,8 @@ cpu.prototype.resetPipeline = function (){
   this.registers[15][0] += this.insize;
 
   this.pipeline[0] = this.fetch();
+
+  this.reset = true;
 };
 
 //interrupt handling functions -------------------------------------------------------------------
@@ -248,38 +251,52 @@ cpu.prototype.startSWI = function () {
 
 
 //main run function ----------------------------------------------------------------------------------------
-cpu.prototype.run = function(debug, inum) {
-  //handleSWI(inum);
-  try {
-    this.pipelinecopy[0] = this.pipeline[0];
-    this.pipelinecopy[1] = this.pipeline[1];
-    this.pipelinecopy[2] = this.pipeline[2];
+// cpu.prototype.run = function(debug, inum) {
+//   //handleSWI(inum);
+//   try {
+//     this.pipelinecopy[0] = this.pipeline[0];
+//     this.pipelinecopy[1] = this.pipeline[1];
+//     this.pipelinecopy[2] = this.pipeline[2];
 
-    this.pipeline[0] = this.fetch();
+//     this.pipeline[0] = this.fetch();
 
-    this.pipeline[1] = this.pipelinecopy[0];
-    this.pipeline[2] = this.decode(this.pipelinecopy[0]);   
+//     this.pipeline[1] = this.pipelinecopy[0];
+//     this.pipeline[2] = this.decode(this.pipelinecopy[0]);   
 
-    if (debug)
-    {
-      //console.log(this.pipelinecopy[2]);
-      console.log("[" + inum +  "] executing opcode: " + (this.state ? THUMBopcodes[this.pipelinecopy[2]] : ARMopcodes[this.pipelinecopy[2]]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
-    }
-    if (inum >= 1)
-    {
-      //this.LOG.logRegs(this.mode);
-    }
-    this.execute(this.pipelinecopy[1], this.pipelinecopy[2]);
-  }
-  catch (err)
-  {
-    console.log("[" + inum +  "] executing opcode: " + (this.state ? THUMBopcodes[this.pipelinecopy[2]] : ARMopcodes[this.pipelinecopy[2]]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
-    throw Error(err);
-  }
+//     if (debug)
+//     {
+//       //console.log(this.pipelinecopy[2]);
+//       console.log("[" + inum +  "] executing opcode: " + (this.state ? THUMBopcodes[this.pipelinecopy[2]] : ARMopcodes[this.pipelinecopy[2]]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
+//     }
+//     if (inum >= 1)
+//     {
+//       //this.LOG.logRegs(this.mode);
+//     }
+//     this.execute(this.pipelinecopy[1], this.pipelinecopy[2]);
+//   }
+//   catch (err)
+//   {
+//     console.log("[" + inum +  "] executing opcode: " + (this.state ? THUMBopcodes[this.pipelinecopy[2]] : ARMopcodes[this.pipelinecopy[2]]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
+//     console.log(err);
+//     throw Error(err);
+//   }
 
+//   this.registers[15][0] += this.insize; //increment pc
+// }
+
+cpu.prototype.run = function () {
+  let pipelinecopy0 = this.pipeline[0];
+  let pipelinecopy1 = this.pipeline[1];
+  let pipelinecopy2 = this.pipeline[2];
+
+  this.pipeline[0] = this.fetch();
+
+  this.pipeline[1] = pipelinecopy0;
+  this.pipeline[2] = this.decode(pipelinecopy0);   
+
+  this.execute(pipelinecopy1, pipelinecopy2);
   this.registers[15][0] += this.insize; //increment pc
 }
-
 
 
 

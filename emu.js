@@ -1,4 +1,3 @@
-
 const waitFile = function(fileName) //waits for file input (chip8 rom)
 {
 	return new Promise(function (resolve, reject)
@@ -62,13 +61,12 @@ waitFile("romInput").then(async function (buffer) {
 	buffer = null;
 	biosBuffer = null;
 
-	//set up hardware
 	let frameNotComplete = true;
 
+	//set up hardware
 	const CPU = new cpu(0x08000000, MMU);
 	const GRAPHICS = new graphics(MMU, CPU.registers, function(){frameNotComplete = false;});
 	const KEYPAD = new keypad(MMU);
-
 
 	//for debugging
 	let i = 1;
@@ -114,23 +112,24 @@ waitFile("romInput").then(async function (buffer) {
 		}, 30000);
 	}
 
-	//for input
 	const executeFrame = function() {
 		while (frameNotComplete)
 		{
-			CPU.run(false, i);
-			GRAPHICS.updateScreen();
-			i ++;
+			CPU.run();
+			CPU.run();
+			CPU.run();
+			CPU.run();
+			GRAPHICS.pushPixel();
 		}
-		frameNotComplete = true;
 		frames ++;
+		frameNotComplete = true;
 		setTimeout(executeFrame, 10);
 	};
+
 	setTimeout(executeFrame, 10);
 	printFPS();
 
-
-
-
 	//download(strData, strFileName);
 });
+
+checkEndian();
