@@ -21,7 +21,7 @@ const keypad = function(mmu) {
 	this.keyCodeToKeyDown = new Uint8Array(255);
 	this.keyCodeToKeyUp = new Uint8Array(255);
 
-	this.keyCodeToKeyDown.fill(65565);
+	this.keyCodeToKeyDown.fill(255);
 															//0A 1B 2select 3start 4right 5left 6up 7down 8r 9l
 	this.keyCodeToKeyDown[65] = 254; //11111110
 	this.keyCodeToKeyDown[83] = 253; //11111101
