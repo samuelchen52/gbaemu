@@ -1,30 +1,3 @@
-// LCD screen 240px wide x 160px high 
-// 15 bit colors 
-// 59.73 fps
-// scanline -> entire row of pixels 
-// screen is updated by updating scanline by scanline (160 scanlines)
-// after each scanline is a pause called HBLANK
-// after 160 scanlines is a pause called VBLANK, which is usually when the screen data is updated to prevent "tearing"
-// hblank and vblank are 68 pixels
-
-//each pixel takes 4 cycles, so entire scanline takes (240 + 68) * 4 = 1232 cycles, thus 228 (160 + VBLANK) scanlines (entire screen)
-//takes 1232 * 228 = 280896 cycles 
-//gba cpu runs at 16.73 MHZ -> 59.55 frames per second
-
-//16 bit colors xbbbbbgggggrrrr, last bit (left-most) unused
-
-//two palettes, one for sprites and one for backgrounds
-//each palette takes up 512 bytes
-//palette is either one palette of 256 colors, or 16 sub-palettes of 16 colors each
-//sprite palette follows immediately after background palette at 0x5000200
-//index 0 is transparency index?
-
-//3 types of graphics -> bitmaps, tiled backgrounds, and sprites
-//bitmaps and tiled backgrounds are for the background (only one can be used at a time), sprites can be used with either
-
-//tiled backgrounds made up of tiles (8x8 pixel bitmap)
-
-
 //LCD CONTROL
 
 //REG_DISPCNT R/W addr - 0x4000000h (two bytes)
@@ -66,16 +39,40 @@
 //5 works the same as 3, but has page flipping and a smaller resolution (for shifting magic)
 
 
-
-
-//video modes 0, 1, 2
-
-
-
+//video modes 0, 1 ,2
+//0 - all backgrounds used, all regular
+//1 - bg 0 and bg 1 regular, bg 2 affine
+//2 - bg 2 and 3 both used, both affine
+//this is for regular bg:
+//pixels never represent color of the pixel itself, they are all palette indices
+//8bpp -> 256 colors, 
+//4bpp -> index of palette in palette bank, palette bank index (4 bits) in tile or sprite oam
+//tiles are 8x8 pixel bitmaps, 4bpp -> 32 bytes, 8bpp -> 64 bytes, again, each pixel is palette index
+//VRAM is split up charblocks (tileset) and screenblocks (tilemap)
+//each char block is 16kb (4000 bytes long), so theres space for 6
+//4 charblocks for backgrounds, 2 for sprites (they are arranged this way in VRAM too)
+//charblocks are where the actual tiles (8x8 pixel bitmaps are stored)
+//the CBB stands for the character base block, which is the offset you need to add with tile index to reach given tile
+//the CBB for sprites is always char block 4 (the first sprite char block)
+//the screen blocks are where the tileMAP is stored (i.e. the index to the tiles, an 8x8 palette index matrix)
+//tilemap !== screenblock, one tilemap can use multiple screenblocks
+//each screen block is not just a matrix of tile indices, they also have other bits for flipping and stuff
+//whereas the charblocks span the entire VRAM mem space, screen blocks only take up the first 
+//64 kb of VRAM i.e. they occupy the same space as the first four character blocks
+//screen blocks are also smaller, 1 charblock === 8 screenblock, 4 * 8 === 32 screenblocks total
+//one tile is 16 bits, one screenblock can then hold 1024 tiles === 32x32 tiles === 256x256 pixels
+//like the CBB, there is a SBB, the offset you need to add with screen block entry index
+//SBB + screen block index -> tile index -> tile index + CBB -> tile -> palette
+//all this stuff organized in a BACKGROUND, of which there are four of
 
 //BACKGROUND
 
 //BG0-BG3CNT R/W Control addr - 0x40000008, 0x...A, 0x...C, 0x...E (two bytes)
+//determines priority (drawing order), has CBB, SBB, mosaic (makes tile look ugly)
+//the color mode (8bpp or 4bpp), affine wrapping (regular backgrounds wrap by default)
+//and finally background size, which determines how many char/screen blocks a background takes 
+//up from the inital offset (CBB/ SBB)
+
 //BG0-BG3HOFS W X-Offset addr - 0x4000010, 0x...14, 0x...18, 0x...1C (two bytes)
 //BG0-BG3VOFS W Y-Offset addr - 0x4000012, 0x...16, 0x...1A, 0x...1E (two bytes)
 
@@ -138,11 +135,11 @@ const graphics = function(mmu, registers, setFrameComplete) {
     BGMODE : 7,
     DISPLAYFRAME : 16,
 
-  }
+  };
 
 
 
-  //graphics stuff
+  //canvas buffer
 	this.context = document.getElementById("screen").getContext("2d");
 	this.imageData = this.context.createImageData(240, 160);
   this.imageDataArr = new Uint32Array(this.imageData.data.buffer); //new Uint32Array(this.imageData.data.buffer);
@@ -161,7 +158,6 @@ const graphics = function(mmu, registers, setFrameComplete) {
   this.hblank = false;
   this.vblank = false;
 
-  this.frameComplete = false;
 
 
   //graphics hardware configuration
@@ -177,10 +173,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
 
   //graphics hardware ioregs
   this.dispcnt = this.ioregion.getIOReg("DISPCNT");
-  this.dispcnt.addCallback((dispcntVal) => {
-    this.mode = dispcntVal & this.displayENUMS["BGMODE"];
-    this.frame = dispcntVal & this.displayENUMS["DISPLAYFRAME"];
-  });
+  this.dispcnt.addCallback((newDISPCNTVal) => {this.updateDISPCNT(newDISPCNTVal)});
 
   this.dispstat = this.ioregion.getIOReg("DISPSTAT");
   this.dispstatByte1 = this.dispstat.regIndex;
@@ -188,6 +181,12 @@ const graphics = function(mmu, registers, setFrameComplete) {
 
   this.vcount = this.ioregion.getIOReg("VCOUNT");
   this.vcountByte1 = this.vcount.regIndex;
+
+  //backgrounds
+  this.bg0 = new background(this.ioregion.getIOReg("BG0CNT"), this.ioregion.getIOReg("BG0HOFS"), this.ioregion.getIOReg("BG0VOFS"), this.vramMem, this.paletteRamMem, 0);
+  this.bg1 = new background(this.ioregion.getIOReg("BG1CNT"), this.ioregion.getIOReg("BG1HOFS"), this.ioregion.getIOReg("BG1VOFS"), this.vramMem, this.paletteRamMem, 1);
+  this.bg2 = new background(this.ioregion.getIOReg("BG2CNT"), this.ioregion.getIOReg("BG2HOFS"), this.ioregion.getIOReg("BG2VOFS"), this.vramMem, this.paletteRamMem, 2);
+  this.bg3 = new background(this.ioregion.getIOReg("BG3CNT"), this.ioregion.getIOReg("BG3HOFS"), this.ioregion.getIOReg("BG3VOFS"), this.vramMem, this.paletteRamMem, 3);
 
 
   this.init();
@@ -202,6 +201,22 @@ graphics.prototype.init = function (){
     this.convertColor[i] = 0xFF000000 + ((i & 31744) << 9) + ((i & 992) << 6) + ((i & 31) << 3);
   }  
 }
+
+graphics.prototype.renderScanlineMode0 = function()
+{ 
+  let imageDataPos = this.scanline * 240;
+  let imageDataArr = this.imageDataArr;
+  let convertColor = this.convertColor;
+  let bg0ScanlineArr = this.bg0.scanlineArr;
+  let bg0ScanlineArrIndex = this.bg0.renderScanline(this.scanline);
+
+  for (let i = 0; i < 240; i ++)
+  {
+    imageDataArr[imageDataPos] = convertColor[bg0ScanlineArr[bg0ScanlineArrIndex]];
+    imageDataPos ++;
+    bg0ScanlineArrIndex ++;
+  }
+};
 
 graphics.prototype.renderScanlineMode3 = function()
 {	
@@ -248,16 +263,16 @@ graphics.prototype.renderScanlineMode4 = function()
 };
 
 graphics.prototype.renderScanlineMode5 = function () {
-  //if (this.scanline > 127) return;
   let vramMem = this.vramMem;
   let imageDataArr = this.imageDataArr;
   let convertColor = this.convertColor;
 
   let imageDataPos = this.scanline * 240;
   let vramPos = (this.scanline * 160 * 2) + (this.frame ? 0xA000 : 0);
+  let bgcolor = this.paletteRamMem[0] + (this.paletteRamMem[1] << 8)
   let color;
 
-  for (let i = 0; i < 240; i ++)
+  for (var i = 0; i < 160; i ++)
   {
     color = (vramMem[vramPos + 1] << 8) + vramMem[vramPos];
     imageDataArr[imageDataPos] = convertColor[color];
@@ -265,12 +280,24 @@ graphics.prototype.renderScanlineMode5 = function () {
     imageDataPos ++;
     vramPos += 2;
   }
+
+  if (this.scanline > 127) //use first color in palette ram for background?
+  {
+    i = 0;
+    imageDataPos = this.scanline * 240;
+  }
+
+  for (i; i < 240; i++)
+  {
+    imageDataArr[imageDataPos] = convertColor[bgcolor];
+    imageDataPos ++;
+  }
 }
 
 graphics.prototype.renderScanline = function (mode) {
   switch (mode)
   {
-    case 0:
+    case 0: this.renderScanlineMode0();
     break;
 
     case 1:
@@ -341,9 +368,9 @@ graphics.prototype.pushPixel = function() {
   }
 };
 
-graphics.prototype.finishDraw = function () {
-  this.context.putImageData(this.imageData, 0, 0);
-  this.setFrameComplete();
+graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
+  this.mode = newDISPCNTVal & this.displayENUMS["BGMODE"];
+  this.frame = newDISPCNTVal & this.displayENUMS["DISPLAYFRAME"];
 }
 
 graphics.prototype.setHblank = function () {
@@ -373,6 +400,11 @@ graphics.prototype.updateVCount = function (scanline) {
   this.ioregionMem[this.vcountByte1] = scanline;
 };
 
+graphics.prototype.finishDraw = function () {
+  this.context.putImageData(this.imageData, 0, 0);
+  this.setFrameComplete();
+}
+
 //debugging
 graphics.prototype.updateRegisters = function(mode) {
   for (let i = 0; i <= 15; i++)
@@ -397,31 +429,49 @@ graphics.prototype.updateRegisters = function(mode) {
 };
 
 
-//let arr8 = new Uint8Array(2);
-//let arr16 = new Uint16Array(arr8.buffer);
-// let objects = [{"hello" : 5}, {"asdfasfasdfasfdasf" : "asdfa"}, {"fffffffffffffff" : {}}, {"fasdfasdfadsf" : []}]
-// for (let i = 0; i < 100; i ++)
-// {
-//   arr.push(objects[Math.floor(Math.random() * 4)]);
-// }
 
+// let obj = new Object();
+// obj.x = []
+// Object.prototype.hallo = function (x) {
+//   for (let i = 0; i < 100000000; i ++)
+//   {
+//     x[0] = 5;
+//   }
+// };
 
-// let func = function () {let somevar = 4; return somevar};
-// let funcArr = [];
-// funcArr[5] = func;
+// Object.prototype.hallo2 = function () {
+//   for (let i = 0; i < 100000000; i ++)
+//   {
+//     this.x[0] = 10;
+//   }
+// };
 
-// let somevar;
 // let timenow = (new Date).getTime();
-
-// for (let i = 0; i < 1000000000; i++)
-// {
-//   funcArr[5]();
-// }
+// obj.hallo(obj.x);
+// // for (let i = 0; i < 1000000000; i++)
+// // {
+// //   let somevar =  ((5000 >>> 0) & (511));
+// // }
 // console.log((new Date).getTime() - timenow);
 
 // timenow = (new Date).getTime();
-// for (let i = 0; i < 1000000000; i++)
-// {
-//   func();
-// }
+// obj.hallo2();
+// // for (let i = 0; i < 1000000000; i++)
+// // {
+// //   let somevar =  bitSlice(5000, 0, 8);
+// // }
 // console.log((new Date).getTime() - timenow);
+
+// for (let i = 0; i <= 79; i++)
+// {
+//   console.log("this.executeOpcode.push(this.executeOpcode" + i + ".bind(this))");
+// }
+
+
+// SCANLINE: 0
+// background.js:96 INDEX: 5
+// background.js:96 INDEX: 6
+// 22background.js:96 INDEX: 0
+// background.js:96 INDEX: 1b
+// background.js:96 INDEX: 1c
+// 5background.js:96 INDEX: 0
