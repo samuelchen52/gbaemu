@@ -121,7 +121,7 @@ ioRegWord.prototype = Object.create(ioReg.prototype);
 ioRegWord.constructor = ioRegWord;
 
 ioRegWord.prototype.triggerCallbacks = function () {
-	let val = this.ioRegionMemory[regIndex] + (this.ioRegionMemory[(regIndex + 1)] << 8) + (this.ioRegionMemory[(regIndex + 2)] << 16) + (this.ioRegionMemory[(regIndex + 3)] << 24);
+	let val = this.ioRegionMemory[this.regIndex] + (this.ioRegionMemory[(this.regIndex + 1)] << 8) + (this.ioRegionMemory[(this.regIndex + 2)] << 16) + (this.ioRegionMemory[(this.regIndex + 3)] << 24);
 	for (let i = 0; i < this.callbacks.length; i ++)
 	{
 		this.callbacks[i](val);
@@ -150,7 +150,7 @@ ioRegWordWriteOnly.prototype = Object.create(ioReg.prototype);
 ioRegWordWriteOnly.constructor = ioRegWordWriteOnly;
 
 ioRegWordWriteOnly.prototype.triggerCallbacks = function () {
-	let val = this.ioRegionMemory[regIndex] + (this.ioRegionMemory[(regIndex + 1)] << 8) + (this.ioRegionMemory[(regIndex + 2)] << 16) + (this.ioRegionMemory[(regIndex + 3)] << 24);
+	let val = this.ioRegionMemory[this.regIndex] + (this.ioRegionMemory[(this.regIndex + 1)] << 8) + (this.ioRegionMemory[(this.regIndex + 2)] << 16) + (this.ioRegionMemory[(this.regIndex + 3)] << 24);
 	for (let i = 0; i < this.callbacks.length; i ++)
 	{
 		this.callbacks[i](val);
@@ -190,7 +190,7 @@ ioRegByte.prototype = Object.create(ioReg.prototype);
 ioRegByte.constructor = ioRegByte;
 
 ioRegByte.prototype.triggerCallbacks = function () {
-	let val = this.ioRegionMemory[regIndex];
+	let val = this.ioRegionMemory[this.regIndex];
 	for (let i = 0; i < this.callbacks.length; i ++)
 	{
 		this.callbacks[i](val);
@@ -233,7 +233,7 @@ ioRegByteWriteOnly.prototype = Object.create(ioReg.prototype);
 ioRegByteWriteOnly.constructor = ioRegByteWriteOnly;
 
 ioRegByteWriteOnly.prototype.triggerCallbacks = function () {
-	let val = this.ioRegionMemory[regIndex];
+	let val = this.ioRegionMemory[this.regIndex];
 	for (let i = 0; i < this.callbacks.length; i ++)
 	{
 		this.callbacks[i](val);
@@ -358,13 +358,13 @@ ioRegUnused.prototype.read32 = function (memAddr) {
 }
 
 ioRegUnused.prototype.write8 = function (memAddr, val) {
-	console.log("ignored: writing byte to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
+	//console.log("ignored: writing byte to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
 }
 
 ioRegUnused.prototype.write16 = function (memAddr, val) {
-	console.log("ignored: writing halfword to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
+	//console.log("ignored: writing halfword to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
 }
 
 ioRegUnused.prototype.write32 = function (memAddr, val) {
-	console.log("ignored: writing word to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16)); 
+	//console.log("ignored: writing word to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16)); 
 }
