@@ -154,9 +154,10 @@ const ioRegion = function() {
 	{name: "WAITCNT", type: ioregENUMS["IOREG"]},
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
 	{name: "IME", type: ioregENUMS["IOREG"]},
-	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
+	...(new Array(123)).fill({name: "UNUSED", type: ioregENUMS["UNUSED"]}),
 	{name: "POSTFLG", type: ioregENUMS["IOREGBYTE"]},
 	{name: "HALTCNT", type: ioregENUMS["IOREGBYTEWRITEONLY"]},
+	...(new Array(136)).fill({name: "UNUSED", type: ioregENUMS["UNUSED"]}),
 	];
 
 	//initialize ioregs array
@@ -186,6 +187,17 @@ const ioRegion = function() {
 		}
 		ioregAddr += size;
 	}
+
+	this.getIOReg("IE").addCallback(()=> {console.log("THIS ROM IS USING INTERRUPTS!!")});
+	this.getIOReg("DMA0SAD").addCallback(()=> {console.log("THIS ROM IS USING DMA!!")});
+	this.getIOReg("DMA1SAD").addCallback(()=> {console.log("THIS ROM IS USING DMA!!")});
+	this.getIOReg("DMA2SAD").addCallback(()=> {console.log("THIS ROM IS USING DMA!!")});
+	this.getIOReg("DMA3SAD").addCallback(()=> {console.log("THIS ROM IS USING DMA!!")});
+	this.getIOReg("TM0CNT_L").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
+	this.getIOReg("TM1CNT_L").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
+	this.getIOReg("TM2CNT_L").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
+	this.getIOReg("TM3CNT_L").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
+
 }
 
 ioRegion.prototype.read8 = function (memAddr) {
