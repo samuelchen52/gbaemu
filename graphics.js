@@ -65,6 +65,28 @@
 //SBB + screen block index -> tile index -> tile index + CBB -> tile -> palette
 //all this stuff organized in a BACKGROUND, of which there are four of
 
+//object layer (regular)
+//sprites composed of tiles, like backgrounds, at 4bpp and 8bpp
+//tile data (tileset) stored in the last two charblocks mentioned earlier, aka OVRAM
+//tile index -> addr is always calculated by counting at an offset of 0x20 (4bpp) *in 1d mode
+//in 2d mode, the scanline of sprite begins at scanline * (32 tiles * 32 bytes / tile).
+//(2d mode treats the two spriteblocks as one big 32 x 32 tileset) 
+//there is no base block to start counting, counting always starts from charblock 4, aka lower sprite block
+//the palette used is at 5000200, NOT 5000000
+//at 16kb per spriteblock and at 4bpp, can have up to 1024 tiles for sprites
+//sprite data is stored in OAM (object attribute memory)
+//there are 128 sprites, each has their own attributes
+//there are three attributes for each sprite, each taking up two bytes (6 bytes for all attributes)
+//these six bytes are contiguous, and followed by another two bytes used for object rotation/scaling
+//the two bytes in between each six bytes of attributes together are 128 x 2 bytes === 256 bytes in total
+//these 256 bytes define 32 groups of rotation / scaling parameters (of which there are 4, each taking 2 bytes each)
+//sprite priority works like background priority, sprites with higher priorities are drawn on top
+//sprites with the same priority are then differentiated by their index in OAM
+//what about sprites and backgrounds? if sprite prio = bg prio, the sprite is drawn on top
+//in essence, the highest of the highest priorities is sprite 0 with priority 0, which will
+//be drawn on top of anything
+
+
 //BACKGROUND
 
 //BG0-BG3CNT R/W Control addr - 0x40000008, 0x...A, 0x...C, 0x...E (two bytes)
@@ -82,17 +104,44 @@
 //BG2X/Y W Reference Point Coordinate addr - 0x4000028, 0x...2C (4 bytes)
 //BG3X/Y W Reference Point Coordinate addr - 0x4000038, 0x...3C (4 bytes)
 
+//GRAPHICAL EFFECTS
+//BLENDING
+//there are two main types of blending
+//alpha blending -> mixing two colors together to give the illusion of transparency
+//brightness -> applying a coefficient to color to make it greater, or smaller to make a color brighter / darker
+//three main io regs for blending
+//BLDCNT at 4000050 - holds bits that determine the blend mode, and specify the conditions for when blending should happen
+//BLDALPHA/BLDY at next 4 bytes - bldalpha holds two coefficients applied to the two colors in alpha blending
+//bldy holds the coefficient applied in brightness blending
+//these numbers are fixed point, the value of the coefficients is 1/16th of their actual value e.g. if bldy holds 1, this actually means 1/16
+//bldcnt must be enabled from its default 00 (no blending) to 01,10,11, which determine which type of blending will happen for bg
+//blend mode 01, if highest non transparent color in specified top layers, blends with highest non transparent color (if available) in specified bottom layers
+//blend mode 10, if highest non transparent color in specified top layers, blends with white (increase brightness)
+//blend mode 11, if highest non transparent color in specified top layers, blends with black (decrease brightness)
+//special behavior for objects, if mode in object attr is set to semi-transparent, then blend mode is overriden for that object,
+//that is, that object is set as the first target no matter what, and alpha blended normally as specified by bottom layer bits in bldcnt
+//presumably, if said object is the first target, then that means this object will then be "pushed" up to pbg 0
+//need one arr to hold semi-transparent mode toggle
+//backdrop is another layer, the default color drawn / blended (if enabled)
+//default color is the first color in palette ram
+
 //WINDOW
+//a window is basically a slice of all that stuff that gets put onto the screen, with some control bits
+//to enable some tricks
+//there are four windows, window 0 and window 1 (which are practically identical), the object window 
+//the last window is window out, which is everything besides the union of the windows 0 and 1
+//window out is ALWAYS enabled as long as one of the three windows is enabled
+//windows 0 and 1 are defined by 4 lines (each is 1 byte), forming a rectangular area
+//the object window is defined by all objects that have window mode turned on
+
+
+//
 //WIN0/1H W Window Horizontal Dimensions addr - 0x4000040, 0x...42 (2 bytes)
 //WIN0/1HV W Window Vertical Dimensions addr - 0x4000044, 0x...46 (2 bytes)
 //WININ R/W Inside of Window 0 and 1 addr - 0x4000044 (2 bytes)
 //WINOUT R/W Inside of OBJ Window and Outside of Windows addr - 0x400004A (2 bytes)
 
-//COLORS
-//MOSAIC W Mosaic Size addr - 0x400004C (2 bytes)
-//BLDCNT R/W Color Special Effects Selection addr - 0x4000050 (2 bytes)
-//BLD ALPHA R/W Alpha Blending Coefficients addr - 0x4000052 (2 bytes)
-//BLDY W Brightness (Fade-In/Out) Coefficient addr - 0x4000054 (2 bytes)
+
 
 const graphics = function(mmu, registers, setFrameComplete) {
 
@@ -132,9 +181,17 @@ const graphics = function(mmu, registers, setFrameComplete) {
     HBLANKCLEAR : ~2,
     VCOUNTERCLEAR : ~4,
 
-    BGMODE : 7,
+    MODE : 7,
     DISPLAYFRAME : 16,
-
+    FORCEDBLANK : 128,
+    BG0DISPLAY : 256,
+    BG1DISPLAY : 512,
+    BG2DISPLAY : 1024,
+    BG3DISPLAY : 2048, 
+    OBJDISPLAY : 4096,
+    WIN0DISPLAY : 8192,
+    WIN1DISPLAY : 16384,
+    WINOBJDISPLAY : 32768
   };
 
 
@@ -144,10 +201,14 @@ const graphics = function(mmu, registers, setFrameComplete) {
 	this.imageData = this.context.createImageData(240, 160);
   this.imageDataArr = new Uint32Array(this.imageData.data.buffer); //new Uint32Array(this.imageData.data.buffer);
 
+  //dummy transparent pixel buffer
+  this.transparentScanline = new Uint16Array(240).fill(0x8000);
+
   //graphics related memory
   this.ioregion = this.mmu.getMemoryRegion("IOREGISTERS");
   this.ioregionMem = this.ioregion.memory; //0x4000000
   this.paletteRamMem = this.mmu.getMemoryRegion("PALETTERAM").memory; //0x5000000
+  this.paletteRamMem16 = new Uint16Array(this.paletteRamMem.buffer);
   this.vramMem = this.mmu.getMemoryRegion("VRAM").memory; //0x6000000
   this.oamMem = this.mmu.getMemoryRegion("OAM").memory; //0x7000000
 
@@ -162,13 +223,21 @@ const graphics = function(mmu, registers, setFrameComplete) {
 
   //graphics hardware configuration
   this.mode = 4;
-  this.displayFrame = 0;
+  this.page = 0;
+  this.bg0Display = 0;
+  this.bg1Display = 0;
+  this.bg2Display = 0;
+  this.bg3Display = 0;
+  this.objDisplay = 0;
+  this.win0Display = 0;
+  this.win1Display = 0;
+  this.winOBJDisplay = 0;
+  this.winEnabled = 0;
 
   this.hblankIRQEnable = false;
   this.vblankIRQEnable = false;
   this.vCountIRQEnable = false;
-
-  this.vCountSetting = 0;
+  this.vCountSetting = 0; //number for vcount match
 
 
   //graphics hardware ioregs
@@ -188,27 +257,74 @@ const graphics = function(mmu, registers, setFrameComplete) {
   this.bg2 = new background(this.ioregion.getIOReg("BG2CNT"), this.ioregion.getIOReg("BG2HOFS"), this.ioregion.getIOReg("BG2VOFS"), this.vramMem, this.paletteRamMem, 2);
   this.bg3 = new background(this.ioregion.getIOReg("BG3CNT"), this.ioregion.getIOReg("BG3HOFS"), this.ioregion.getIOReg("BG3VOFS"), this.vramMem, this.paletteRamMem, 3);
 
+  //renderScanline functions indexed by mode
+  this.renderScanline = [
+    this.renderScanlineMode0.bind(this),
+    this.renderScanlineMode1.bind(this),
+    this.renderScanlineMode2.bind(this),
+    this.renderScanlineMode3.bind(this),
+    this.renderScanlineMode4.bind(this),
+    this.renderScanlineMode5.bind(this),
+    () => {throw Error("invalid mode")},
+    () => {throw Error("invalid mode")}
+  ];
 
-  this.init();
-
-};
-
-graphics.prototype.init = function (){
-  //table for converting 15 bit colors to 32 bit abgr (alpha value set to full opacity)
+  //intitalize table for converting 15 bit colors to 32 bit colors (alpha set to full opacity)
   this.convertColor = new Uint32Array(32768);
   for (let i = 0; i < this.convertColor.length; i ++)
   {
     this.convertColor[i] = 0xFF000000 + ((i & 31744) << 9) + ((i & 992) << 6) + ((i & 31) << 3);
   }  
+
+};
+
+graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
+  this.mode = newDISPCNTVal & this.displayENUMS["MODE"];
+  this.page = newDISPCNTVal & this.displayENUMS["DISPLAYFRAME"];
+  this.bg0Display = (newDISPCNTVal & this.displayENUMS["BG0DISPLAY"]) >>> 8;
+  this.bg1Display = (newDISPCNTVal & this.displayENUMS["BG1DISPLAY"]) >>> 9;
+  this.bg2Display = (newDISPCNTVal & this.displayENUMS["BG2DISPLAY"]) >>> 10;
+  this.bg3Display = (newDISPCNTVal & this.displayENUMS["BG3DISPLAY"]) >>> 11;
+  this.objDisplay = (newDISPCNTVal & this.displayENUMS["OBJDISPLAY"]) >>> 12;
+  this.win0Display = (newDISPCNTVal & this.displayENUMS["WIN0DISPLAY"]);
+  this.win1Display = (newDISPCNTVal & this.displayENUMS["WIN1DISPLAY"]);
+  this.winOBJDisplay = (newDISPCNTVal & this.displayENUMS["WINOBJDISPLAY"]);
+  this.winEnabled = (this.win0display | this.win1display | this.winobjdisplay) !== 0;
 }
 
-graphics.prototype.renderScanlineMode0 = function()
-{ 
-  let imageDataPos = this.scanline * 240;
-  let imageDataArr = this.imageDataArr;
-  let convertColor = this.convertColor;
-  let bg0ScanlineArr = this.bg0.scanlineArr;
-  let bg0ScanlineArrIndex = this.bg0.renderScanline(this.scanline);
+graphics.prototype.updateDISPSTAT= function (newDISPCNTVal) {
+}
+
+graphics.prototype.setHblank = function () {
+  this.hblank = true;
+  this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["HBLANKSET"];
+
+  //if hblank irq, throw interrupt
+};
+
+graphics.prototype.setVblank = function () {
+  this.vblank = true;
+  this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["VBLANKSET"];
+
+  //if vblank irq, throw interrupt
+};
+
+graphics.prototype.updateVCount = function (scanline) {
+  if (this.vCountSetting === scanline)
+  {
+    this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["VCOUNTERSET"];
+    //throw interrupt if vcount irq enabled
+  }
+  else
+  {
+    this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["VCOUNTERCLEAR"];
+  }
+  this.ioregionMem[this.vcountByte1] = scanline;
+};
+
+graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+  let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
+  let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
 
   for (let i = 0; i < 240; i ++)
   {
@@ -218,104 +334,63 @@ graphics.prototype.renderScanlineMode0 = function()
   }
 };
 
-graphics.prototype.renderScanlineMode3 = function()
-{	
-  let vramMem = this.vramMem;
-  let imageDataArr = this.imageDataArr;
-  let convertColor = this.convertColor;
+graphics.prototype.renderScanlineMode1 = function() { 
+  return;
+};
 
-  let imageDataPos = this.scanline * 240;
-  let vramPos = imageDataPos * 2;
-  let color;
+graphics.prototype.renderScanlineMode2 = function() { 
+  return;
+};
+
+graphics.prototype.renderScanlineMode3 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+  let bg2ScanlineArr = this.bg2.renderScanlineBGMode3[this.bg2Display](scanline);
+  let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
 
   for (let i = 0; i < 240; i ++)
   {
-    color = (vramMem[vramPos + 1] << 8) + vramMem[vramPos];
-    imageDataArr[imageDataPos] = convertColor[color];
-
+    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[bg2ScanlineArrIndex]];
     imageDataPos ++;
-    vramPos += 2;
+    bg2ScanlineArrIndex ++;
   }
-
 };
 
-graphics.prototype.renderScanlineMode4 = function()
-{
-  let vramMem = this.vramMem;
-  let paletteRamMem = this.paletteRamMem;
-  let imageDataArr = this.imageDataArr;
-  let convertColor = this.convertColor;
-
-  let imageDataPos = this.scanline * 240;
-  let vramPos = imageDataPos + (this.frame ? 0xA000 : 0);
-  let paletteIndex;
-  let color;
+graphics.prototype.renderScanlineMode4 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+  let bg2ScanlineArr = this.bg2.renderScanlineBGMode4[this.bg2Display](scanline);
+  let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
 
   for (let i = 0; i < 240; i ++)
   {
-    paletteIndex = vramMem[vramPos] * 2;
-    color = paletteRamMem[paletteIndex] + (paletteRamMem[paletteIndex + 1] << 8);
-    imageDataArr[imageDataPos] = convertColor[color];
-
+    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[bg2ScanlineArrIndex]];
     imageDataPos ++;
-    vramPos ++;
+    bg2ScanlineArrIndex ++;
   }
 };
 
-graphics.prototype.renderScanlineMode5 = function () {
-  let vramMem = this.vramMem;
-  let imageDataArr = this.imageDataArr;
-  let convertColor = this.convertColor;
+graphics.prototype.renderScanlineMode5 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+  let bg2ScanlineArr = this.bg2.renderScanlineBGMode5[this.bg2Display](scanline);
+  let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
 
-  let imageDataPos = this.scanline * 240;
-  let vramPos = (this.scanline * 160 * 2) + (this.frame ? 0xA000 : 0);
-  let bgcolor = this.paletteRamMem[0] + (this.paletteRamMem[1] << 8)
-  let color;
-
-  for (var i = 0; i < 160; i ++)
+  for (let i = 0; i < 240; i ++)
   {
-    color = (vramMem[vramPos + 1] << 8) + vramMem[vramPos];
-    imageDataArr[imageDataPos] = convertColor[color];
-
+    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[bg2ScanlineArrIndex]];
     imageDataPos ++;
-    vramPos += 2;
+    bg2ScanlineArrIndex ++;
   }
+};
 
-  if (this.scanline > 127) //use first color in palette ram for background?
-  {
-    i = 0;
-    imageDataPos = this.scanline * 240;
-  }
+// graphics.prototype.renderScanlineMode5 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+//   let bg2ScanlineArr = this.bg2.renderScanlineBGMode5[this.bg2Display](scanline);
+//   let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
+//   let backdrop = convertColor[this.paletteRamMem16[0]];
+//   for (let i = 0; i < 240; i ++)
+//   {
+//     let color = bg2ScanlineArr[bg2ScanlineArrIndex];
+//     imageDataArr[imageDataPos] = (color === 32768) ? backdrop : convertColor[color];
+//     imageDataPos ++;
+//     bg2ScanlineArrIndex ++;
+//   }
+// };
 
-  for (i; i < 240; i++)
-  {
-    imageDataArr[imageDataPos] = convertColor[bgcolor];
-    imageDataPos ++;
-  }
-}
-
-graphics.prototype.renderScanline = function (mode) {
-  switch (mode)
-  {
-    case 0: this.renderScanlineMode0();
-    break;
-
-    case 1:
-    break;
-
-    case 2:
-    break;
-
-    case 3: this.renderScanlineMode3();
-    break;
-
-    case 4: this.renderScanlineMode4();
-    break;
-
-    case 5: this.renderScanlineMode5()
-    break;
-  }
-}
 //called every 4 cpu cycles
 graphics.prototype.pushPixel = function() {
   if (this.vblank)
@@ -363,42 +438,11 @@ graphics.prototype.pushPixel = function() {
     if (this.pixel === 240)
     {
       this.setHblank();
-      this.renderScanline(this.mode);
+      this.renderScanline[this.mode](this.scanline, this.scanline * 240, this.imageDataArr, this.convertColor);
     }
   }
 };
 
-graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
-  this.mode = newDISPCNTVal & this.displayENUMS["BGMODE"];
-  this.frame = newDISPCNTVal & this.displayENUMS["DISPLAYFRAME"];
-}
-
-graphics.prototype.setHblank = function () {
-  this.hblank = true;
-  this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["HBLANKSET"];
-
-  //if hblank irq, throw interrupt
-};
-
-graphics.prototype.setVblank = function () {
-  this.vblank = true;
-  this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["VBLANKSET"];
-
-  //if vblank irq, throw interrupt
-};
-
-graphics.prototype.updateVCount = function (scanline) {
-  if (this.vCountSetting === scanline)
-  {
-    this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["VCOUNTERSET"];
-    //throw interrupt if vcount irq enabled
-  }
-  else
-  {
-    this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["VCOUNTERCLEAR"];
-  }
-  this.ioregionMem[this.vcountByte1] = scanline;
-};
 
 graphics.prototype.finishDraw = function () {
   this.context.putImageData(this.imageData, 0, 0);
@@ -445,21 +489,35 @@ graphics.prototype.updateRegisters = function(mode) {
 //     this.x[0] = 10;
 //   }
 // };
+// let fn1 = () => {let somevar = 5  & 10;}
+
+// let fnptrs = [
+//   fn1, 
+//   fn1
+// ]
+// let bool = 1;
 
 // let timenow = (new Date).getTime();
-// obj.hallo(obj.x);
-// // for (let i = 0; i < 1000000000; i++)
-// // {
-// //   let somevar =  ((5000 >>> 0) & (511));
-// // }
+// //obj.hallo(obj.x);
+// for (let i = 0; i < 1000000000; i++)
+// {
+//   if (bool)
+//   {
+//     fn1();
+//   }
+//   else
+//   {
+//     let somevar = fn1();
+//   }
+// }
 // console.log((new Date).getTime() - timenow);
 
 // timenow = (new Date).getTime();
-// obj.hallo2();
-// // for (let i = 0; i < 1000000000; i++)
-// // {
-// //   let somevar =  bitSlice(5000, 0, 8);
-// // }
+// //obj.hallo2();
+// for (let i = 0; i < 1000000000; i++)
+// {
+//   fnptrs[bool]();
+// }
 // console.log((new Date).getTime() - timenow);
 
 // for (let i = 0; i <= 79; i++)
@@ -467,11 +525,3 @@ graphics.prototype.updateRegisters = function(mode) {
 //   console.log("this.executeOpcode.push(this.executeOpcode" + i + ".bind(this))");
 // }
 
-
-// SCANLINE: 0
-// background.js:96 INDEX: 5
-// background.js:96 INDEX: 6
-// 22background.js:96 INDEX: 0
-// background.js:96 INDEX: 1b
-// background.js:96 INDEX: 1c
-// 5background.js:96 INDEX: 0
