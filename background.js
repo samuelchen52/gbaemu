@@ -82,6 +82,17 @@ const background = function(bgcnt, bghofs, bgvofs, vramMem, paletteRamMem, bgNum
   //   () => {return this.transparentScanline;}, //replace this with obj lyaer.renderscanline
   //   () => {return this.transparentScanline;} //replace this later with obj layer.rendertransparent,
   // ];
+
+  // let getColorFactory = function (index) {
+  //   return function (paletteRamMem16)
+  //   {
+  //     return paletteRamMem16[index];
+  //   }
+  // }
+  // this.getColor = [
+  //   () => {return 0x8000},
+  //   ...(new Array(255)).map((curVal, index) => {return getColorFactory(index)}),
+  // ];
 }
 
 background.prototype.updateBGCNT = function (newBGCNTVal) {
@@ -177,33 +188,41 @@ background.prototype.getScreenEntriesSize3 = function (scanline, hOffset, vOffse
 background.prototype.writeTileToScanlineBPP4 = function (tileAddr, tileLine, scanlineArrIndex, vramMem8, paletteRamMem16, scanlineArr, hflip, vflip, palBankIndex) {
   tileAddr += 4 * (vflip ? (7 - tileLine) : tileLine);
   palBankIndex <<= 4;
+  let paletteIndex0 = palBankIndex + (vramMem8[tileAddr] & 15);
+  let paletteIndex1 = palBankIndex + ((vramMem8[tileAddr] >>> 4) & 15);
+  let paletteIndex2 = palBankIndex + (vramMem8[tileAddr + 1] & 15);
+  let paletteIndex3 = palBankIndex + ((vramMem8[tileAddr + 1] >>> 4) & 15);
+  let paletteIndex4 = palBankIndex + (vramMem8[tileAddr + 2] & 15);
+  let paletteIndex5 = palBankIndex + ((vramMem8[tileAddr + 2] >>> 4) & 15);
+  let paletteIndex6 = palBankIndex + (vramMem8[tileAddr + 3] & 15);
+  let paletteIndex7 = palBankIndex + ((vramMem8[tileAddr + 3] >>> 4) & 15);
+
   if (hflip)
   {
   	//b3  b2  b1  b0
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex + 7] = paletteRamMem16[palBankIndex + (vramMem8[tileAddr] & 15)];
-  	scanlineArr[scanlineArrIndex + 6] = paletteRamMem16[palBankIndex + ((vramMem8[tileAddr] >>> 4) & 15)];
-  	scanlineArr[scanlineArrIndex + 5] = paletteRamMem16[palBankIndex + (vramMem8[tileAddr + 1] & 15)];
-  	scanlineArr[scanlineArrIndex + 4] = paletteRamMem16[palBankIndex + ((vramMem8[tileAddr + 1] >>> 4) & 15)];
-  	scanlineArr[scanlineArrIndex + 3] = paletteRamMem16[palBankIndex + (vramMem8[tileAddr + 2] & 15)];
-  	scanlineArr[scanlineArrIndex + 2] = paletteRamMem16[palBankIndex + ((vramMem8[tileAddr + 2] >>> 4) & 15)];
-  	scanlineArr[scanlineArrIndex + 1] = paletteRamMem16[palBankIndex + (vramMem8[tileAddr + 3] & 15)]; 
-  	scanlineArr[scanlineArrIndex] = paletteRamMem16[palBankIndex + ((vramMem8[tileAddr + 3] >>> 4) & 15)];
+  	scanlineArr[scanlineArrIndex + 7] = paletteIndex0 ? paletteRamMem16[paletteIndex0] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 6] = paletteIndex1 ? paletteRamMem16[paletteIndex1] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 5] = paletteIndex2 ? paletteRamMem16[paletteIndex2] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 4] = paletteIndex3 ? paletteRamMem16[paletteIndex3] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 3] = paletteIndex4 ? paletteRamMem16[paletteIndex4] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 2] = paletteIndex5 ? paletteRamMem16[paletteIndex5] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 1] = paletteIndex6 ? paletteRamMem16[paletteIndex6] : 0x8000; 
+  	scanlineArr[scanlineArrIndex] = paletteIndex7 ? paletteRamMem16[paletteIndex7] : 0x8000;
   }
   else
   {
   	//b0  b1  b2  b3
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = paletteRamMem16[palBankIndex + (vramMem8[tileAddr] & 15)];
-  	scanlineArr[scanlineArrIndex + 1] = paletteRamMem16[palBankIndex + ((vramMem8[tileAddr] >>> 4) & 15)];
-  	scanlineArr[scanlineArrIndex + 2] = paletteRamMem16[palBankIndex + (vramMem8[tileAddr + 1] & 15)];
-  	scanlineArr[scanlineArrIndex + 3] = paletteRamMem16[palBankIndex + ((vramMem8[tileAddr + 1] >>> 4) & 15)];
-  	scanlineArr[scanlineArrIndex + 4] = paletteRamMem16[palBankIndex + (vramMem8[tileAddr + 2] & 15)];
-  	scanlineArr[scanlineArrIndex + 5] = paletteRamMem16[palBankIndex + ((vramMem8[tileAddr + 2] >>> 4) & 15)];
-  	scanlineArr[scanlineArrIndex + 6] = paletteRamMem16[palBankIndex + (vramMem8[tileAddr + 3] & 15)]; 
-  	scanlineArr[scanlineArrIndex + 7] = paletteRamMem16[palBankIndex + ((vramMem8[tileAddr + 3] >>> 4) & 15)];
+  	scanlineArr[scanlineArrIndex] = paletteIndex0 ? paletteRamMem16[paletteIndex0] : 0x8000;
+    scanlineArr[scanlineArrIndex + 1] = paletteIndex1 ? paletteRamMem16[paletteIndex1] : 0x8000;
+    scanlineArr[scanlineArrIndex + 2] = paletteIndex2 ? paletteRamMem16[paletteIndex2] : 0x8000;
+    scanlineArr[scanlineArrIndex + 3] = paletteIndex3 ? paletteRamMem16[paletteIndex3] : 0x8000;
+    scanlineArr[scanlineArrIndex + 4] = paletteIndex4 ? paletteRamMem16[paletteIndex4] : 0x8000;
+    scanlineArr[scanlineArrIndex + 5] = paletteIndex5 ? paletteRamMem16[paletteIndex5] : 0x8000;
+    scanlineArr[scanlineArrIndex + 6] = paletteIndex6 ? paletteRamMem16[paletteIndex6] : 0x8000; 
+    scanlineArr[scanlineArrIndex + 7] = paletteIndex7 ? paletteRamMem16[paletteIndex7] : 0x8000;
   }
-
 }
 
 //at bpp8, one line of pixels in a tile encoded in 8 bytes
@@ -213,27 +232,27 @@ background.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, sca
   {
   	//b7b6b5b4b3b2b1b0
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = paletteRamMem16[vramMem8[tileAddr + 7]];
-  	scanlineArr[scanlineArrIndex + 1] = paletteRamMem16[vramMem8[tileAddr + 6]];
-  	scanlineArr[scanlineArrIndex + 2] = paletteRamMem16[vramMem8[tileAddr + 5]];
-  	scanlineArr[scanlineArrIndex + 3] = paletteRamMem16[vramMem8[tileAddr + 4]];
-  	scanlineArr[scanlineArrIndex + 4] = paletteRamMem16[vramMem8[tileAddr + 3]];
-  	scanlineArr[scanlineArrIndex + 5] = paletteRamMem16[vramMem8[tileAddr + 2]];
-  	scanlineArr[scanlineArrIndex + 6] = paletteRamMem16[vramMem8[tileAddr + 1]];
-  	scanlineArr[scanlineArrIndex + 7] = paletteRamMem16[vramMem8[tileAddr]];
+  	scanlineArr[scanlineArrIndex] = vramMem8[tileAddr + 7] ? paletteRamMem16[vramMem8[tileAddr + 7]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 1] = vramMem8[tileAddr + 6] ? paletteRamMem16[vramMem8[tileAddr + 6]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 2] = vramMem8[tileAddr + 5] ? paletteRamMem16[vramMem8[tileAddr + 5]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 3] = vramMem8[tileAddr + 4] ? paletteRamMem16[vramMem8[tileAddr + 4]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 4] = vramMem8[tileAddr + 3] ? paletteRamMem16[vramMem8[tileAddr + 3]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 5] = vramMem8[tileAddr + 2] ? paletteRamMem16[vramMem8[tileAddr + 2]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 6] = vramMem8[tileAddr + 1] ? paletteRamMem16[vramMem8[tileAddr + 1]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 7] = vramMem8[tileAddr] ? paletteRamMem16[vramMem8[tileAddr]] : 0x8000;
   }
   else
   {
   	//b0b1b2b3b4b5b6b7
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = paletteRamMem16[vramMem8[tileAddr]];
-  	scanlineArr[scanlineArrIndex + 1] = paletteRamMem16[vramMem8[tileAddr + 1]];
-  	scanlineArr[scanlineArrIndex + 2] = paletteRamMem16[vramMem8[tileAddr + 2]];
-  	scanlineArr[scanlineArrIndex + 3] = paletteRamMem16[vramMem8[tileAddr + 3]];
-  	scanlineArr[scanlineArrIndex + 4] = paletteRamMem16[vramMem8[tileAddr + 4]];
-  	scanlineArr[scanlineArrIndex + 5] = paletteRamMem16[vramMem8[tileAddr + 5]];
-  	scanlineArr[scanlineArrIndex + 6] = paletteRamMem16[vramMem8[tileAddr + 6]];
-  	scanlineArr[scanlineArrIndex + 7] = paletteRamMem16[vramMem8[tileAddr + 7]];
+  	scanlineArr[scanlineArrIndex] = vramMem8[tileAddr] ? paletteRamMem16[vramMem8[tileAddr]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 1] = vramMem8[tileAddr + 1] ? paletteRamMem16[vramMem8[tileAddr + 1]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 2] = vramMem8[tileAddr + 2] ? paletteRamMem16[vramMem8[tileAddr + 2]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 3] = vramMem8[tileAddr + 3] ? paletteRamMem16[vramMem8[tileAddr + 3]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 4] = vramMem8[tileAddr + 4] ? paletteRamMem16[vramMem8[tileAddr + 4]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 5] = vramMem8[tileAddr + 5] ? paletteRamMem16[vramMem8[tileAddr + 5]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 6] = vramMem8[tileAddr + 6] ? paletteRamMem16[vramMem8[tileAddr + 6]] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 7] = vramMem8[tileAddr + 7] ? paletteRamMem16[vramMem8[tileAddr + 7]] : 0x8000;
   }
 }
 
@@ -270,7 +289,8 @@ background.prototype.renderScanlineMode4 = function(scanline, page) {
 
   for (let i = 0; i < 240; i ++)
   {
-    this.scanlineArr[i] = paletteRamMem16[vramMem8[vramPos]]; 
+    paletteIndex = vramMem8[vramPos];
+    this.scanlineArr[i] = vramMem8[vramPos] ? paletteRamMem16[vramMem8[vramPos]] : 0x8000; 
     vramPos ++;
   }
 
