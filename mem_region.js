@@ -28,7 +28,7 @@ memRegion.prototype.write32 = function (memAddr, val) {
 }
 
 
-//VRAM, OAM, and PALETTERAM
+//VRAM and PALETTERAM
 const memRegionDisplay = function (name, size) {
 	memRegion.call(this, name, size);
 }
@@ -81,8 +81,8 @@ memRegionROM.prototype.write32 = function (memAddr, val) {
 }
 
 //SRAM
-const memRegionSRAM = function (name, size) {
-	memRegion.call(this, name, size);
+const memRegionSRAM = function (size) {
+	this.memory = new Uint8Array(size);
 }
 
 memRegionSRAM.prototype = Object.create(memRegion.prototype);
@@ -93,12 +93,12 @@ memRegionSRAM.prototype.read8 = function (memAddr, val) {
 }
 
 memRegionSRAM.prototype.read16 = function (memAddr, val) {
-	console.log("error: reading halfword at: " + this.name);
+	console.log("error: reading halfword at: SRAM");
 	throw Error("SRAM not implemented")
 }
 
 memRegionSRAM.prototype.read32 = function (memAddr, val) {
-	console.log("error: reading word at: " + this.name);
+	console.log("error: reading word at: SRAM");
 	throw Error("SRAM not implemented")
 }
 
@@ -107,46 +107,46 @@ memRegionSRAM.prototype.write8 = function (memAddr, val) {
 }
 
 memRegionSRAM.prototype.write16 = function (memAddr, val) {
-	console.log("error: writing halfword to: " + this.name);
+	console.log("error: writing halfword to: SRAM");
 	throw Error("SRAM not implemented")
 }
 
 memRegionSRAM.prototype.write32 = function (memAddr, val) {
-	console.log("error: writing word to: " + this.name);
+	console.log("error: writing word to: SRAM");
 	throw Error("SRAM not implemented")
 }
 
 //unused memory
-const memRegionUndefined = function (name, size) {
-	memRegion.call(this, name, size);
+const memRegionUndefined = function () {
+	
 }
 
 memRegionUndefined.prototype = Object.create(memRegion.prototype);
 memRegionUndefined.constructor = memRegionUndefined;
 
 memRegionUndefined.prototype.read8 = function (memAddr, val) {
-	console.log("not implemented: reading byte at " + this.name + " at mem addr: " + (memAddr >>> 0).toString(16));
+	console.log("not implemented: reading byte at UNDEFINED" + " at mem addr: " + (memAddr >>> 0).toString(16));
 	return 0;
 }
 
 memRegionUndefined.prototype.read16 = function (memAddr, val) {
-	console.log("not implemented: reading halfword at " + this.name + " at mem addr: " + (memAddr >>> 0).toString(16));
+	console.log("not implemented: reading halfword at UNDEFINED" + " at mem addr: " + (memAddr >>> 0).toString(16));
 	return 0;
 }
 
 memRegionUndefined.prototype.read32 = function (memAddr, val) {
-	console.log("not implemented: reading word at " + this.name + " at mem addr: " + (memAddr >>> 0).toString(16));
+	console.log("not implemented: reading word at UNDEFINED" + " at mem addr: " + (memAddr >>> 0).toString(16));
 	return 0;
 }
 
 memRegionUndefined.prototype.write8 = function (memAddr, val) {
-	console.log("ignored: writing byte to " + this.name + " at mem addr: " + (memAddr >>> 0).toString(16));
+	console.log("ignored: writing byte to UNDEFINED" + " at mem addr: " + (memAddr >>> 0).toString(16));
 }
 
 memRegionUndefined.prototype.write16 = function (memAddr, val) {
-	console.log("ignored: writing halfword to " + this.name + " at mem addr: " + (memAddr >>> 0).toString(16));
+	console.log("ignored: writing halfword to UNDEFINED" + " at mem addr: " + (memAddr >>> 0).toString(16));
 }
 
 memRegionUndefined.prototype.write32 = function (memAddr, val) {
-	console.log("ignored: writing word to " + this.name + " at mem addr: " + (memAddr >>> 0).toString(16));
+	console.log("ignored: writing word to UNDEFINED" + " at mem addr: " + (memAddr >>> 0).toString(16));
 }

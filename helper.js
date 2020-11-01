@@ -1,4 +1,4 @@
-const masks = new Array(33); //used for bitSlice
+const masks = new Uint32Array(32); //used for bitSlice
 for (let i = 1; i <= 32; i ++)
 {
 	masks[i] = Math.pow(2, i) - 1;
@@ -145,7 +145,7 @@ const THUMBopcodes = [
 "STMIA [THUMB]",
 "LDMIA [THUMB]",
 "CONDITIONAL BRANCH [THUMB]",
-"SWP [THUMB]",
+"SWI [THUMB]",
 "UNCONDITIONAL BRANCH [THUMB]",
 "LONG BRANCH 1 [THUMB]",
 "LONG BRANCH 2 [THUMB]"
@@ -199,7 +199,7 @@ function bitSlice (num, startBit, endBit)
 		throw Error("starting bit greater than ending bit");
 	}
 
-	return (num >> startBit) & (masks[endBit - startBit + 1]);
+	return (num >>> startBit) & (masks[endBit - startBit + 1]);
 }
 
 //rotates a 32 bit number right by 0 to 31 bits

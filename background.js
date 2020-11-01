@@ -16,19 +16,6 @@ const background = function(bgcnt, bghofs, bgvofs, vramMem, paletteRamMem, bgNum
 	this.mapWidth = 0;
 	this.mapHeight = 0;
 
-	this.backgroundENUMS = {
-    BGPRIO : 3,
-    CBB : 12, 
-    MOSAIC : 64,
-    BPP8 : 128,
-    SBB : 7936,
-    WRAPAROUND : 8192,
-    SCREENSIZE : 49152,
-
-    HOFFSET : 511,
-    VOFFSET : 511,
-  };
-
   bgcnt.addCallback((newBGCNTVal) => {this.updateBGCNT(newBGCNTVal)});
   bghofs.addCallback((newBGHOFSVal) => {this.updateBGHOFS(newBGHOFSVal)});
   bgvofs.addCallback((newBGVOFSVal) => {this.updateBGVOFS(newBGVOFSVal)});
@@ -95,6 +82,19 @@ const background = function(bgcnt, bghofs, bgvofs, vramMem, paletteRamMem, bgNum
   // ];
 }
 
+background.prototype.backgroundENUMS = {
+    BGPRIO : 3,
+    CBB : 12, 
+    MOSAIC : 64,
+    BPP8 : 128,
+    SBB : 7936,
+    WRAPAROUND : 8192,
+    SCREENSIZE : 49152,
+
+    HOFFSET : 511,
+    VOFFSET : 511,
+};
+
 background.prototype.updateBGCNT = function (newBGCNTVal) {
   this.prio = newBGCNTVal & this.backgroundENUMS["BGPRIO"];
   this.CBB = (newBGCNTVal & this.backgroundENUMS["CBB"]) >>> 2;
@@ -124,7 +124,6 @@ background.prototype.renderScanlineMode0 = function (scanline) {
 	this.getScreenEntries[this.screenSize](scanline, this.hOffset, this.vOffset, this.SBB, this.vramMem16, seArr); //retrieve screen entries (tiles) from screenblock (tilemap)
 
 	let bpp8 = this.bpp8;
-	let writeTileToScanline = this.writeTileToScanline[bpp8];
 	let tileLine = (this.vOffset + scanline) % 8;
 	let tileSize = this.bpp8 ? 0x40 : 0x20;
 	let tileBase = this.CBB * 4000;
@@ -135,7 +134,7 @@ background.prototype.renderScanlineMode0 = function (scanline) {
 	for (let i = 0; i < 31; i ++)
 	{
 		let screenEntry = seArr[i];
-		writeTileToScanline(tileBase + ((screenEntry & 1023) * tileSize), tileLine, i * 8, vramMem8, paletteRamMem16, scanlineArr, screenEntry & 1024, screenEntry & 2048, (screenEntry >>> 12) & 15);
+		this.writeTileToScanline[bpp8](tileBase + ((screenEntry & 1023) * tileSize), tileLine, i * 8, vramMem8, paletteRamMem16, scanlineArr, screenEntry & 1024, screenEntry & 2048, (screenEntry >>> 12) & 15);
 	}
 
   this.scanlineArrIndex = this.hOffset % 8;

@@ -9,11 +9,11 @@ const mmu = function() {
 	new ioRegion(), //1023 bytes for io registers
 	new memRegionDisplay("PALETTERAM", 1 * 1024), //1 kb for palette ram
 	new memRegionDisplay("VRAM", 96 * 1024), //96 kb for vram
-	new memRegionDisplay("OAM", 1 * 1024), //1kb for oam
+	new oamRegion(), //1kb for oam
 	new memRegionROM("ROM1", 16 * 1024 * 1024), //first 16 mb of game rom
 	new memRegionROM("ROM2", 16 * 1024 * 1024), //second 16 mb of game rom
-	new memRegionSRAM("SRAM", 0), //64 kb for sram (unimplemented)
-	new memRegionUndefined("UNUSED MEMORY", 0) //dummy region
+	new memRegionSRAM(0), //64 kb for sram (unimplemented)
+	new memRegionUndefined() //dummy region
 	];
 
 	this.maskedAddr;
@@ -44,7 +44,7 @@ mmu.prototype.decodeAddr = function (memAddr) {
 		break;
 		
 		case 0x4000000: //IOREGS (not mirrored, except for 0x400800 ??)
-		if ((memAddr & 0xFFFFFF) > 0x3FE)
+		if ((memAddr & 0xFFFFFF) > 0x410)
 		{
 			throw Error("accessing invalid IO memory at addr 0x" + memAddr.toString(16) + "!");
 		}

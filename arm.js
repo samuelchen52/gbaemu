@@ -1955,9 +1955,9 @@ arm.prototype.executeOpcode71 = function (instr, mode) { //71 - LDR / STR i=0
 	//console.log("offset: " + offset);
 	//console.log("size: " + size);
 	//console.log("dest: " + rd);
-	if (rd === rn){
+	//if (rd === rn){
 		//console.log("hallo");
-	}
+	//}
 
 	if (bitSlice(instr, 20, 20)) //LDR
 	{

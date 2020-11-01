@@ -1,3 +1,5 @@
+checkEndian();
+
 const waitFile = function(fileName) //waits for file input (chip8 rom)
 {
 	return new Promise(function (resolve, reject)
@@ -69,29 +71,29 @@ waitFile("romInput").then(async function (buffer) {
 	const KEYPAD = new keypad(MMU);
 
 	//for debugging
-	let i = 1;
+	let instructionNum = 1;
 	let frames = 0;
 	$("#runbutton").click(function()
 	{
-		CPU.run(true, i);
+		CPU.run(true, instructionNum);
 		GRAPHICS.updateRegisters(CPU.mode);
-		GRAPHICS.updateScreen();
-		i ++;
+		//GRAPHICS.updateScreen();
+		instructionNum ++;
 		//console.log(i);
 	});
 
 	//for debugging
-	// while (i <= 2206)
+	// while (instructionNum <= 400000)
 	// {
 
 	// 	try {
-	// 		CPU.run(false, i);
+	// 		CPU.run(false, instructionNum);
 	// 		// GRAPHICS.updateRegisters(CPU.getMode());
-	// 		GRAPHICS.updateScreen();
+	// 		//GRAPHICS.updateScreen();
 	// 	}
 	// 	catch (err)
 	// 	{
-	// 		console.log("error on instruction " + i );
+	// 		console.log("error on instruction " + instructionNum );
 	// 		//download(strData, strFileName);
 	// 		throw (err);
 	// 	}
@@ -100,9 +102,10 @@ waitFile("romInput").then(async function (buffer) {
 	// 	// 	resolve();
 	// 	// 	//setTimeout(function(){resolve()}, 10);
 	// 	// });
-	// 	i ++;
+	// 	instructionNum ++;
 	// }
 	console.log("finished");
+	//download(strData, strFileName);
 
 	const printFPS = function () {
 		setTimeout(function (){
@@ -115,12 +118,20 @@ waitFile("romInput").then(async function (buffer) {
 	const executeFrame = function() {
 		while (frameNotComplete)
 		{
-			CPU.run();
-			CPU.run();
-			CPU.run();
-			CPU.run();
+			// for (let i = 0; i < 4; i ++)
+			// {
+				CPU.run(false, instructionNum);
+				//instructionNum ++;
+				CPU.run(false, instructionNum);
+				//instructionNum ++;
+				CPU.run(false, instructionNum);
+				//instructionNum ++;
+				CPU.run(false, instructionNum);
+				//instructionNum ++;
+			// }
 			GRAPHICS.pushPixel();
 		}
+		//console.log("FRAME");
 		frames ++;
 		frameNotComplete = true;
 		setTimeout(executeFrame, 10);
@@ -128,8 +139,4 @@ waitFile("romInput").then(async function (buffer) {
 
 	setTimeout(executeFrame, 10);
 	printFPS();
-
-	//download(strData, strFileName);
 });
-
-checkEndian();

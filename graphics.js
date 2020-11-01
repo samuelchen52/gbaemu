@@ -80,11 +80,7 @@
 //these six bytes are contiguous, and followed by another two bytes used for object rotation/scaling
 //the two bytes in between each six bytes of attributes together are 128 x 2 bytes === 256 bytes in total
 //these 256 bytes define 32 groups of rotation / scaling parameters (of which there are 4, each taking 2 bytes each)
-//sprite priority works like background priority, sprites with higher priorities are drawn on top
-//sprites with the same priority are then differentiated by their index in OAM
-//what about sprites and backgrounds? if sprite prio = bg prio, the sprite is drawn on top
-//in essence, the highest of the highest priorities is sprite 0 with priority 0, which will
-//be drawn on top of anything
+
 
 
 //BACKGROUND
@@ -269,8 +265,8 @@ const graphics = function(mmu, registers, setFrameComplete) {
     () => {throw Error("invalid mode")}
   ];
 
-  //intitalize table for converting 15 bit colors to 32 bit colors (alpha set to full opacity)
-  this.convertColor = new Uint32Array(32768);
+  //intitalize table for "converting" (just making the rgb values greater) 15 bit colors to 32 bit colors (alpha set to full opacity)
+  this.convertColor = new Uint32Array(32768 + 1);
   for (let i = 0; i < this.convertColor.length; i ++)
   {
     this.convertColor[i] = 0xFF000000 + ((i & 31744) << 9) + ((i & 992) << 6) + ((i & 31) << 3);
@@ -378,18 +374,12 @@ graphics.prototype.renderScanlineMode5 = function(scanline, imageDataPos, imageD
   }
 };
 
-// graphics.prototype.renderScanlineMode5 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
-//   let bg2ScanlineArr = this.bg2.renderScanlineBGMode5[this.bg2Display](scanline);
-//   let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
-//   let backdrop = convertColor[this.paletteRamMem16[0]];
-//   for (let i = 0; i < 240; i ++)
-//   {
-//     let color = bg2ScanlineArr[bg2ScanlineArrIndex];
-//     imageDataArr[imageDataPos] = (color === 32768) ? backdrop : convertColor[color];
-//     imageDataPos ++;
-//     bg2ScanlineArrIndex ++;
-//   }
-// };
+//merges scanline buffers
+graphics.prototype.collapse = function () {
+
+
+
+}
 
 //called every 4 cpu cycles
 graphics.prototype.pushPixel = function() {
@@ -497,18 +487,16 @@ graphics.prototype.updateRegisters = function(mode) {
 // ]
 // let bool = 1;
 
+// let arr = new Uint32Array(5);
 // let timenow = (new Date).getTime();
+// let fn = () => {};
+// let fn2 = () => {let somevar = 5 + 50;};
 // //obj.hallo(obj.x);
 // for (let i = 0; i < 1000000000; i++)
 // {
-//   if (bool)
-//   {
-//     fn1();
-//   }
-//   else
-//   {
-//     let somevar = fn1();
-//   }
+//   let s = 4;
+//   let x = 4;
+//   let y = 4;
 // }
 // console.log((new Date).getTime() - timenow);
 
@@ -516,7 +504,7 @@ graphics.prototype.updateRegisters = function(mode) {
 // //obj.hallo2();
 // for (let i = 0; i < 1000000000; i++)
 // {
-//   fnptrs[bool]();
+//   fn2();
 // }
 // console.log((new Date).getTime() - timenow);
 

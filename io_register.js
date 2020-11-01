@@ -1,4 +1,5 @@
 //represents a halfword-sized IO register that is both readable and writable
+//used for OAM and IO memory region
 const ioReg = function(name, ioRegionMemory, ioRegs, regIndex) {
 	this.name = name;
 	this.ioRegionMemory = ioRegionMemory;
