@@ -12,14 +12,27 @@ const oamRegion = function() {
 	//initialize ioregs array
 	let objNum = 0;
 	for (let i = 0; i < 1024; i += 8)
-	{
-		this.ioregs.push(new ioReg("OBJ${objNum}ATTR0", this.memory, this.ioregs, i));
-		this.ioregs.push(new ioReg("OBJ${objNum}ATTR1", this.memory, this.ioregs, i + 2));
-		this.ioregs.push(new ioReg("OBJ${objNum}ATTR2", this.memory, this.ioregs, i + 4));
-		this.ioregs.push(new ioReg("OBJAFFINE${objNum}", this.memory, this.ioregs, i + 6));
+	{ 
+		let newOBJAttr0IOReg = new ioReg("OBJ" + objNum + "ATTR0", this.memory, this.ioregs, i);
+		let newOBJAttr1IOReg = new ioReg("OBJ" + objNum + "ATTR1", this.memory, this.ioregs, i + 2);
+		let newOBJAttr2IOReg = new ioReg("OBJ" + objNum + "ATTR2", this.memory, this.ioregs, i + 4);
+		let newOBJAffineIOReg = new ioReg("OBJ" + objNum + "AFFINE", this.memory, this.ioregs, i + 6);
+
+		this.ioregs.push(newOBJAttr0IOReg);
+		this.ioregs.push(newOBJAttr0IOReg);
+
+		this.ioregs.push(newOBJAttr1IOReg);
+		this.ioregs.push(newOBJAttr1IOReg);
+
+		this.ioregs.push(newOBJAttr2IOReg);
+		this.ioregs.push(newOBJAttr2IOReg);	
+
+		this.ioregs.push(newOBJAffineIOReg);
+		this.ioregs.push(newOBJAffineIOReg);	
 		
 		objNum ++;
 	}
+	window.oam = this;
 };
 
 oamRegion.prototype.read8 = function (memAddr) {
@@ -39,11 +52,15 @@ oamRegion.prototype.write8 = function (memAddr, val) {
 };
 
 oamRegion.prototype.write16 = function (memAddr, val) {
+	// console.log(memAddr);
+	// console.log(this.ioregs);
 	this.ioregs[memAddr].write16(memAddr, val);
 	this.ioregs[memAddr].triggerCallbacks();
 };
 
 oamRegion.prototype.write32 = function (memAddr, val) {
+	//console.log(memAddr + ": " + val.toString(16));
+	//console.log(this.ioregs.length);
 	this.ioregs[memAddr].write32(memAddr, val);
 	this.ioregs[memAddr].triggerCallbacks();
 

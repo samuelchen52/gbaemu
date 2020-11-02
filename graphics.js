@@ -179,6 +179,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
 
     MODE : 7,
     DISPLAYFRAME : 16,
+    OBJMAPPINGMODE : 64,
     FORCEDBLANK : 128,
     BG0DISPLAY : 256,
     BG1DISPLAY : 512,
@@ -206,7 +207,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
   this.paletteRamMem = this.mmu.getMemoryRegion("PALETTERAM").memory; //0x5000000
   this.paletteRamMem16 = new Uint16Array(this.paletteRamMem.buffer);
   this.vramMem = this.mmu.getMemoryRegion("VRAM").memory; //0x6000000
-  this.oamMem = this.mmu.getMemoryRegion("OAM").memory; //0x7000000
+  this.oamRegion = this.mmu.getMemoryRegion("OAM"); //0x7000000
 
   //state variables
   this.pixel = 0; //current pixel we are drawing on current scanline
@@ -220,6 +221,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
   //graphics hardware configuration
   this.mode = 4;
   this.page = 0;
+  this.objMappingMode = 0;
   this.bg0Display = 0;
   this.bg1Display = 0;
   this.bg2Display = 0;
@@ -252,6 +254,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
   this.bg1 = new background(this.ioregion.getIOReg("BG1CNT"), this.ioregion.getIOReg("BG1HOFS"), this.ioregion.getIOReg("BG1VOFS"), this.vramMem, this.paletteRamMem, 1);
   this.bg2 = new background(this.ioregion.getIOReg("BG2CNT"), this.ioregion.getIOReg("BG2HOFS"), this.ioregion.getIOReg("BG2VOFS"), this.vramMem, this.paletteRamMem, 2);
   this.bg3 = new background(this.ioregion.getIOReg("BG3CNT"), this.ioregion.getIOReg("BG3HOFS"), this.ioregion.getIOReg("BG3VOFS"), this.vramMem, this.paletteRamMem, 3);
+  this.objectLayer = new objectLayer(this.vramMem, this.paletteRamMem16, this.oamRegion);
 
   //renderScanline functions indexed by mode
   this.renderScanline = [
@@ -277,6 +280,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
 graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
   this.mode = newDISPCNTVal & this.displayENUMS["MODE"];
   this.page = newDISPCNTVal & this.displayENUMS["DISPLAYFRAME"];
+  this.objMappingMode = newDISPCNTVal & this.displayENUMS["OBJMAPPINGMODE"];
   this.bg0Display = (newDISPCNTVal & this.displayENUMS["BG0DISPLAY"]) >>> 8;
   this.bg1Display = (newDISPCNTVal & this.displayENUMS["BG1DISPLAY"]) >>> 9;
   this.bg2Display = (newDISPCNTVal & this.displayENUMS["BG2DISPLAY"]) >>> 10;
@@ -286,6 +290,8 @@ graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
   this.win1Display = (newDISPCNTVal & this.displayENUMS["WIN1DISPLAY"]);
   this.winOBJDisplay = (newDISPCNTVal & this.displayENUMS["WINOBJDISPLAY"]);
   this.winEnabled = (this.win0display | this.win1display | this.winobjdisplay) !== 0;
+
+  this.objectLayer.setMappingMode(this.objMappingMode);
 }
 
 graphics.prototype.updateDISPSTAT= function (newDISPCNTVal) {
@@ -319,14 +325,22 @@ graphics.prototype.updateVCount = function (scanline) {
 };
 
 graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
-  let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
-  let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
+  // let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
+  // let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
+
+  // for (let i = 0; i < 240; i ++)
+  // {
+  //   imageDataArr[imageDataPos] = convertColor[bg0ScanlineArr[bg0ScanlineArrIndex]];
+  //   imageDataPos ++;
+  //   bg0ScanlineArrIndex ++;
+  // }
+  let phantomBGS = this.objectLayer.renderScanline(scanline);
+  let pbg0 = phantomBGS[0];
 
   for (let i = 0; i < 240; i ++)
   {
-    imageDataArr[imageDataPos] = convertColor[bg0ScanlineArr[bg0ScanlineArrIndex]];
+    imageDataArr[imageDataPos] = convertColor[pbg0[i]];
     imageDataPos ++;
-    bg0ScanlineArrIndex ++;
   }
 };
 
