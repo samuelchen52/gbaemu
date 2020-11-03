@@ -26,13 +26,12 @@ const sprite = function(vramMem, paletteRamMem16, OBJAffines, OBJAttr0, OBJAttr1
 	//attribute 2
 	this.tileIndex = 0; //should 512 or higher in bitmap modes
 	this.priority = 0;
-	this.palbankIndex = 0;
+	this.palBankIndex = 0;
 
 	//other
 	this.bottomY = 8;
 	this.rightX = 8;
 	this.render = false;
-	this.width = 0; //in tiles
 	this.mappingMode = 0;
 	this.spriteRowSize = 256; //in 1d mode
 
@@ -101,30 +100,23 @@ sprite.prototype.objHeightTable = [
 
 sprite.prototype.updateOBJAttr0 = function (newOBJAttr0Val) {
   this.yCoord = newOBJAttr0Val & this.spriteENUMS["YCOORD"];
-  this.yCoord = this.yCoord >= 160 ? ~(this.yCoord - 1) : this.yCoord;
+  this.yCoord = this.yCoord >= 160 ? -1 * ((~(this.yCoord - 1)) & 0xFF) : this.yCoord;
 
   this.mode = (newOBJAttr0Val & this.spriteENUMS["MODE"]) >>> 8;
   this.gfxMode = (newOBJAttr0Val & this.spriteENUMS["GFXMODE"]) >>> 10;
   this.mosaic = newOBJAttr0Val & this.spriteENUMS["MOSAIC"];
   this.bpp8 = (newOBJAttr0Val & this.spriteENUMS["BPP8"]) >>> 13;
-  this.shape = newOBJAttr0Val & this.spriteENUMS["SHAPE"] >>> 14;
+  this.shape = (newOBJAttr0Val & this.spriteENUMS["SHAPE"]) >>> 14;
 
   this.bottomY = this.yCoord + this.objHeightTable[this.size][this.shape];
-  this.width = this.objWidthTable[this.size][this.shape] >>> 3;
-  this.rightX = this.xCoord + this.width;
+  this.rightX = this.xCoord + this.objWidthTable[this.size][this.shape];
   this.render = !((this.mode === 2) || (this.gfxMode === 2));
-  this.spriteRowSize = this.width * 0x20;
-
-  //if (this.spriteNum === 0)
-  //{
-  //	console.log("1: " + newOBJAttr0Val.toString(16));
-  //}
-  //console.log(this.mode);
+  this.spriteRowSize = this.objWidthTable[this.size][this.shape] << 2; //(this.objWidthTable[this.size][this.shape] >>> 3) * 0x20
 };
 
 sprite.prototype.updateOBJAttr1 = function (newOBJAttr1Val) {
   this.xCoord = newOBJAttr1Val & this.spriteENUMS["XCOORD"];
-  this.xCoord = this.xCoord >= 256 ? ~(this.xCoord - 1) : this.xCoord;
+  this.xCoord = this.xCoord >= 256 ? -1 * ((~(this.xCoord - 1)) & 0x1FF) : this.xCoord;
 
   this.affineIndex = (newOBJAttr1Val & this.spriteENUMS["AFFINEINDEX"]) >>> 9;
   this.hflip = (newOBJAttr1Val & this.spriteENUMS["HFLIP"]) >>> 12;
@@ -132,44 +124,38 @@ sprite.prototype.updateOBJAttr1 = function (newOBJAttr1Val) {
   this.size = (newOBJAttr1Val & this.spriteENUMS["SIZE"]) >>> 14;
 
   this.bottomY = this.yCoord + this.objHeightTable[this.size][this.shape];
-  this.width = this.objWidthTable[this.size][this.shape] >>> 3;
-  this.rightX = this.xCoord + this.width;
+  this.rightX = this.xCoord + this.objWidthTable[this.size][this.shape];
   this.render = !((this.mode === 2) || (this.gfxMode === 2));
-  this.spriteRowSize = this.width * 0x20;
-  //if (this.spriteNum === 0)
-  //{
-  //	console.log("2: " + newOBJAttr1Val.toString(16));
-  //}
+  this.spriteRowSize = this.objWidthTable[this.size][this.shape] << 2; //(this.objWidthTable[this.size][this.shape] >>> 3) * 0x20
 };
 
 sprite.prototype.updateOBJAttr2 = function (newOBJAttr2Val) {
   this.tileIndex = newOBJAttr2Val & this.spriteENUMS["TILEINDEX"];
   this.priority = (newOBJAttr2Val & this.spriteENUMS["PRIORITY"]) >>> 10;
-  this.palbankIndex = (newOBJAttr2Val & this.spriteENUMS["PALBANKINDEX"]) >>> 12;
-  //if (this.spriteNum === 0)
-  //{
-  //	console.log("3: " + newOBJAttr2Val.toString(16));
-  //}
+  this.palBankIndex = (newOBJAttr2Val & this.spriteENUMS["PALBANKINDEX"]) >>> 12;
 };
 
 sprite.prototype.renderScanlineNormal = function (phantomBGS, scanline) {
-	let tileSize = 0x20 << this.bpp8;
-	let tileLine = (scanline - this.yCoord) % 8;
-	let tileAddr = 0x10000 + (this.tileIndex * 0x20) + (((scanline - this.yCoord) >>> 3) * (this.mappingMode ? this.spriteRowSize : 1024));
+	let hflip = this.hflip;
+	let vflip = this.vflip;
 	let numTilesRender = Math.ceil((Math.min(this.rightX, 240) - this.xCoord) / 8);
-	let scanlineArrIndex = this.xCoord;
+	let tileOffset = (0x20 << this.bpp8) * (hflip ? -1 : 1);
+	let tileLine = (scanline - this.yCoord) % 8;
+	let tileAddr = 0x10000 //add 4 char block offset
+	+ (this.tileIndex * 0x20)  //add start tile offset
+	+ (((vflip ? (this.bottomY - (scanline + 1)) : (scanline - this.yCoord)) >>> 3) * (this.mappingMode ? this.spriteRowSize : 1024)) //add tile row offset
+	+ (hflip ? ((numTilesRender - 1) * (0x20 << this.bpp8)) : 0); //add tile number offset
+	let scanlineArrIndex = this.xCoord; //keep in mind this sometimes access negative index (ignored in javascript), to get around this, allocate buffer of size 512 and set index to xCoord + 256
 	let scanlineArr = phantomBGS[this.priority];
 	let vramMem = this.vramMem;
 	let paletteRamMem16 = this.paletteRamMem16;
-	let hflip = this.hflip;
-	let vflip = this.vflip;
 	let palBankIndex = this.palBankIndex;
 
 	for (let i = 0; i < numTilesRender; i ++)
 	{
 		this.writeTileToScanline[this.bpp8](tileAddr, tileLine, scanlineArrIndex, vramMem, paletteRamMem16, scanlineArr, hflip, vflip, palBankIndex);
 		scanlineArrIndex += 8;
-		tileAddr += tileSize;
+		tileAddr += tileOffset;
 	}
 };
 
@@ -184,41 +170,41 @@ sprite.prototype.renderScanlineAffineDouble = function (phantomBGS, scanline) {
 //at bpp4, one line of pixels in a tile encoded in 4 bytes
 sprite.prototype.writeTileToScanlineBPP4 = function (tileAddr, tileLine, scanlineArrIndex, vramMem8, paletteRamMem16, scanlineArr, hflip, vflip, palBankIndex) {
   tileAddr += 4 * (vflip ? (7 - tileLine) : tileLine);
-  palBankIndex <<= 4;
-  let paletteIndex0 = palBankIndex + (vramMem8[tileAddr] & 15);
-  let paletteIndex1 = palBankIndex + ((vramMem8[tileAddr] >>> 4) & 15);
-  let paletteIndex2 = palBankIndex + (vramMem8[tileAddr + 1] & 15);
-  let paletteIndex3 = palBankIndex + ((vramMem8[tileAddr + 1] >>> 4) & 15);
-  let paletteIndex4 = palBankIndex + (vramMem8[tileAddr + 2] & 15);
-  let paletteIndex5 = palBankIndex + ((vramMem8[tileAddr + 2] >>> 4) & 15);
-  let paletteIndex6 = palBankIndex + (vramMem8[tileAddr + 3] & 15);
-  let paletteIndex7 = palBankIndex + ((vramMem8[tileAddr + 3] >>> 4) & 15);
+  palBankIndex = (palBankIndex << 4) + 0x100;
+  let paletteIndex0 = (vramMem8[tileAddr] & 15);
+  let paletteIndex1 = ((vramMem8[tileAddr] >>> 4) & 15);
+  let paletteIndex2 = (vramMem8[tileAddr + 1] & 15);
+  let paletteIndex3 = ((vramMem8[tileAddr + 1] >>> 4) & 15);
+  let paletteIndex4 = (vramMem8[tileAddr + 2] & 15);
+  let paletteIndex5 = ((vramMem8[tileAddr + 2] >>> 4) & 15);
+  let paletteIndex6 = (vramMem8[tileAddr + 3] & 15);
+  let paletteIndex7 = ((vramMem8[tileAddr + 3] >>> 4) & 15);
 
   if (hflip)
   {
   	//b3  b2  b1  b0
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex + 7] = paletteIndex0 ? paletteRamMem16[paletteIndex0 + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 6] = paletteIndex1 ? paletteRamMem16[paletteIndex1 + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 5] = paletteIndex2 ? paletteRamMem16[paletteIndex2 + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 4] = paletteIndex3 ? paletteRamMem16[paletteIndex3 + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 3] = paletteIndex4 ? paletteRamMem16[paletteIndex4 + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 2] = paletteIndex5 ? paletteRamMem16[paletteIndex5 + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 1] = paletteIndex6 ? paletteRamMem16[paletteIndex6 + 0x100] : 0x8000; 
-  	scanlineArr[scanlineArrIndex] = paletteIndex7 ? paletteRamMem16[paletteIndex7 + 0x100] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 7] = paletteIndex0 ? paletteRamMem16[paletteIndex0 + palBankIndex] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 6] = paletteIndex1 ? paletteRamMem16[paletteIndex1 + palBankIndex] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 5] = paletteIndex2 ? paletteRamMem16[paletteIndex2 + palBankIndex] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 4] = paletteIndex3 ? paletteRamMem16[paletteIndex3 + palBankIndex] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 3] = paletteIndex4 ? paletteRamMem16[paletteIndex4 + palBankIndex] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 2] = paletteIndex5 ? paletteRamMem16[paletteIndex5 + palBankIndex] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 1] = paletteIndex6 ? paletteRamMem16[paletteIndex6 + palBankIndex] : 0x8000; 
+  	scanlineArr[scanlineArrIndex] = paletteIndex7 ? paletteRamMem16[paletteIndex7 + palBankIndex] : 0x8000;
   }
   else
   {
   	//b0  b1  b2  b3
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = paletteIndex0 ? paletteRamMem16[paletteIndex0 + 0x100] : 0x8000;
-    scanlineArr[scanlineArrIndex + 1] = paletteIndex1 ? paletteRamMem16[paletteIndex1 + 0x100] : 0x8000;
-    scanlineArr[scanlineArrIndex + 2] = paletteIndex2 ? paletteRamMem16[paletteIndex2 + 0x100] : 0x8000;
-    scanlineArr[scanlineArrIndex + 3] = paletteIndex3 ? paletteRamMem16[paletteIndex3 + 0x100] : 0x8000;
-    scanlineArr[scanlineArrIndex + 4] = paletteIndex4 ? paletteRamMem16[paletteIndex4 + 0x100] : 0x8000;
-    scanlineArr[scanlineArrIndex + 5] = paletteIndex5 ? paletteRamMem16[paletteIndex5 + 0x100] : 0x8000;
-    scanlineArr[scanlineArrIndex + 6] = paletteIndex6 ? paletteRamMem16[paletteIndex6 + 0x100] : 0x8000; 
-    scanlineArr[scanlineArrIndex + 7] = paletteIndex7 ? paletteRamMem16[paletteIndex7 + 0x100] : 0x8000;
+  	scanlineArr[scanlineArrIndex] = paletteIndex0 ? paletteRamMem16[paletteIndex0 + palBankIndex] : 0x8000;
+    scanlineArr[scanlineArrIndex + 1] = paletteIndex1 ? paletteRamMem16[paletteIndex1 + palBankIndex] : 0x8000;
+    scanlineArr[scanlineArrIndex + 2] = paletteIndex2 ? paletteRamMem16[paletteIndex2 + palBankIndex] : 0x8000;
+    scanlineArr[scanlineArrIndex + 3] = paletteIndex3 ? paletteRamMem16[paletteIndex3 + palBankIndex] : 0x8000;
+    scanlineArr[scanlineArrIndex + 4] = paletteIndex4 ? paletteRamMem16[paletteIndex4 + palBankIndex] : 0x8000;
+    scanlineArr[scanlineArrIndex + 5] = paletteIndex5 ? paletteRamMem16[paletteIndex5 + palBankIndex] : 0x8000;
+    scanlineArr[scanlineArrIndex + 6] = paletteIndex6 ? paletteRamMem16[paletteIndex6 + palBankIndex] : 0x8000; 
+    scanlineArr[scanlineArrIndex + 7] = paletteIndex7 ? paletteRamMem16[paletteIndex7 + palBankIndex] : 0x8000;
   }
 }
 
@@ -254,9 +240,7 @@ sprite.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, scanlin
 }
 
 sprite.prototype.shouldRender = function (scanline) {
-	return this.render && 
-	((scanline >= this.yCoord) && (scanline <= (this.bottomY))) 
-	&& (
-		((this.xCoord >= 0) && (this.xCoord < 240)) || ((this.rightX >= 0) && (this.rightX < 240))
-		) ;
+	return this.render 
+	&& ((scanline >= this.yCoord) && (scanline < this.bottomY)) 
+	&& (((this.xCoord >= 0) && (this.xCoord < 240)) || ((this.rightX >= 0) && (this.rightX < 240)));
 };

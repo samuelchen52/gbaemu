@@ -2,12 +2,12 @@ const ioRegion = function() {
 
 	let ioregENUMS = {IOREG : 0, IOREGREADONLY : 1, IOREGWRITEONLY : 2, IOREGBYTE : 3, IOREGBYTEWRITEONLY : 4, IOREGWORD : 5, IOREGWORDWRITEONLY : 6, IOREGIF : 7, IOREGDISPSTAT : 8, UNUSED : 9};
 
-	this.memory = new Uint8Array(1023);
+	this.memory = new Uint8Array(1024);
 	this.ioregs = [];
 	let ioregInitArr = [
 	//LCD IO REGISTERS
 	{name: "DISPCNT", type: ioregENUMS["IOREG"]},
-	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
+	{name: "GREENSWAP", type: ioregENUMS["IOREG"]},
 	{name: "DISPSTAT", type: ioregENUMS["IOREG"]},
 	{name: "VCOUNT", type: ioregENUMS["IOREGREADONLY"]},
 	{name: "BG0CNT", type: ioregENUMS["IOREG"]},

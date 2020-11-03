@@ -267,6 +267,11 @@ cpu.prototype.run = function(debug, inum) {
     {
       //this.LOG.logRegs(this.mode);
     }
+    // if ((this.registers[15][0] - (this.state ? 4 : 8)) === 0x8000440)
+    // {
+    //   console.log(inum);
+    //   throw Error();
+    // }
     this.execute(pipelinecopy1, pipelinecopy2);
   }
   catch (err)

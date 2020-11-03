@@ -71,7 +71,7 @@ waitFile("romInput").then(async function (buffer) {
 	const KEYPAD = new keypad(MMU);
 
 	//for debugging
-	let instructionNum = 1;
+	let instructionNum = -1;
 	let frames = 0;
 	$("#runbutton").click(function()
 	{

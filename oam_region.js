@@ -32,7 +32,6 @@ const oamRegion = function() {
 		
 		objNum ++;
 	}
-	window.oam = this;
 };
 
 oamRegion.prototype.read8 = function (memAddr) {

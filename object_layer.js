@@ -14,8 +14,6 @@ const objectLayer = function(vramMem, paletteRamMem16, oamMem) {
   {
   	this.sprites.push( new sprite(vramMem, paletteRamMem16, OBJAffines, oamMem.getIOReg("OBJ" + i + "ATTR0"), oamMem.getIOReg("OBJ" + i + "ATTR1"), oamMem.getIOReg("OBJ" + i + "ATTR2"), i) );
   }
-
-  window.sprite0 = this.sprites[0];
 };
 
 objectLayer.prototype.renderScanline = function (scanline) {
