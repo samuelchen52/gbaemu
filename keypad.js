@@ -45,6 +45,10 @@ const keypad = function(mmu) {
 
 	$(document).keydown((e) => {
 		//console.log(e.keyCode);
+		if (e.keyCode === 83)
+		{
+			window.debug = true;
+		} 
 	 	this.ioregMem16[0x98] &= this.keyCodeToKeyDown[e.keyCode];
 	});
 

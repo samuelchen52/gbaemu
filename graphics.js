@@ -139,12 +139,13 @@
 
 
 
-const graphics = function(mmu, registers, setFrameComplete) {
+const graphics = function(mmu, cpu, setFrameComplete) {
 
   this.mmu = mmu;
-  this.registers = registers;
+  this.registers = cpu.registers;
   this.setFrameComplete = setFrameComplete;
-
+  this.startIRQ = cpu.startIRQ.bind(cpu);
+  this.cpu = cpu;
 
   //debugging stuff
 	this.registersDOM = $(".register");
@@ -157,7 +158,6 @@ const graphics = function(mmu, registers, setFrameComplete) {
   this.valToMode[23] = "ABT";
   this.valToMode[18] = "IRQ";
   this.valToMode[27] = "UND";
-
 	this.registerIndices = [
     //                     1 1 1 1 1 1
     //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
@@ -170,13 +170,19 @@ const graphics = function(mmu, registers, setFrameComplete) {
     ];
 
   this.displayENUMS = {
+    //DISPSTAT
     VBLANKSET : 1,
     HBLANKSET : 2, 
     VCOUNTERSET : 4,
     VBLANKCLEAR : ~1,
     HBLANKCLEAR : ~2,
     VCOUNTERCLEAR : ~4,
+    VBLANKIRQENABLE : 8,
+    HBLANKIRQENABLE : 16,
+    VCOUNTIRQENABLE : 32,
+    VCOUNTSETTING : 0xFF00, //1111111100000000
 
+    //DISPCNT
     MODE : 7,
     DISPLAYFRAME : 16,
     OBJMAPPINGMODE : 64,
@@ -232,6 +238,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
   this.winOBJDisplay = 0;
   this.winEnabled = 0;
 
+  //interrupt enables
   this.hblankIRQEnable = false;
   this.vblankIRQEnable = false;
   this.vCountIRQEnable = false;
@@ -243,11 +250,15 @@ const graphics = function(mmu, registers, setFrameComplete) {
   this.dispcnt.addCallback((newDISPCNTVal) => {this.updateDISPCNT(newDISPCNTVal)});
 
   this.dispstat = this.ioregion.getIOReg("DISPSTAT");
+  this.dispstat.addCallback((newDISPSTATVal) => {this.updateDISPSTAT(newDISPSTATVal)});
   this.dispstatByte1 = this.dispstat.regIndex;
   this.dispstatByte2 = this.dispstat.regIndex + 1;
 
   this.vcount = this.ioregion.getIOReg("VCOUNT");
   this.vcountByte1 = this.vcount.regIndex;
+
+  this.if = this.ioregion.getIOReg("IF");
+  this.ifByte1 = this.if.regIndex;
 
   //backgrounds
   this.bg0 = new background(this.ioregion.getIOReg("BG0CNT"), this.ioregion.getIOReg("BG0HOFS"), this.ioregion.getIOReg("BG0VOFS"), this.vramMem, this.paletteRamMem, 0);
@@ -275,6 +286,7 @@ const graphics = function(mmu, registers, setFrameComplete) {
     this.convertColor[i] = 0xFF000000 + ((i & 31744) << 9) + ((i & 992) << 6) + ((i & 31) << 3);
   }  
 
+  window.graphics = this;
 };
 
 graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
@@ -294,28 +306,55 @@ graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
   this.objectLayer.setMappingMode(this.objMappingMode);
 }
 
-graphics.prototype.updateDISPSTAT= function (newDISPCNTVal) {
+graphics.prototype.updateDISPSTAT= function (newDISPSTATVal) {
+  console.log("SET");
+  this.vblankIRQEnable = newDISPSTATVal & this.displayENUMS["VBLANKIRQENABLE"];
+  this.hblankIRQEnable = newDISPSTATVal & this.displayENUMS["HBLANKIRQENABLE"];
+  this.vCountIRQEnable = newDISPSTATVal & this.displayENUMS["VCOUNTIRQENABLE"];
+  this.vCountSetting = (newDISPSTATVal & this.displayENUMS["VCOUNTSETTING"]) >>> 8;
 }
 
 graphics.prototype.setHblank = function () {
   this.hblank = true;
   this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["HBLANKSET"];
 
-  //if hblank irq, throw interrupt
+  // console.log("ayo");
+  // console.log(this.hblankIRQEnable);
+  if (this.hblankIRQEnable) //if hblank irq enabled, throw interrupt
+  {
+    this.ioregionMem[this.ifByte1] |= 2;
+    //console.log("HALLO");
+    this.cpu.halt = false;
+    this.cpu.checkInterrupt = true;
+  }
 };
 
 graphics.prototype.setVblank = function () {
   this.vblank = true;
   this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["VBLANKSET"];
 
-  //if vblank irq, throw interrupt
+  //console.log("ayo");
+  //console.log(this.vblankIRQEnable);
+  if (this.vblankIRQEnable) //if vblank irq enabled, throw interrupt
+  {
+    this.ioregionMem[this.ifByte1] |= 1;
+    //console.log("HALLO2");
+    this.cpu.halt = false;
+    this.cpu.checkInterrupt = true;
+  }
 };
 
-graphics.prototype.updateVCount = function (scanline) {
+graphics.prototype.setVCount = function (scanline) {
   if (this.vCountSetting === scanline)
   {
     this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["VCOUNTERSET"];
-    //throw interrupt if vcount irq enabled
+    if (this.vCountIRQEnable) //if vcount irq enabled, throw interrupt
+    {
+     this.ioregionMem[this.ifByte1] |= 4;
+     //console.log("HALLO3");
+     this.cpu.halt = false;
+     this.cpu.checkInterrupt = true;
+    }
   }
   else
   {
@@ -325,23 +364,23 @@ graphics.prototype.updateVCount = function (scanline) {
 };
 
 graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
-  // let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
-  // let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
+  let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
+  let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
+  let backdrop = this.paletteRamMem16[0];
+  for (let i = 0; i < 240; i ++)
+  {
+    imageDataArr[imageDataPos] = convertColor[(bg0ScanlineArr[bg0ScanlineArrIndex] === 0x8000) ? backdrop : bg0ScanlineArr[bg0ScanlineArrIndex]];
+    imageDataPos ++;
+    bg0ScanlineArrIndex ++;
+  }
+  // let phantomBGS = this.objectLayer.renderScanline(scanline);
+  // let pbg0 = phantomBGS[0];
 
   // for (let i = 0; i < 240; i ++)
   // {
-  //   imageDataArr[imageDataPos] = convertColor[bg0ScanlineArr[bg0ScanlineArrIndex]];
+  //   imageDataArr[imageDataPos] = convertColor[pbg0[i]];
   //   imageDataPos ++;
-  //   bg0ScanlineArrIndex ++;
   // }
-  let phantomBGS = this.objectLayer.renderScanline(scanline);
-  let pbg0 = phantomBGS[0];
-
-  for (let i = 0; i < 240; i ++)
-  {
-    imageDataArr[imageDataPos] = convertColor[pbg0[i]];
-    imageDataPos ++;
-  }
 };
 
 graphics.prototype.renderScanlineMode1 = function() { 
@@ -400,15 +439,9 @@ graphics.prototype.pushPixel = function() {
   if (this.vblank)
   {
     this.pixel ++;
-    if (this.pixel === 240)
-    {
-      this.setHblank();
-    }
-    else if (this.pixel === 308)
+    if (this.pixel === 308)
     {
       this.pixel = 0;
-      this.hblank = false;
-      this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["HBLANKCLEAR"];
       this.scanline ++;
       if (this.scanline === 228)
       {
@@ -416,7 +449,7 @@ graphics.prototype.pushPixel = function() {
         this.vblank = false;
         this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["VBLANKCLEAR"];
       }
-      this.updateVCount(this.scanline);
+      this.setVCount(this.scanline);
     }
   }
   else if (this.hblank)
@@ -433,7 +466,7 @@ graphics.prototype.pushPixel = function() {
         this.setVblank();
         this.finishDraw();
       }
-      this.updateVCount(this.scanline);
+      this.setVCount(this.scanline);
     }
   }
   else
@@ -526,4 +559,3 @@ graphics.prototype.updateRegisters = function(mode) {
 // {
 //   console.log("this.executeOpcode.push(this.executeOpcode" + i + ".bind(this))");
 // }
-

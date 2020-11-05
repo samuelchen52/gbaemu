@@ -67,29 +67,41 @@ waitFile("romInput").then(async function (buffer) {
 
 	//set up hardware
 	const CPU = new cpu(0x08000000, MMU);
-	const GRAPHICS = new graphics(MMU, CPU.registers, function(){frameNotComplete = false;});
+	const GRAPHICS = new graphics(MMU, CPU, function(){frameNotComplete = false;});
 	const KEYPAD = new keypad(MMU);
 
 	//for debugging
-	let instructionNum = -1;
+	let instructionNum = 1;
+	let cnt = 0;
 	let frames = 0;
+
 	$("#runbutton").click(function()
 	{
 		CPU.run(true, instructionNum);
-		GRAPHICS.updateRegisters(CPU.mode);
-		//GRAPHICS.updateScreen();
 		instructionNum ++;
-		//console.log(i);
+		cnt ++;
+		GRAPHICS.updateRegisters(CPU.mode);
+		if (cnt === 4)
+		{
+		 GRAPHICS.pushPixel();
+		 cnt = 0;
+		}
 	});
 
 	//for debugging
-	// while (instructionNum <= 400000)
+	// while (instructionNum <= 281800) //281857
 	// {
 
 	// 	try {
 	// 		CPU.run(false, instructionNum);
-	// 		// GRAPHICS.updateRegisters(CPU.getMode());
-	// 		//GRAPHICS.updateScreen();
+	// 		instructionNum ++;
+	// 		CPU.run(false, instructionNum);
+	// 		instructionNum ++;
+	// 		CPU.run(false, instructionNum);
+	// 		instructionNum ++;
+	// 		CPU.run(false, instructionNum);
+	// 		instructionNum ++;
+	// 		GRAPHICS.pushPixel();
 	// 	}
 	// 	catch (err)
 	// 	{
@@ -102,10 +114,10 @@ waitFile("romInput").then(async function (buffer) {
 	// 	// 	resolve();
 	// 	// 	//setTimeout(function(){resolve()}, 10);
 	// 	// });
-	// 	instructionNum ++;
+	// 	//instructionNum ++;
 	// }
 	console.log("finished");
-	//download(strData, strFileName);
+	// download(strData, strFileName);
 
 	const printFPS = function () {
 		setTimeout(function (){
@@ -118,16 +130,20 @@ waitFile("romInput").then(async function (buffer) {
 	const executeFrame = function() {
 		while (frameNotComplete)
 		{
+			// if (instructionNum >= 575612) //576930
+			// {
+			// 	return;
+			// }
 			// for (let i = 0; i < 4; i ++)
 			// {
 				CPU.run(false, instructionNum);
-				//instructionNum ++;
+				instructionNum ++;
 				CPU.run(false, instructionNum);
-				//instructionNum ++;
+				instructionNum ++;
 				CPU.run(false, instructionNum);
-				//instructionNum ++;
+				instructionNum ++;
 				CPU.run(false, instructionNum);
-				//instructionNum ++;
+				instructionNum ++;
 			// }
 			GRAPHICS.pushPixel();
 		}
@@ -139,4 +155,6 @@ waitFile("romInput").then(async function (buffer) {
 
 	setTimeout(executeFrame, 10);
 	printFPS();
+
+
 });

@@ -1,9 +1,9 @@
-const arm = function(mmu, registers, changeState, changeMode, resetPipeline, startSWI, registerIndices) {
+const arm = function(mmu, registers, changeState, setCPSR, resetPipeline, startSWI, registerIndices) {
 	
 	this.mmu = mmu;
 	this.registers = registers;
 	this.changeState = changeState;
-	this.changeMode = changeMode;
+	this.setCPSR = setCPSR;
 	this.resetPipeline = resetPipeline;
 	this.startSWI = startSWI;
 	this.registerIndices = registerIndices;
@@ -178,16 +178,18 @@ arm.prototype.checkCondition = function (condition)
 	throw Error("condition wasnt a 4 bit number?");
 };
 
+//restore CPSR
 arm.prototype.SPSRtoCPSR = function (mode) {
 	if (mode === 0) //SPSR does not exist
 	{
 		console.log("transferring user/system SPSR?");
+		throw Error();
 	}
 	else //set CPSR to SPSR and update CPU state and mode
 	{
-		this.registers[16][0] = this.registers[17][this.registerIndices[mode][17]];
-		this.changeState(bitSlice(this.registers[16][0], 5, 5) ? "THUMB" : "ARM");
-		this.changeMode(this.registers[16][0] & 31);
+		let SPSR = this.registers[17][this.registerIndices[mode][17]];
+		this.changeState(bitSlice(SPSR, 5, 5) ? "THUMB" : "ARM");
+		this.setCPSR(SPSR);
 	}
 };
 
@@ -1373,23 +1375,29 @@ arm.prototype.executeOpcode45 = function (instr, mode) { //45 - MSR register Psr
 	}
 	if ((fsxc & 0x4) && (p)) //set CPSR_res_1 (shouldnt be used)
 	{
+		console.log("MSR changing unused status field...");
 		psr = (psr & 0xFF00FFFF) + (op & 0x00FF0000);
 	}
 	if ((fsxc & 0x2) && (p)) //set CPSR_res_2 (shouldnt be used)
 	{
+		console.log("MSR changing unused extension field...");
 		psr = (psr & 0xFFFF00FF) + (op & 0x0000FF00);
 	}
 	if ((fsxc & 0x1) && (p)) //set CPSR_ctl
 	{
-		psr = (psr & 0xFFFFFF20) + (op & 0x000000DF); //20 -> 00100000 DF -> 11011111 to keep the t bit intact
-		if (!psrBit)
-		{
-			this.changeMode(psr & 31);
-		}
-
+	//	psr = (psr & 0xFFFFFF20) + (op & 0x000000DF); //20 -> 00100000 DF -> 11011111 to keep the t bit intact
+	psr = (psr & 0xFFFFFF00) + (op & 0x000000FF);
 	}
 
-	this.registers[16 + psrBit][this.registerIndices[mode][16 + psrBit]] = psr;
+	if (psrBit) //set SPSR
+	{
+		this.registers[17][this.registerIndices[mode][17]] = psr;
+	}
+	else //set CPSR
+	{
+		this.setCPSR(psr);
+	}
+
 };
 
 //ARM[4]-----------second operand register, shifted by IMM(opcodes 8 - 15)----------------------------------------------------------
@@ -1789,26 +1797,28 @@ arm.prototype.executeOpcode63 = function (instr, mode) { //63 - MSR imm Psr[fiel
 	}
 	if ((fsxc & 0x4) && (p)) //set CPSR_res_1 (shouldnt be used)
 	{
+		console.log("MSR changing unused status field...");
 		psr = (psr & 0xFF00FFFF) + (op & 0x00FF0000);
 	}
 	if ((fsxc & 0x2) && (p)) //set CPSR_res_2 (shouldnt be used)
 	{
+		console.log("MSR changing unused extension field...");
 		psr = (psr & 0xFFFF00FF) + (op & 0x0000FF00);
 	}
 	if ((fsxc & 0x1) && (p)) //set CPSR_ctl
 	{
-		psr = (psr & 0xFFFFFF20) + (op & 0x000000DF);  //20 -> 00100000 DF -> 11011111 to keep the t bit intact
-		if (!psrBit)
-		{
-			this.changeMode(psr & 31); //31 === 11111b
-		}
+		//psr = (psr & 0xFFFFFF20) + (op & 0x000000DF);  //20 -> 00100000 DF -> 11011111 to keep the t bit intact
+		psr = (psr & 0xFFFFFF00) + (op & 0x000000FF);
 	}
-	//console.log(this.checkCondition(10));
-	this.registers[16 + psrBit][this.registerIndices[mode][16 + psrBit]] = psr;
-	// console.log("new psr: " + (psr >>> 0).toString(16));
-	// console.log(this.checkCondition(10));
-	// console.log("");
-	//this.registers[16 + psrBit][this.registerIndices[mode][16 + psrBit]] = psr;
+	
+	if (psrBit) //set SPSR
+	{
+		this.registers[17][this.registerIndices[mode][17]] = psr;
+	}
+	else //set CPSR
+	{
+		this.setCPSR(psr);
+	}
 };
 
 arm.prototype.executeOpcode64 = function (instr, mode) { //64 - TEQ imm Void = Rn XOR Op2
@@ -1965,6 +1975,7 @@ arm.prototype.executeOpcode71 = function (instr, mode) { //71 - LDR / STR i=0
 		{
 			if (w) //w serves as t bit
 			{
+				console.log("HUH");
 				mode = 0; //force non-priveleged access
 			}
 			let addr = this.registers[rn][this.registerIndices[mode][rn]];
@@ -2003,6 +2014,7 @@ arm.prototype.executeOpcode71 = function (instr, mode) { //71 - LDR / STR i=0
 		{
 			if (w) //w serves as t bit
 			{
+				console.log("HUH");
 				mode = 0; //force non-priveleged access
 			}
 			this.mmu.write(this.registers[rn][this.registerIndices[mode][rn]] & mask, this.registers[rd][this.registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
@@ -2037,6 +2049,7 @@ arm.prototype.executeOpcode72 = function (instr, mode) { //72 - LDR / STR i=1
 		{
 			if (w) //w serves as t bit
 			{
+				console.log("HUH");
 				mode = 0; //force non-priveleged access
 			}
 			let addr = this.registers[rn][this.registerIndices[mode][rn]];
@@ -2073,6 +2086,7 @@ arm.prototype.executeOpcode72 = function (instr, mode) { //72 - LDR / STR i=1
 		{
 			if (w) //w serves as t bit
 			{
+				console.log("HUH");
 				mode = 0; //force non-priveleged access
 			}
 			this.mmu.write(this.registers[rn][this.registerIndices[mode][rn]] & mask, this.registers[rd][this.registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
@@ -2280,6 +2294,7 @@ arm.prototype.executeOpcode74 = function (instr, mode) { //74 - B / BL
 arm.prototype.executeOpcode75 = function (instr, mode) { //75 - LDC / STC
 	//gba does not use this instruction
 	console.log("???1");
+	throw Error();
 };
 
 arm.prototype.executeOpcode76 = function (instr, mode) { //76 - CDP
@@ -2294,14 +2309,7 @@ arm.prototype.executeOpcode77 = function (instr, mode) { //77 - MRC / MCR
 
 //ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
 arm.prototype.executeOpcode78 = function (instr, mode) { //78 - SWI
-	this.startSWI();
-	//filler code for SWI #6h (used by gba-suite )
-	// let numerator = this.registers[0][this.registerIndices[mode][0]];
-	// let denominator = this.registers[1][this.registerIndices[mode][1]];
-
-	// this.registers[0][this.registerIndices[mode][0]] = Math.floor(numerator / denominator);
-	// this.registers[1][this.registerIndices[mode][1]] = numerator % denominator;
-	// this.registers[3][this.registerIndices[mode][3]] = Math.abs(Math.floor(numerator / denominator));
+	this.startSWI(bitSlice(instr, 0, 23));
 };
 
 //ARM[5]-----------------------------------------------------------------------------------------------------

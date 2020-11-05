@@ -29,7 +29,7 @@ ioReg.prototype.read16 = function (memAddr) {
 }
 
 ioReg.prototype.read32 = function (memAddr) {
-	return this.ioRegionMemory[memAddr] + (this.ioRegionMemory[(memAddr + 1)] << 8) + (this.ioRegs[this.regIndex + 2].read16(memAddr) << 16);
+	return this.ioRegionMemory[memAddr] + (this.ioRegionMemory[(memAddr + 1)] << 8) + (this.ioRegs[this.regIndex + 2].read16(memAddr + 2) << 16);
 }
 
 ioReg.prototype.write8 = function (memAddr, val) {
@@ -58,21 +58,6 @@ const ioRegReadOnly = function (name, ioRegionMemory, ioRegs, regIndex) {
 
 ioRegReadOnly.prototype = Object.create(ioReg.prototype);
 ioRegReadOnly.constructor = ioRegReadOnly;
-
-ioRegReadOnly.prototype.read8 = function (memAddr) {
-	//console.log("AYOOO3");
-	return this.ioRegionMemory[memAddr];
-}
-
-ioRegReadOnly.prototype.read16 = function (memAddr) {
-	//console.log("AYOOO2");
-	return this.ioRegionMemory[memAddr] + (this.ioRegionMemory[(memAddr + 1)] << 8);
-}
-
-ioRegReadOnly.prototype.read32 = function (memAddr) {
-	//console.log("AYOOO1");
-	return this.ioRegionMemory[memAddr] + (this.ioRegionMemory[(memAddr + 1)] << 8) + (this.ioRegs[this.regIndex + 2].read16(memAddr) << 16);
-}
 
 ioRegReadOnly.prototype.write8 = function (memAddr, val) {
 	console.log("ignored: writing byte to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
@@ -199,11 +184,11 @@ ioRegByte.prototype.triggerCallbacks = function () {
 }
 
 ioRegByte.prototype.read16 = function (memAddr) {
-	return this.ioRegionMemory[memAddr] + (this.ioRegs[this.regIndex + 1].read8(memAddr) << 8);
+	return this.ioRegionMemory[memAddr] + (this.ioRegs[this.regIndex + 1].read8(memAddr + 1) << 8);
 }
 
 ioRegByte.prototype.read32 = function (memAddr) {
-	return this.ioRegionMemory[memAddr] + (this.ioRegs[this.regIndex + 1].read8(memAddr) << 8) + (this.ioRegs[this.regIndex + 2].read16(memAddr) << 16);
+	return this.ioRegionMemory[memAddr] + (this.ioRegs[this.regIndex + 1].read8(memAddr + 1) << 8) + (this.ioRegs[this.regIndex + 2].read16(memAddr + 2) << 16);
 }
 
 ioRegByte.prototype.write16 = function (memAddr, val) {
@@ -284,15 +269,19 @@ ioRegIF.prototype = Object.create(ioReg.prototype);
 ioRegIF.constructor = ioRegIF;
 
 ioRegIF.prototype.write8 = function (memAddr, val) {
+	//console.log("oldval: " + val);
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
 }
 
 ioRegIF.prototype.write16 = function (memAddr, val) {
+	//console.log("oldval: " + val);
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
 	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
+	//console.log("new val: " + (this.ioRegionMemory[memAddr] + (this.ioRegionMemory[memAddr + 1] << 8)) );
 }
 
 ioRegIF.prototype.write32 = function (memAddr, val) {
+	//console.log("oldval: " + val);
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
 	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
 
@@ -309,23 +298,27 @@ ioRegDISPSTAT.prototype = Object.create(ioReg.prototype);
 ioRegDISPSTAT.constructor = ioRegDISPSTAT;
 
 ioRegDISPSTAT.prototype.write8 = function (memAddr, val) {
-	if (memAddr === this.regIndex) //writing to lower byte with read only bits
+	if (memAddr === this.regIndex) //writing to lower byte with 3 read only bits (0 - 2)
 	{
-		val &= ~7;
+		val &= ~7; //11111000
+		this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] & 7) + val;
 	}
-	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
+	else
+	{
+		this.ioRegionMemory[memAddr] = val;
+	}
 }
 
 ioRegDISPSTAT.prototype.write16 = function (memAddr, val) {
 	val &= ~7;
-	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
-	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
+	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] & 7) + val;
+	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
 }
 
 ioRegDISPSTAT.prototype.write32 = function (memAddr, val) {
 	val &= ~7;
-	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
-	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
+	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] & 7) + val;
+	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
 
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
 	this.ioRegs[this.regIndex + 2].triggerCallbacks();
@@ -349,7 +342,7 @@ ioRegUnused.prototype.read8 = function (memAddr) {
 }
 
 ioRegUnused.prototype.read16 = function (memAddr) {
-	console.log("not implemented: reading halfword at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
+	//console.log("not implemented: reading halfword at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
 	return 0;
 }
 

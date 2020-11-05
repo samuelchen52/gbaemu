@@ -1,9 +1,9 @@
-const thumb = function(mmu, registers, changeState, changeMode, resetPipeline, startSWI, registerIndices) {
+const thumb = function(mmu, registers, changeState, setCPSR, resetPipeline, startSWI, registerIndices) {
 	
 	this.mmu = mmu;
 	this.registers = registers;
 	this.changeState = changeState;
-	this.changeMode = changeMode;
+	this.setCPSR = setCPSR;
 	this.resetPipeline = resetPipeline;
 	this.startSWI = startSWI;
 	this.registerIndices = registerIndices;
@@ -806,7 +806,7 @@ thumb.prototype.executeOpcode56 = function (instr, mode) { //56 - CONDITIONAL BR
 
 //THUMB.17------------------------------------------------------------------------------------------------------
 thumb.prototype.executeOpcode57 = function (instr, mode) { //57 - SWI
-	this.startSWI();
+	this.startSWI(bitSlice(instr, 0, 7));
 };
 
 //THUMB.18------------------------------------------------------------------------------------------------------
