@@ -1,4 +1,4 @@
-const keypad = function(mmu) {
+	const keypad = function(mmu) {
 	this.ioregMem16 = new Uint16Array(mmu.getMemoryRegion("IOREGISTERS").memory.buffer); //0x4000000
 	this.vramMem = mmu.getMemoryRegion("VRAM").memory;
 	//bits being cleared represents the corresponding button being pressed
@@ -17,7 +17,7 @@ const keypad = function(mmu) {
 	this.keyCodeToKeyDown = new Uint16Array(255);
 	this.keyCodeToKeyUp = new Uint16Array(255);
 
-	this.keyCodeToKeyDown.fill(255);
+	this.keyCodeToKeyDown.fill(65535);
 	this.keyCodeToKeyDown[65]  = 1022; //1111111110 A
 	this.keyCodeToKeyDown[83]  = 1021; //1111111101 B
 	this.keyCodeToKeyDown[191] = 1019; //1111111011 select
