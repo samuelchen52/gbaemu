@@ -35,8 +35,6 @@ const sprite = function(vramMem, paletteRamMem16, OBJAffines, OBJAttr0, OBJAttr1
 	this.mappingMode = 0;
 	this.spriteRowSize = 256; //in 1d mode
 
-
-	this.tileArr = new Uint32Array(8); //sprite width up to 8 tiles
  
 	OBJAttr0.addCallback((newOBJAttr0Val) => {this.updateOBJAttr0(newOBJAttr0Val)});
 	OBJAttr1.addCallback((newOBJAttr1Val) => {this.updateOBJAttr1(newOBJAttr1Val)});
@@ -53,6 +51,11 @@ const sprite = function(vramMem, paletteRamMem16, OBJAffines, OBJAttr0, OBJAttr1
 	this.writeTileToScanline = [
 	  this.writeTileToScanlineBPP4.bind(this),
 	  this.writeTileToScanlineBPP8.bind(this)
+  ];
+
+	this.getColor = [
+	  this.getColorBPP4.bind(this),
+	  this.getColorBPP8.bind(this)
   ];
 
 
@@ -111,7 +114,7 @@ sprite.prototype.updateOBJAttr0 = function (newOBJAttr0Val) {
   this.bottomY = this.yCoord + this.objHeightTable[this.size][this.shape];
   this.rightX = this.xCoord + this.objWidthTable[this.size][this.shape];
   this.render = !((this.mode === 2) || (this.gfxMode === 2));
-  this.spriteRowSize = this.objWidthTable[this.size][this.shape] << 2; //(this.objWidthTable[this.size][this.shape] >>> 3) * 0x20
+  this.spriteRowSize = this.objWidthTable[this.size][this.shape] << (2 + this.bpp8); //(this.objWidthTable[this.size][this.shape] >>> 3) * (0x20 << this.bpp8)
 };
 
 sprite.prototype.updateOBJAttr1 = function (newOBJAttr1Val) {
@@ -126,7 +129,7 @@ sprite.prototype.updateOBJAttr1 = function (newOBJAttr1Val) {
   this.bottomY = this.yCoord + this.objHeightTable[this.size][this.shape];
   this.rightX = this.xCoord + this.objWidthTable[this.size][this.shape];
   this.render = !((this.mode === 2) || (this.gfxMode === 2));
-  this.spriteRowSize = this.objWidthTable[this.size][this.shape] << 2; //(this.objWidthTable[this.size][this.shape] >>> 3) * 0x20
+  this.spriteRowSize = this.objWidthTable[this.size][this.shape] << (2 + this.bpp8); //(this.objWidthTable[this.size][this.shape] >>> 3) * (0x20 << this.bpp8)
 };
 
 sprite.prototype.updateOBJAttr2 = function (newOBJAttr2Val) {
@@ -157,14 +160,6 @@ sprite.prototype.renderScanlineNormal = function (phantomBGS, scanline) {
 		scanlineArrIndex += 8;
 		tileAddr += tileOffset;
 	}
-};
-
-sprite.prototype.renderScanlineAffine = function (phantomBGS, scanline) {
-	console.log("NOT IMPLEMENTED");
-};
-
-sprite.prototype.renderScanlineAffineDouble = function (phantomBGS, scanline) {
-	console.log("NOT IMPLEMENTED");
 };
 
 //at bpp4, one line of pixels in a tile encoded in 4 bytes
@@ -239,8 +234,111 @@ sprite.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, scanlin
   }
 }
 
+sprite.prototype.renderScanlineAffine = function (phantomBGS, scanline) {
+	let xCoord = this.xCoord;
+	let rightX = this.rightX;
+	let yCoord = this.yCoord;
+	let bottomY = this.bottomY;
+	let numPixelsRender = Math.min(rightX, 240);
+	let spriteRowSize = this.mappingMode ? this.spriteRowSize : 1024;
+	let OBJAffine = this.OBJAffines[this.affineIndex];
+	let scanlineArr = phantomBGS[this.priority];
+	let bpp8 = this.bpp8;
+	let baseTileAddr = 0x10000 //add 4 char block offset
+	+ (this.tileIndex * 0x20);  //add start tile offset
+	let vramMem = this.vramMem;
+	let paletteRamMem16 = this.paletteRamMem16;
+	let palBankIndex = this.palBankIndex;
+
+	let halfHeight = this.objHeightTable[this.size][this.shape] >>> 1;
+	let halfWidth = this.objWidthTable[this.size][this.shape] >>> 1;
+
+
+	for (let i = xCoord; i < numPixelsRender; i ++)
+	{
+		//console.log((i - xCoord - halfWidth) * OBJAffine.pa);
+		let textureXCoord = (((halfWidth - (i - xCoord)) * OBJAffine.pa) + ((halfHeight - (scanline - yCoord)) * OBJAffine.pb)) >> 8;
+		let textureYCoord = (((halfWidth - (i - xCoord)) * OBJAffine.pc) + ((halfHeight - (scanline - yCoord)) * OBJAffine.pd)) >> 8;
+
+		if (((textureXCoord > -halfWidth) && (textureXCoord <= halfWidth)) && ((textureYCoord > -halfHeight) && (textureYCoord <= halfHeight)))
+		{
+			//console.log("scanline: " + scanline + " x: " + textureXCoord + " y: " + textureYCoord);
+
+			let xDiff = (halfWidth - (textureXCoord)); //textureXCoord - -halfWidth
+			let yDiff = ((halfHeight) - textureYCoord); //textureYCoord - halfHeight
+			let tileAddr = baseTileAddr + ((yDiff >>> 3) * spriteRowSize) + ((xDiff >>> 3) * (0x20 << bpp8));
+			//console.log(tileAddr);
+			//console.log("xdiff: " + xDiff + " ydiff: " + yDiff);
+
+			scanlineArr[i] = this.getColor[bpp8](tileAddr, xDiff, yDiff, vramMem, paletteRamMem16, palBankIndex);
+		}
+		else
+		{
+			scanlineArr[i] = 0x8000;
+ 		}
+	}
+};
+
+sprite.prototype.getColorBPP4 = function(tileAddr, xDiff, yDiff, vramMem8, paletteRamMem16, palBankIndex) {
+	tileAddr += (4 * (yDiff % 8)) + ((xDiff % 8) >>> 1); //get color addr in tile
+
+	let paletteIndex = (vramMem8[tileAddr] >>> ((xDiff & 1) << 2)) & 15;
+	return paletteIndex ? paletteRamMem16[paletteIndex + (palBankIndex << 4) + 0x100] : 0x8000;
+}
+
+sprite.prototype.getColorBPP8 = function(tileAddr, xDiff, yDiff, vramMem8, paletteRamMem16) {
+	tileAddr += (8 * (yDiff % 8)) + (xDiff % 8); //get color addr in tile
+
+	return vramMem8[tileAddr] ? paletteRamMem16[vramMem8[tileAddr] + 0x100] : 0x8000;
+}
+
+sprite.prototype.renderScanlineAffineDouble = function (phantomBGS, scanline) {
+	console.log("NOT IMPLEMENTED");
+};
+
+
 sprite.prototype.shouldRender = function (scanline) {
 	return this.render 
 	&& ((scanline >= this.yCoord) && (scanline < this.bottomY)) 
 	&& (((this.xCoord >= 0) && (this.xCoord < 240)) || ((this.rightX >= 0) && (this.rightX < 240)));
 };
+
+
+
+
+
+
+
+
+const OBJAffine = function (OBJAffineIORegPA, OBJAffineIORegPB, OBJAffineIORegPC, OBJAffineIORegPD, objAffineNum){
+	this.pa = 0;
+	this.pb = 0;
+	this.pc = 0;
+	this.pd = 0;
+	this.objAffineNum = objAffineNum;
+
+	OBJAffineIORegPA.addCallback((newPAVal) => {this.updatePA(newPAVal)});
+	OBJAffineIORegPB.addCallback((newPBVal) => {this.updatePB(newPBVal)});
+	OBJAffineIORegPC.addCallback((newPCVal) => {this.updatePC(newPCVal)});
+	OBJAffineIORegPD.addCallback((newPDVal) => {this.updatePD(newPDVal)});
+}
+
+OBJAffine.prototype.updatePA = function(newPAVal) {
+	//console.log(newPAVal + " from " + this.objAffineNum);
+	this.pa = newPAVal & 32768 ? -1 * (~(newPAVal - 1) & 0xFFFF) : newPAVal;
+}
+
+OBJAffine.prototype.updatePB = function(newPBVal) {
+	//console.log(newPBVal + " from " + this.objAffineNum);
+	this.pb = newPBVal & 32768 ? -1 * (~(newPBVal - 1) & 0xFFFF) : newPBVal;
+}
+
+OBJAffine.prototype.updatePC = function(newPCVal) {
+	//console.log(newPCVal + " from " + this.objAffineNum);
+	this.pc = newPCVal & 32768 ? -1 * (~(newPCVal - 1) & 0xFFFF) : newPCVal;
+}
+
+OBJAffine.prototype.updatePD = function(newPDVal) {
+	//console.log(newPDVal + " from " + this.objAffineNum);
+	this.pd = newPDVal & 32768 ? -1 * (~(newPDVal - 1) & 0xFFFF) : newPDVal;
+}

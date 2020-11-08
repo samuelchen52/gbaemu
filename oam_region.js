@@ -65,7 +65,7 @@ oamRegion.prototype.write32 = function (memAddr, val) {
 
 };
 
-oamRegion.prototype.getOBJAffines = function () {
+oamRegion.prototype.getOBJAffineIORegs = function () {
 	let arr = [];
 	for (let i = 0; i < 1024; i += 8)
 	{
