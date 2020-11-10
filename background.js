@@ -1,4 +1,4 @@
-const background = function(bgcnt, bghofs, bgvofs, vramMem, paletteRamMem, bgNum) {
+const background = function(bgcnt, bghofs, bgvofs, bgx, bgy, bgpa, bgpb, bgpc, bgpd, vramMem, paletteRamMem, bgNum) {
 
 	this.bgNum = bgNum;
 
@@ -20,35 +20,59 @@ const background = function(bgcnt, bghofs, bgvofs, vramMem, paletteRamMem, bgNum
   bghofs.addCallback((newBGHOFSVal) => {this.updateBGHOFS(newBGHOFSVal)});
   bgvofs.addCallback((newBGVOFSVal) => {this.updateBGVOFS(newBGVOFSVal)});
 
+  if (bgNum >= 2)
+  {
+    this.refX = 0;
+    this.refY = 0;
+    this.bgpa = 0;
+    this.bgpb = 0;
+    this.bgpc = 0;
+    this.bgpd = 0;
+
+    bgx.addCallback((newBGXVal) => {this.updateBGX(newBGXVal)});
+    bgy.addCallback((newBGYVal) => {this.updateBGY(newBGYVal)});
+    bgpa.addCallback((newBGPAVal) => {this.updateBGPA(newBGPAVal)});
+    bgpb.addCallback((newBGPBVal) => {this.updateBGPB(newBGPBVal)});
+    bgpc.addCallback((newBGPCVal) => {this.updateBGPC(newBGPCVal)});
+    bgpd.addCallback((newBGPDVal) => {this.updateBGPD(newBGPDVal)});
+  }
+
   this.vramMem8 = vramMem;
 	this.vramMem16 = new Uint16Array(vramMem.buffer);
 	this.paletteRamMem16 = new Uint16Array(paletteRamMem.buffer);
   this.scanlineArrIndex = 0;
   this.scanlineArr = new Uint16Array(248); //extra 8 for misaligned tiles
-  this.transparentScanline = new Uint16Array(248).fill(0x8000); //transparent pixel buffer
   this.seArr = new Uint16Array(31);
 
+  //indexed by bg size
   this.getScreenEntries = [
-	  this.getScreenEntriesSize0.bind(this),
-	  this.getScreenEntriesSize1.bind(this),
-	  this.getScreenEntriesSize0.bind(this),
-	  this.getScreenEntriesSize3.bind(this)
+	  this.getScreenEntriesSize0,
+	  this.getScreenEntriesSize1,
+	  this.getScreenEntriesSize0,
+	  this.getScreenEntriesSize3
   ];
 
+  //indexed by wrap
+  this.getColor = [
+    this.getColorNoWrap,
+    this.getColorWrap
+  ];
+
+  //indexed by bpp8
   this.writeTileToScanline = [
-	  this.writeTileToScanlineBPP4.bind(this),
-	  this.writeTileToScanlineBPP8.bind(this)
+	  this.writeTileToScanlineBPP4,
+	  this.writeTileToScanlineBPP8
   ];
 
-  //background renderScanline functions indexed by bg display 
+  //indexed by bg display 
   this.renderScanlineBGMode0 = [
     () => {return this.transparentScanline;},
     this.renderScanlineMode0.bind(this)
   ];
-  this.renderScanlineBGMode1 = [
-    () => {return this.transparentScanline;},
-    this.renderScanlineMode1.bind(this)
-  ];
+  // this.renderScanlineBGMode1 = [
+  //   () => {return this.transparentScanline;},
+  //   this.renderScanlineMode1.bind(this)
+  // ];
   this.renderScanlineBGMode2 = [
     () => {return this.transparentScanline;},
     this.renderScanlineMode2.bind(this)
@@ -65,21 +89,6 @@ const background = function(bgcnt, bghofs, bgvofs, vramMem, paletteRamMem, bgNum
     () => {return this.transparentScanline;},
     this.renderScanlineMode5.bind(this)
   ];
-  // this.renderScanlineOBJ = [
-  //   () => {return this.transparentScanline;}, //replace this with obj lyaer.renderscanline
-  //   () => {return this.transparentScanline;} //replace this later with obj layer.rendertransparent,
-  // ];
-
-  // let getColorFactory = function (index) {
-  //   return function (paletteRamMem16)
-  //   {
-  //     return paletteRamMem16[index];
-  //   }
-  // }
-  // this.getColor = [
-  //   () => {return 0x8000},
-  //   ...(new Array(255)).map((curVal, index) => {return getColorFactory(index)}),
-  // ];
 }
 
 background.prototype.backgroundENUMS = {
@@ -95,14 +104,18 @@ background.prototype.backgroundENUMS = {
     VOFFSET : 511,
 };
 
+background.prototype.transparentScanline = new Uint16Array(248).fill(0x8000);
+
 background.prototype.updateBGCNT = function (newBGCNTVal) {
   this.prio = newBGCNTVal & this.backgroundENUMS["BGPRIO"];
   this.CBB = (newBGCNTVal & this.backgroundENUMS["CBB"]) >>> 2;
   this.mosaic = newBGCNTVal & this.backgroundENUMS["MOSAIC"];
   this.bpp8 = (newBGCNTVal & this.backgroundENUMS["BPP8"]) >>> 7;
   this.SBB = (newBGCNTVal & this.backgroundENUMS["SBB"]) >>> 8;
-  this.wrapAround = newBGCNTVal & this.backgroundENUMS["WRAPAROUND"];
+  this.wrapAround = (newBGCNTVal & this.backgroundENUMS["WRAPAROUND"]) >>> 13;
   this.screenSize = (newBGCNTVal & this.backgroundENUMS["SCREENSIZE"]) >>> 14;
+
+  this.screenSizeAffine = 128 << this.screenSize;
 }
 
 background.prototype.updateBGHOFS = function (newBGHOFSVal) {
@@ -113,6 +126,30 @@ background.prototype.updateBGHOFS = function (newBGHOFSVal) {
 background.prototype.updateBGVOFS = function (newBGVOFSVal) {
   this.vOffset = newBGVOFSVal & this.backgroundENUMS["VOFFSET"];
   //console.log(this.vOffset);
+}
+
+background.prototype.updateBGX = function (newBGXVal) {
+  this.refX = newBGXVal & 0x8000000 ? -1 * (~(newBGXVal - 1) & 0xFFFFFFF) : newBGXVal;
+}
+
+background.prototype.updateBGY = function (newBGYVal) {
+  this.refY = newBGYVal & 0x8000000 ? -1 * (~(newBGYVal - 1) & 0xFFFFFFF) : newBGYVal;
+}
+
+background.prototype.updateBGPA = function (newBGPAVal) {
+  this.bgpa = newBGPAVal & 32768 ? -1 * (~(newBGPAVal - 1) & 0xFFFF) : newBGPAVal;
+}
+
+background.prototype.updateBGPB = function (newBGPBVal) {
+  this.bgpb = newBGPBVal & 32768 ? -1 * (~(newBGPBVal - 1) & 0xFFFF) : newBGPBVal;
+}
+
+background.prototype.updateBGPC = function (newBGPCVal) {
+  this.bgpc = newBGPCVal & 32768 ? -1 * (~(newBGPCVal - 1) & 0xFFFF) : newBGPCVal;
+}
+
+background.prototype.updateBGPD = function (newBGPDVal) {
+  this.bgpd = newBGPDVal & 32768 ? -1 * (~(newBGPDVal - 1) & 0xFFFF) : newBGPDVal;
 }
 
 //tiles (screen entries) are 16 bits
@@ -256,12 +293,77 @@ background.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, sca
   }
 }
 
-background.prototype.renderScanlineMode1 = function(scanline) { 
-
-};
+//mode 0 will render text background, mode 2 will render affine
+// background.prototype.renderScanlineMode1 = function(scanline) { 
+// //regular and affine rendering
+// };
 
 background.prototype.renderScanlineMode2 = function(scanline) { 
+  let tileBase = this.CBB * 0x4000;
+  let screenAddr = this.SBB * 2048;
+  let vramMem8 = this.vramMem8;
+  let paletteRamMem16 = this.paletteRamMem16;
+  let scanlineArr = this.scanlineArr;
+  let screenSize = this.screenSizeAffine;
+  //let screenSizeTiles = screenSize >>> 3;
 
+  let refX = this.refX;
+  let refY = this.refY;
+
+  let bgpa = this.bgpa;
+  let bgpb = this.bgpb;
+  let bgpc = this.bgpc;
+  let bgpd = this.bgpd;
+
+  let pb = scanline * bgpb;
+  let pd = scanline * bgpd;
+
+  for (let i = 0; i < 240; i ++)
+  {
+    let pa = i * bgpa;
+    let pc = i * bgpc;
+
+    let textureXCoord = (pa + pb + refX) >> 8;
+    let textureYCoord = (pc + pd + refY) >> 8;
+
+    // if (window.debug)
+    // {
+    //   console.log("pa: " + pa);
+    //   console.log("pb: " + pb);
+    //   console.log("pc: " + pc);
+    //   console.log("pd: " + pd);
+    //   console.log("texturex: "+ textureXCoord);
+    //   console.log("texturey: "+ textureYCoord);
+    //   console.log("______________________________________________");
+    // }
+
+    scanlineArr[i] = this.getColor[this.wrapAround](textureXCoord, textureYCoord, screenSize, screenAddr, tileBase, vramMem8, paletteRamMem16);
+  }
+
+  this.scanlineArrIndex = 0;
+  //window.debug = false;
+  return scanlineArr; 
+};
+
+background.prototype.getColorNoWrap = function(xCoord, yCoord, screenSize, screenAddr, tileBase, vramMem8, paletteRamMem16) {
+  if ((xCoord >= 0) && (xCoord < screenSize) && (yCoord >= 0) && (yCoord < screenSize))
+  {
+    let screenEntry = vramMem8[screenAddr + (xCoord >>> 3) + ((yCoord >>> 3) * (screenSize >>> 3))];
+    let tileAddr = tileBase + (screenEntry * 0x40);
+    let color = vramMem8[tileAddr + (xCoord & 7) + ((yCoord & 7) * 8)];
+    return paletteRamMem16[color];
+  }
+  return 0x8000;
+};
+
+background.prototype.getColorWrap = function(xCoord, yCoord, screenSize, screenAddr, tileBase, vramMem8, paletteRamMem16) {
+  xCoord = (xCoord % screenSize) + (xCoord < 0 ? screenSize : 0);
+  yCoord = (yCoord % screenSize) + (yCoord < 0 ? screenSize : 0);
+
+  let screenEntry = vramMem8[screenAddr + (xCoord >>> 3) + ((yCoord >>> 3) * (screenSize >>> 3))];
+  let tileAddr = tileBase + (screenEntry * 0x40);
+  let color = vramMem8[tileAddr + (xCoord & 7) + ((yCoord & 7) * 8)];
+  return paletteRamMem16[color];
 };
 
 background.prototype.renderScanlineMode3 = function(scanline) { 
@@ -272,7 +374,7 @@ background.prototype.renderScanlineMode3 = function(scanline) {
 
   for (let i = 0; i < 240; i ++)
   {
-    scanlineArr[i] = vramMem16[vramPos];
+    scanlineArr[i] = vramMem16[vramPos] & 0x7FFF;
     vramPos ++;
   }
 

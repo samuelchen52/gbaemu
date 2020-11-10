@@ -261,10 +261,12 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   this.ifByte1 = this.if.regIndex;
 
   //backgrounds
-  this.bg0 = new background(this.ioregion.getIOReg("BG0CNT"), this.ioregion.getIOReg("BG0HOFS"), this.ioregion.getIOReg("BG0VOFS"), this.vramMem, this.paletteRamMem, 0);
-  this.bg1 = new background(this.ioregion.getIOReg("BG1CNT"), this.ioregion.getIOReg("BG1HOFS"), this.ioregion.getIOReg("BG1VOFS"), this.vramMem, this.paletteRamMem, 1);
-  this.bg2 = new background(this.ioregion.getIOReg("BG2CNT"), this.ioregion.getIOReg("BG2HOFS"), this.ioregion.getIOReg("BG2VOFS"), this.vramMem, this.paletteRamMem, 2);
-  this.bg3 = new background(this.ioregion.getIOReg("BG3CNT"), this.ioregion.getIOReg("BG3HOFS"), this.ioregion.getIOReg("BG3VOFS"), this.vramMem, this.paletteRamMem, 3);
+  this.bg0 = new background(this.ioregion.getIOReg("BG0CNT"), this.ioregion.getIOReg("BG0HOFS"), this.ioregion.getIOReg("BG0VOFS"), null, null, null, null, null, null, this.vramMem, this.paletteRamMem, 0);
+  this.bg1 = new background(this.ioregion.getIOReg("BG1CNT"), this.ioregion.getIOReg("BG1HOFS"), this.ioregion.getIOReg("BG1VOFS"), null, null, null, null, null, null, this.vramMem, this.paletteRamMem, 1);
+  this.bg2 = new background(this.ioregion.getIOReg("BG2CNT"), this.ioregion.getIOReg("BG2HOFS"), this.ioregion.getIOReg("BG2VOFS"), this.ioregion.getIOReg("BG2X"), this.ioregion.getIOReg("BG2Y"),
+    this.ioregion.getIOReg("BG2PA"), this.ioregion.getIOReg("BG2PB"), this.ioregion.getIOReg("BG2PC"), this.ioregion.getIOReg("BG2PD"), this.vramMem, this.paletteRamMem, 2);
+  this.bg3 = new background(this.ioregion.getIOReg("BG3CNT"), this.ioregion.getIOReg("BG3HOFS"), this.ioregion.getIOReg("BG3VOFS"), this.ioregion.getIOReg("BG3X"), this.ioregion.getIOReg("BG3Y"),
+    this.ioregion.getIOReg("BG3PA"), this.ioregion.getIOReg("BG3PB"), this.ioregion.getIOReg("BG3PC"), this.ioregion.getIOReg("BG3PD"), this.vramMem, this.paletteRamMem, 3);
   this.objectLayer = new objectLayer(this.vramMem, this.paletteRamMem16, this.oamRegion);
 
   //renderScanline functions indexed by mode
@@ -280,7 +282,7 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   ];
 
   //intitalize table for "converting" (just making the rgb values greater) 15 bit colors to 32 bit colors (alpha set to full opacity)
-  this.convertColor = new Uint32Array(32768 + 1);
+  this.convertColor = new Uint32Array(32768);
   for (let i = 0; i < this.convertColor.length; i ++)
   {
     this.convertColor[i] = 0xFF000000 + ((i & 31744) << 9) + ((i & 992) << 6) + ((i & 31) << 3);
@@ -364,31 +366,57 @@ graphics.prototype.setVCount = function (scanline) {
 };
 
 graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+   let backdrop = this.paletteRamMem16[0];
   let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
   let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
-  let backdrop = this.paletteRamMem16[0];
   for (let i = 0; i < 240; i ++)
   {
     imageDataArr[imageDataPos] = convertColor[(bg0ScanlineArr[bg0ScanlineArrIndex] === 0x8000) ? backdrop : bg0ScanlineArr[bg0ScanlineArrIndex]];
     imageDataPos ++;
     bg0ScanlineArrIndex ++;
   }
+
+  // let bg1ScanlineArr = this.bg1.renderScanlineBGMode0[this.bg1Display](scanline);
+  // let bg1ScanlineArrIndex = this.bg1.scanlineArrIndex;
+  // for (let i = 0; i < 240; i ++)
+  // {
+  //   imageDataArr[imageDataPos] = convertColor[(bg1ScanlineArr[bg1ScanlineArrIndex] === 0x8000) ? backdrop : bg1ScanlineArr[bg1ScanlineArrIndex]];
+  //   imageDataPos ++;
+  //   bg1ScanlineArrIndex ++;
+  // }
+
   // let phantomBGS = this.objectLayer.renderScanline(scanline);
   // let pbg0 = phantomBGS[0];
 
   // for (let i = 0; i < 240; i ++)
   // {
-  //   imageDataArr[imageDataPos] = convertColor[pbg0[i]];
+  //   imageDataArr[imageDataPos] = convertColor[pbg0[i] === 0x8000 ? backdrop : pbg0[i]];
   //   imageDataPos ++;
   // }
 };
 
-graphics.prototype.renderScanlineMode1 = function() { 
-  return;
+graphics.prototype.renderScanlineMode1 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+  let bg2ScanlineArr = this.bg2.renderScanlineBGMode2[this.bg2Display](scanline);
+  let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
+
+  for (let i = 0; i < 240; i ++)
+  {
+    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[bg2ScanlineArrIndex]];
+    imageDataPos ++;
+    bg2ScanlineArrIndex ++;
+  }
 };
 
-graphics.prototype.renderScanlineMode2 = function() { 
-  return;
+graphics.prototype.renderScanlineMode2 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+  let bg2ScanlineArr = this.bg2.renderScanlineBGMode2[this.bg2Display](scanline);
+  let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
+
+  for (let i = 0; i < 240; i ++)
+  {
+    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[bg2ScanlineArrIndex]];
+    imageDataPos ++;
+    bg2ScanlineArrIndex ++;
+  }
 };
 
 graphics.prototype.renderScanlineMode3 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
@@ -404,12 +432,13 @@ graphics.prototype.renderScanlineMode3 = function(scanline, imageDataPos, imageD
 };
 
 graphics.prototype.renderScanlineMode4 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+  let backdrop = this.paletteRamMem16[0];
   let bg2ScanlineArr = this.bg2.renderScanlineBGMode4[this.bg2Display](scanline);
   let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
 
   for (let i = 0; i < 240; i ++)
   {
-    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[bg2ScanlineArrIndex]];
+    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[bg2ScanlineArrIndex] === 0x8000 ? backdrop : bg2ScanlineArr[bg2ScanlineArrIndex]];
     imageDataPos ++;
     bg2ScanlineArrIndex ++;
   }
