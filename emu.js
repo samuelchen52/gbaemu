@@ -68,6 +68,7 @@ waitFile("romInput").then(async function (buffer) {
 	//set up hardware
 	const CPU = new cpu(0x08000000, MMU);
 	const GRAPHICS = new graphics(MMU, CPU, function(){frameNotComplete = false;});
+	const TIMERCONTROLLER = new timerController(MMU, CPU);
 	const KEYPAD = new keypad(MMU);
 
 	//for debugging
@@ -130,24 +131,12 @@ waitFile("romInput").then(async function (buffer) {
 	const executeFrame = function() {
 		while (frameNotComplete)
 		{
-			// if (instructionNum >= 575612) //576930
-			// {
-			// 	return;
-			// }
-			// for (let i = 0; i < 4; i ++)
-			// {
-				CPU.run(false, instructionNum);
-				instructionNum ++;
-				CPU.run(false, instructionNum);
-				instructionNum ++;
-				CPU.run(false, instructionNum);
-				instructionNum ++;
-				CPU.run(false, instructionNum);
-				instructionNum ++;
-			// }
+			CPU.run(); TIMERCONTROLLER.update(1);
+			CPU.run(); TIMERCONTROLLER.update(1);
+			CPU.run(); TIMERCONTROLLER.update(1);
+			CPU.run(); TIMERCONTROLLER.update(1);
 			GRAPHICS.pushPixel();
 		}
-		//console.log("FRAME");
 		frames ++;
 		frameNotComplete = true;
 		setTimeout(executeFrame, 10);
@@ -155,6 +144,25 @@ waitFile("romInput").then(async function (buffer) {
 
 	setTimeout(executeFrame, 10);
 	printFPS();
+
+
+//pseudo scheduler
+// while (framenotcomplete)
+// {
+// 	//execute one event cycle
+// 	for (let i = 0; i < cyclesToRun; i ++)
+// 	{
+// 		CPU.run();
+// 	}
+// 	cyclesToRun = Math.min(GRAPHICS.update(cyclesToRun), TIMERCONTROLLER.update(cyclesToRun));
+
+// 	//AUDIOCONTROLLER.update(cyclesToRun);
+// 	//DMA.update(cyclesTorun); //make this instant for now
+// }
+//
+//
+//
+//
 
 
 });

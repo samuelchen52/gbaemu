@@ -1,6 +1,6 @@
 const ioRegion = function() {
 
-	let ioregENUMS = {IOREG : 0, IOREGREADONLY : 1, IOREGWRITEONLY : 2, IOREGBYTE : 3, IOREGBYTEWRITEONLY : 4, IOREGWORD : 5, IOREGWORDWRITEONLY : 6, IOREGIF : 7, IOREGDISPSTAT : 8, UNUSED : 9};
+	let ioregENUMS = {IOREG : 0, IOREGREADONLY : 1, IOREGWRITEONLY : 2, IOREGBYTE : 3, IOREGBYTEWRITEONLY : 4, IOREGWORD : 5, IOREGWORDWRITEONLY : 6, IOREGIF : 7, IOREGDISPSTAT : 8, IOREGTMCNTL : 9, UNUSED : 10};
 
 	this.memory = new Uint8Array(1024);
 	this.ioregs = [];
@@ -106,14 +106,14 @@ const ioRegion = function() {
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
 	...(new Array(15)).fill({name: "UNUSED", type: ioregENUMS["UNUSED"]}),
 	//TIMER IO REGISTERS
-	{name: "TM0CNT_L", type: ioregENUMS["IOREG"]},
-	{name: "TM0CNT_H", type: ioregENUMS["IOREG"]},
-	{name: "TM1CNT_L", type: ioregENUMS["IOREG"]},
-	{name: "TM1CNT_H", type: ioregENUMS["IOREG"]},
-	{name: "TM2CNT_L", type: ioregENUMS["IOREG"]},
-	{name: "TM2CNT_H", type: ioregENUMS["IOREG"]},
-	{name: "TM3CNT_L", type: ioregENUMS["IOREG"]},
-	{name: "TM3CNT_H", type: ioregENUMS["IOREG"]},
+	{name: "TM0CNTL", type: ioregENUMS["IOREGTMCNTL"]},
+	{name: "TM0CNTH", type: ioregENUMS["IOREG"]},
+	{name: "TM1CNTL", type: ioregENUMS["IOREGTMCNTL"]},
+	{name: "TM1CNTH", type: ioregENUMS["IOREG"]},
+	{name: "TM2CNTL", type: ioregENUMS["IOREGTMCNTL"]},
+	{name: "TM2CNTH", type: ioregENUMS["IOREG"]},
+	{name: "TM3CNTL", type: ioregENUMS["IOREGTMCNTL"]},
+	{name: "TM3CNTH", type: ioregENUMS["IOREG"]},
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
 	...(new Array(7)).fill({name: "UNUSED", type: ioregENUMS["UNUSED"]}),
 	//SERIAL COMMUNICATION (1) IO REGISTERS
@@ -178,6 +178,7 @@ const ioRegion = function() {
 			case ioregENUMS["IOREGWORDWRITEONLY"]: newioreg = new ioRegWordWriteOnly(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 4; break;
 			case ioregENUMS["IOREGIF"]: newioreg = new ioRegIF(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
 			case ioregENUMS["IOREGDISPSTAT"]: newioreg = new ioRegDISPSTAT(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGTMCNTL"]: newioreg = new ioRegTMCNTL(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
 			case ioregENUMS["UNUSED"]: newioreg = unusedreg; size = 2; break;
 			default: throw Error("undefined IO register type!");
 		}
@@ -193,10 +194,10 @@ const ioRegion = function() {
 	this.getIOReg("DMA1SAD").addCallback(()=> {console.log("THIS ROM IS USING DMA!!")});
 	this.getIOReg("DMA2SAD").addCallback(()=> {console.log("THIS ROM IS USING DMA!!")});
 	this.getIOReg("DMA3SAD").addCallback(()=> {console.log("THIS ROM IS USING DMA!!")});
-	this.getIOReg("TM0CNT_L").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
-	this.getIOReg("TM1CNT_L").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
-	this.getIOReg("TM2CNT_L").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
-	this.getIOReg("TM3CNT_L").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
+	this.getIOReg("TM0CNTL").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
+	this.getIOReg("TM1CNTL").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
+	this.getIOReg("TM2CNTL").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
+	this.getIOReg("TM3CNTL").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
 	//this.getIOReg("HALTCNT").addCallback(()=> {console.log("THIS ROM IS USING HALT!!")});
 }
 

@@ -82,17 +82,17 @@ ioRegWriteOnly.prototype = Object.create(ioReg.prototype);
 ioRegWriteOnly.constructor = ioRegWriteOnly;
 
 ioRegWriteOnly.prototype.read8 = function (memAddr) {
-	console.log("not implemented: reading byte at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
+	//console.log("not implemented: reading byte at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
 	return 0;
 }
 
 ioRegWriteOnly.prototype.read16 = function (memAddr) {
-	console.log("not implemented: reading halfword at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
+	//console.log("not implemented: reading halfword at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
 	return 0;
 }
 
 ioRegWriteOnly.prototype.read32 = function (memAddr) {
-	console.log("not implemented: reading word at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16)); 
+	//console.log("not implemented: reading word at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16)); 
 	return 0;
 }
 
@@ -144,17 +144,17 @@ ioRegWordWriteOnly.prototype.triggerCallbacks = function () {
 }
 
 ioRegWordWriteOnly.prototype.read8 = function (memAddr) {
-	console.log("not implemented: reading byte at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
+	//console.log("not implemented: reading byte at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
 	return 0;
 }
 
 ioRegWordWriteOnly.prototype.read16 = function (memAddr) {
-	console.log("not implemented: reading halfword at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
+	//console.log("not implemented: reading halfword at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
 	return 0;
 }
 
 ioRegWordWriteOnly.prototype.read32 = function (memAddr) {
-	console.log("not implemented: reading word at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16)); 
+	//console.log("not implemented: reading word at " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16)); 
 	return 0;
 }
 
@@ -323,6 +323,69 @@ ioRegDISPSTAT.prototype.write32 = function (memAddr, val) {
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
 	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
+
+//represents register IOREGTMCNTL
+const ioRegTMCNTL = function (name, ioRegionMemory, ioRegs, regIndex) {
+	ioReg.call(this, name, ioRegionMemory, ioRegs, regIndex);
+}
+
+ioRegTMCNTL.prototype = Object.create(ioReg.prototype);
+ioRegTMCNTL.constructor = ioRegTMCNTL;
+
+ioRegTMCNTL.prototype.addTimer = function (timer) {
+	this.timer = timer;
+}
+
+ioRegTMCNTL.prototype.read8 = function (memAddr) {
+	if (memAddr === this.regIndex)
+	{
+		return this.timer.counter & 0xFF;
+	}
+	else
+	{
+		return (this.timer.counter >>> 8) & 0xFF;
+	}
+}
+
+ioRegTMCNTL.prototype.read16 = function (memAddr) {
+	return this.timer.counter;
+}
+
+ioRegTMCNTL.prototype.read32 = function (memAddr) {
+	return this.timer.counter + (this.ioRegs[this.regIndex + 2].read16(memAddr + 2) << 16);
+}
+
+ioRegTMCNTL.prototype.write8 = function (memAddr, val) {
+	this.ioRegionMemory[memAddr] = val;
+}
+
+ioRegTMCNTL.prototype.write16 = function (memAddr, val) {
+	this.ioRegionMemory[memAddr] = val & 0xFF;
+	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
+}
+
+ioRegTMCNTL.prototype.write32 = function (memAddr, val) {
+	this.ioRegionMemory[memAddr] = val & 0xFF;
+	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
+
+	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
+	this.ioRegs[this.regIndex + 2].triggerCallbacks();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 //represents an unused IO register
 const ioRegUnused = function (name, ioRegionMemory, ioRegs, regIndex) {
