@@ -179,27 +179,27 @@ sprite.prototype.writeTileToScanlineBPP4 = function (tileAddr, tileLine, scanlin
   {
   	//b3  b2  b1  b0
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex + 7] = paletteIndex0 ? paletteRamMem16[paletteIndex0 + palBankIndex] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 6] = paletteIndex1 ? paletteRamMem16[paletteIndex1 + palBankIndex] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 5] = paletteIndex2 ? paletteRamMem16[paletteIndex2 + palBankIndex] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 4] = paletteIndex3 ? paletteRamMem16[paletteIndex3 + palBankIndex] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 3] = paletteIndex4 ? paletteRamMem16[paletteIndex4 + palBankIndex] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 2] = paletteIndex5 ? paletteRamMem16[paletteIndex5 + palBankIndex] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 1] = paletteIndex6 ? paletteRamMem16[paletteIndex6 + palBankIndex] : 0x8000; 
-  	scanlineArr[scanlineArrIndex] = paletteIndex7 ? paletteRamMem16[paletteIndex7 + palBankIndex] : 0x8000;
+  	scanlineArr[scanlineArrIndex + 7] = paletteIndex0 ? paletteRamMem16[paletteIndex0 + palBankIndex] : scanlineArr[scanlineArrIndex + 7];
+  	scanlineArr[scanlineArrIndex + 6] = paletteIndex1 ? paletteRamMem16[paletteIndex1 + palBankIndex] : scanlineArr[scanlineArrIndex + 6];
+  	scanlineArr[scanlineArrIndex + 5] = paletteIndex2 ? paletteRamMem16[paletteIndex2 + palBankIndex] : scanlineArr[scanlineArrIndex + 5];
+  	scanlineArr[scanlineArrIndex + 4] = paletteIndex3 ? paletteRamMem16[paletteIndex3 + palBankIndex] : scanlineArr[scanlineArrIndex + 4];
+  	scanlineArr[scanlineArrIndex + 3] = paletteIndex4 ? paletteRamMem16[paletteIndex4 + palBankIndex] : scanlineArr[scanlineArrIndex + 3];
+  	scanlineArr[scanlineArrIndex + 2] = paletteIndex5 ? paletteRamMem16[paletteIndex5 + palBankIndex] : scanlineArr[scanlineArrIndex + 2];
+  	scanlineArr[scanlineArrIndex + 1] = paletteIndex6 ? paletteRamMem16[paletteIndex6 + palBankIndex] : scanlineArr[scanlineArrIndex + 1]; 
+  	scanlineArr[scanlineArrIndex] = paletteIndex7 ? paletteRamMem16[paletteIndex7 + palBankIndex] : scanlineArr[scanlineArrIndex];
   }
   else
   {
   	//b0  b1  b2  b3
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = paletteIndex0 ? paletteRamMem16[paletteIndex0 + palBankIndex] : 0x8000;
-    scanlineArr[scanlineArrIndex + 1] = paletteIndex1 ? paletteRamMem16[paletteIndex1 + palBankIndex] : 0x8000;
-    scanlineArr[scanlineArrIndex + 2] = paletteIndex2 ? paletteRamMem16[paletteIndex2 + palBankIndex] : 0x8000;
-    scanlineArr[scanlineArrIndex + 3] = paletteIndex3 ? paletteRamMem16[paletteIndex3 + palBankIndex] : 0x8000;
-    scanlineArr[scanlineArrIndex + 4] = paletteIndex4 ? paletteRamMem16[paletteIndex4 + palBankIndex] : 0x8000;
-    scanlineArr[scanlineArrIndex + 5] = paletteIndex5 ? paletteRamMem16[paletteIndex5 + palBankIndex] : 0x8000;
-    scanlineArr[scanlineArrIndex + 6] = paletteIndex6 ? paletteRamMem16[paletteIndex6 + palBankIndex] : 0x8000; 
-    scanlineArr[scanlineArrIndex + 7] = paletteIndex7 ? paletteRamMem16[paletteIndex7 + palBankIndex] : 0x8000;
+  	scanlineArr[scanlineArrIndex] = paletteIndex0 ? paletteRamMem16[paletteIndex0 + palBankIndex] : scanlineArr[scanlineArrIndex];
+    scanlineArr[scanlineArrIndex + 1] = paletteIndex1 ? paletteRamMem16[paletteIndex1 + palBankIndex] : scanlineArr[scanlineArrIndex + 1];
+    scanlineArr[scanlineArrIndex + 2] = paletteIndex2 ? paletteRamMem16[paletteIndex2 + palBankIndex] : scanlineArr[scanlineArrIndex + 2];
+    scanlineArr[scanlineArrIndex + 3] = paletteIndex3 ? paletteRamMem16[paletteIndex3 + palBankIndex] : scanlineArr[scanlineArrIndex + 3];
+    scanlineArr[scanlineArrIndex + 4] = paletteIndex4 ? paletteRamMem16[paletteIndex4 + palBankIndex] : scanlineArr[scanlineArrIndex + 4];
+    scanlineArr[scanlineArrIndex + 5] = paletteIndex5 ? paletteRamMem16[paletteIndex5 + palBankIndex] : scanlineArr[scanlineArrIndex + 5];
+    scanlineArr[scanlineArrIndex + 6] = paletteIndex6 ? paletteRamMem16[paletteIndex6 + palBankIndex] : scanlineArr[scanlineArrIndex + 6]; 
+    scanlineArr[scanlineArrIndex + 7] = paletteIndex7 ? paletteRamMem16[paletteIndex7 + palBankIndex] : scanlineArr[scanlineArrIndex + 7];
   }
 }
 
@@ -210,27 +210,27 @@ sprite.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, scanlin
   {
   	//b7b6b5b4b3b2b1b0
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = vramMem8[tileAddr + 7] ? paletteRamMem16[vramMem8[tileAddr + 7] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 1] = vramMem8[tileAddr + 6] ? paletteRamMem16[vramMem8[tileAddr + 6] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 2] = vramMem8[tileAddr + 5] ? paletteRamMem16[vramMem8[tileAddr + 5] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 3] = vramMem8[tileAddr + 4] ? paletteRamMem16[vramMem8[tileAddr + 4] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 4] = vramMem8[tileAddr + 3] ? paletteRamMem16[vramMem8[tileAddr + 3] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 5] = vramMem8[tileAddr + 2] ? paletteRamMem16[vramMem8[tileAddr + 2] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 6] = vramMem8[tileAddr + 1] ? paletteRamMem16[vramMem8[tileAddr + 1] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 7] = vramMem8[tileAddr] ? paletteRamMem16[vramMem8[tileAddr] + 0x100] : 0x8000;
+  	scanlineArr[scanlineArrIndex] = vramMem8[tileAddr + 7] ? paletteRamMem16[vramMem8[tileAddr + 7] + 0x100] : scanlineArr[scanlineArrIndex];
+  	scanlineArr[scanlineArrIndex + 1] = vramMem8[tileAddr + 6] ? paletteRamMem16[vramMem8[tileAddr + 6] + 0x100] : scanlineArr[scanlineArrIndex + 1];
+  	scanlineArr[scanlineArrIndex + 2] = vramMem8[tileAddr + 5] ? paletteRamMem16[vramMem8[tileAddr + 5] + 0x100] : scanlineArr[scanlineArrIndex + 2];
+  	scanlineArr[scanlineArrIndex + 3] = vramMem8[tileAddr + 4] ? paletteRamMem16[vramMem8[tileAddr + 4] + 0x100] : scanlineArr[scanlineArrIndex + 3];
+  	scanlineArr[scanlineArrIndex + 4] = vramMem8[tileAddr + 3] ? paletteRamMem16[vramMem8[tileAddr + 3] + 0x100] : scanlineArr[scanlineArrIndex + 4];
+  	scanlineArr[scanlineArrIndex + 5] = vramMem8[tileAddr + 2] ? paletteRamMem16[vramMem8[tileAddr + 2] + 0x100] : scanlineArr[scanlineArrIndex + 5];
+  	scanlineArr[scanlineArrIndex + 6] = vramMem8[tileAddr + 1] ? paletteRamMem16[vramMem8[tileAddr + 1] + 0x100] : scanlineArr[scanlineArrIndex + 6];
+  	scanlineArr[scanlineArrIndex + 7] = vramMem8[tileAddr] ? paletteRamMem16[vramMem8[tileAddr] + 0x100] : scanlineArr[scanlineArrIndex + 7];
   }
   else
   {
   	//b0b1b2b3b4b5b6b7
   	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = vramMem8[tileAddr] ? paletteRamMem16[vramMem8[tileAddr] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 1] = vramMem8[tileAddr + 1] ? paletteRamMem16[vramMem8[tileAddr + 1] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 2] = vramMem8[tileAddr + 2] ? paletteRamMem16[vramMem8[tileAddr + 2] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 3] = vramMem8[tileAddr + 3] ? paletteRamMem16[vramMem8[tileAddr + 3] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 4] = vramMem8[tileAddr + 4] ? paletteRamMem16[vramMem8[tileAddr + 4] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 5] = vramMem8[tileAddr + 5] ? paletteRamMem16[vramMem8[tileAddr + 5] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 6] = vramMem8[tileAddr + 6] ? paletteRamMem16[vramMem8[tileAddr + 6] + 0x100] : 0x8000;
-  	scanlineArr[scanlineArrIndex + 7] = vramMem8[tileAddr + 7] ? paletteRamMem16[vramMem8[tileAddr + 7] + 0x100] : 0x8000;
+  	scanlineArr[scanlineArrIndex] = vramMem8[tileAddr] ? paletteRamMem16[vramMem8[tileAddr] + 0x100] : scanlineArr[scanlineArrIndex];
+  	scanlineArr[scanlineArrIndex + 1] = vramMem8[tileAddr + 1] ? paletteRamMem16[vramMem8[tileAddr + 1] + 0x100] : scanlineArr[scanlineArrIndex + 1];
+  	scanlineArr[scanlineArrIndex + 2] = vramMem8[tileAddr + 2] ? paletteRamMem16[vramMem8[tileAddr + 2] + 0x100] : scanlineArr[scanlineArrIndex + 2];
+  	scanlineArr[scanlineArrIndex + 3] = vramMem8[tileAddr + 3] ? paletteRamMem16[vramMem8[tileAddr + 3] + 0x100] : scanlineArr[scanlineArrIndex + 3];
+  	scanlineArr[scanlineArrIndex + 4] = vramMem8[tileAddr + 4] ? paletteRamMem16[vramMem8[tileAddr + 4] + 0x100] : scanlineArr[scanlineArrIndex + 4];
+  	scanlineArr[scanlineArrIndex + 5] = vramMem8[tileAddr + 5] ? paletteRamMem16[vramMem8[tileAddr + 5] + 0x100] : scanlineArr[scanlineArrIndex + 5];
+  	scanlineArr[scanlineArrIndex + 6] = vramMem8[tileAddr + 6] ? paletteRamMem16[vramMem8[tileAddr + 6] + 0x100] : scanlineArr[scanlineArrIndex + 6];
+  	scanlineArr[scanlineArrIndex + 7] = vramMem8[tileAddr + 7] ? paletteRamMem16[vramMem8[tileAddr + 7] + 0x100] : scanlineArr[scanlineArrIndex + 7];
   }
 }
 
@@ -284,12 +284,12 @@ sprite.prototype.renderScanlineAffine = function (phantomBGS, scanline) {
 			//console.log(tileAddr);
 			//console.log("xdiff: " + xDiff + " ydiff: " + yDiff);
 
-			scanlineArr[i] = this.getColor[bpp8](tileAddr, xDiff, yDiff, vramMem, paletteRamMem16, palBankIndex);
+			scanlineArr[i] = this.getColor[bpp8](tileAddr, xDiff, yDiff, vramMem, paletteRamMem16, palBankIndex, scanlineArr[i]);
 		}
-		else
-		{
-			scanlineArr[i] = 0x8000;
- 		}
+		// else
+		// {
+		// 	scanlineArr[i] = scanlineArr[i];
+ 	// 	}
  		relativeXCoord ++;
 	}
 
@@ -303,17 +303,17 @@ sprite.prototype.renderScanlineAffine = function (phantomBGS, scanline) {
 	// }
 };
 
-sprite.prototype.getColorBPP4 = function(tileAddr, xDiff, yDiff, vramMem8, paletteRamMem16, palBankIndex) {
+sprite.prototype.getColorBPP4 = function(tileAddr, xDiff, yDiff, vramMem8, paletteRamMem16, palBankIndex, underColor) {
 	tileAddr += (4 * (yDiff % 8)) + ((xDiff % 8) >>> 1); //get color addr in tile
 
 	let paletteIndex = (vramMem8[tileAddr] >>> ((xDiff & 1) << 2)) & 15;
-	return paletteIndex ? paletteRamMem16[paletteIndex + (palBankIndex << 4) + 0x100] : 0x8000;
+	return paletteIndex ? paletteRamMem16[paletteIndex + (palBankIndex << 4) + 0x100] : underColor;
 }
 
 sprite.prototype.getColorBPP8 = function(tileAddr, xDiff, yDiff, vramMem8, paletteRamMem16) {
 	tileAddr += (8 * (yDiff % 8)) + (xDiff % 8); //get color addr in tile
 
-	return vramMem8[tileAddr] ? paletteRamMem16[vramMem8[tileAddr] + 0x100] : 0x8000;
+	return vramMem8[tileAddr] ? paletteRamMem16[vramMem8[tileAddr] + 0x100] : underColor;
 }
 
 // sprite.prototype.renderScanlineAffineDouble = function (phantomBGS, scanline) {

@@ -171,7 +171,7 @@ background.prototype.renderScanlineMode0 = function (scanline) {
 	for (let i = 0; i < 31; i ++)
 	{
 		let screenEntry = seArr[i];
-		this.writeTileToScanline[bpp8](tileBase + ((screenEntry & 1023) * tileSize), tileLine, i * 8, vramMem8, paletteRamMem16, scanlineArr, screenEntry & 1024, screenEntry & 2048, (screenEntry >>> 12) & 15);
+		this.writeTileToScanline[bpp8](tileBase + ((screenEntry & 1023) * tileSize), tileLine, i * 8, vramMem8, paletteRamMem16, scanlineArr, screenEntry & 1024, screenEntry & 2048, (screenEntry >>> 12));
 	}
 
   this.scanlineArrIndex = this.hOffset % 8;
@@ -315,29 +315,19 @@ background.prototype.renderScanlineMode2 = function(scanline) {
   let bgpc = this.bgpc;
   let bgpd = this.bgpd;
 
+  let pa = 0;
   let pb = scanline * bgpb;
+  let pc = 0;
   let pd = scanline * bgpd;
 
   for (let i = 0; i < 240; i ++)
   {
-    let pa = i * bgpa;
-    let pc = i * bgpc;
-
     let textureXCoord = (pa + pb + refX) >> 8;
     let textureYCoord = (pc + pd + refY) >> 8;
 
-    // if (window.debug)
-    // {
-    //   console.log("pa: " + pa);
-    //   console.log("pb: " + pb);
-    //   console.log("pc: " + pc);
-    //   console.log("pd: " + pd);
-    //   console.log("texturex: "+ textureXCoord);
-    //   console.log("texturey: "+ textureYCoord);
-    //   console.log("______________________________________________");
-    // }
-
     scanlineArr[i] = this.getColor[this.wrapAround](textureXCoord, textureYCoord, screenSize, screenAddr, tileBase, vramMem8, paletteRamMem16);
+    pa += bgpa;
+    pc += bgpc;
   }
 
   this.scanlineArrIndex = 0;

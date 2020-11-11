@@ -120,6 +120,11 @@
 //need one arr to hold semi-transparent mode toggle
 //backdrop is another layer, the default color drawn / blended (if enabled)
 //default color is the first color in palette ram
+//if sprite blending enabled, alpha blend sprite, using it as first target (if cant alpha blend, render on top?), else, sprite follows rules set in blending registers
+//blending registers rules
+//if blending disabled, render highest non transparent pixel
+//if alpha blending enabled, find highest non transparent, if this is first target, find second highest non transparent, if this is second target, blend, else render highest non transparent
+//if brightness blending enabled, find highest non transparent, if this is first target, blend brightness, else render
 
 //WINDOW
 //a window is basically a slice of all that stuff that gets put onto the screen, with some control bits
@@ -129,13 +134,11 @@
 //window out is ALWAYS enabled as long as one of the three windows is enabled
 //windows 0 and 1 are defined by 4 lines (each is 1 byte), forming a rectangular area
 //the object window is defined by all objects that have window mode turned on
+//windows take over bg display enable and blending enable
 
-
-//
-//WIN0/1H W Window Horizontal Dimensions addr - 0x4000040, 0x...42 (2 bytes)
-//WIN0/1HV W Window Vertical Dimensions addr - 0x4000044, 0x...46 (2 bytes)
-//WININ R/W Inside of Window 0 and 1 addr - 0x4000044 (2 bytes)
-//WINOUT R/W Inside of OBJ Window and Outside of Windows addr - 0x400004A (2 bytes)
+//procedure: if window, blending flag = regblend flag && window blend flag (checked for each individual pixel)
+//if a sprite has sprite blending enabled, handle alpha blending for those pixels, for the rest, defer to normal rules
+//if s
 
 
 
@@ -366,15 +369,15 @@ graphics.prototype.setVCount = function (scanline) {
 };
 
 graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
-   let backdrop = this.paletteRamMem16[0];
-  let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
-  let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
-  for (let i = 0; i < 240; i ++)
-  {
-    imageDataArr[imageDataPos] = convertColor[(bg0ScanlineArr[bg0ScanlineArrIndex] === 0x8000) ? backdrop : bg0ScanlineArr[bg0ScanlineArrIndex]];
-    imageDataPos ++;
-    bg0ScanlineArrIndex ++;
-  }
+  let backdrop = this.paletteRamMem16[0];
+  // let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
+  // let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
+  // for (let i = 0; i < 240; i ++)
+  // {
+  //   imageDataArr[imageDataPos] = convertColor[(bg0ScanlineArr[bg0ScanlineArrIndex] === 0x8000) ? backdrop : bg0ScanlineArr[bg0ScanlineArrIndex]];
+  //   imageDataPos ++;
+  //   bg0ScanlineArrIndex ++;
+  // }
 
   // let bg1ScanlineArr = this.bg1.renderScanlineBGMode0[this.bg1Display](scanline);
   // let bg1ScanlineArrIndex = this.bg1.scanlineArrIndex;
@@ -393,6 +396,23 @@ graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageD
   //   imageDataArr[imageDataPos] = convertColor[pbg0[i] === 0x8000 ? backdrop : pbg0[i]];
   //   imageDataPos ++;
   // }
+
+  let phantomBGS = this.objectLayer.renderScanline(scanline);
+  let pbg0 = phantomBGS[0];
+
+  let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
+  let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
+
+  let bg1ScanlineArr = this.bg1.renderScanlineBGMode0[this.bg1Display](scanline);
+  let bg1ScanlineArrIndex = this.bg1.scanlineArrIndex;
+
+  let bg2ScanlineArr = this.bg2.renderScanlineBGMode0[this.bg2Display](scanline);
+  let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
+
+  let bg3ScanlineArr = this.bg3.renderScanlineBGMode0[this.bg3Display](scanline);
+  let bg3ScanlineArrIndex = this.bg3.scanlineArrIndex;
+
+  this.mergeLayersMode0(imageDataArr, imageDataPos, pbg0, bg0ScanlineArr, bg0ScanlineArrIndex, bg1ScanlineArr, bg1ScanlineArrIndex, bg2ScanlineArr, bg2ScanlineArrIndex, bg3ScanlineArr, bg3ScanlineArrIndex, backdrop, convertColor);
 };
 
 graphics.prototype.renderScanlineMode1 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
@@ -456,10 +476,34 @@ graphics.prototype.renderScanlineMode5 = function(scanline, imageDataPos, imageD
   }
 };
 
-//merges scanline buffers
-graphics.prototype.collapse = function () {
-
-
+graphics.prototype.mergeLayersMode0 = function (imageDataArr, imageDataIndex, pbgBuf, bg0Buf, bg0Index, bg1Buf, bg1Index, bg2Buf, bg2Index, bg3Buf, bg3Index, backdrop, convertColor) {
+  for (let i = 0; i < 240; i ++)
+  {
+    if (pbgBuf[i] !== 0x8000)
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[pbgBuf[i]];
+    }
+    else if (bg0Buf[i + bg0Index] !== 0x8000)
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[bg0Buf[i + bg0Index]];
+    }
+    else if (bg1Buf[i + bg1Index] !== 0x8000)
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[bg1Buf[i + bg1Index]];
+    }
+    else if (bg2Buf[i + bg2Index] !== 0x8000)
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[bg2Buf[i + bg2Index]];
+    }
+    else if (bg3Buf[i + bg3Index] !== 0x8000)
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[bg3Buf[i + bg3Index]]; 
+    }
+    else
+    {
+      imageDataArr[i + imageDataIndex]  = convertColor[backdrop];
+    }
+  }
 
 }
 
@@ -563,16 +607,29 @@ graphics.prototype.updateRegisters = function(mode) {
 // ]
 // let bool = 1;
 
-// let arr = new Uint32Array(5);
+// let arr = new Int32Array(3);
+
+
+// let fn = (arg0, arg1, arg2) => {
+//   let somevar = arg0 + arg1 + arg2;
+// };
+// let fn2 = (arg0, arg1, arg2) => {
+//   let somevar = arg0 + arg1 + arg2;
+// };
+// let fnArr = [fn, fn2];
+// let lookup = 0;
+
 // let timenow = (new Date).getTime();
-// let fn = () => {};
-// let fn2 = () => {let somevar = 5 + 50;};
-// //obj.hallo(obj.x);
 // for (let i = 0; i < 1000000000; i++)
 // {
-//   let s = 4;
-//   let x = 4;
-//   let y = 4;
+//   if (lookup)
+//   {
+//     fn2(0, 1, 2);
+//   }
+//   else
+//   {
+//     fn(0, 1, 2);
+//   }
 // }
 // console.log((new Date).getTime() - timenow);
 
@@ -580,7 +637,7 @@ graphics.prototype.updateRegisters = function(mode) {
 // //obj.hallo2();
 // for (let i = 0; i < 1000000000; i++)
 // {
-//   fn2();
+//   fnArr[lookup](0, 1, 2);
 // }
 // console.log((new Date).getTime() - timenow);
 
