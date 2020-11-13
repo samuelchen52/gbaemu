@@ -128,14 +128,33 @@ waitFile("romInput").then(async function (buffer) {
 		}, 30000);
 	}
 
+	// const executeFrame = function() {
+	// 	while (frameNotComplete)
+	// 	{
+	// 		CPU.run(); //TIMERCONTROLLER.update(1);
+	// 		CPU.run(); //TIMERCONTROLLER.update(1);
+	// 		CPU.run(); //TIMERCONTROLLER.update(1);
+	// 		CPU.run(); //TIMERCONTROLLER.update(1);
+	// 		GRAPHICS.update(1);
+	// 	}
+	// 	frames ++;
+	// 	frameNotComplete = true;
+	// 	setTimeout(executeFrame, 10);
+	// };
+
+	cyclesToRun = 0;
+
 	const executeFrame = function() {
 		while (frameNotComplete)
 		{
-			CPU.run(); TIMERCONTROLLER.update(1);
-			CPU.run(); TIMERCONTROLLER.update(1);
-			CPU.run(); TIMERCONTROLLER.update(1);
-			CPU.run(); TIMERCONTROLLER.update(1);
-			GRAPHICS.pushPixel();
+			if (!CPU.halt)
+			{
+				for (var i = 0; i < cyclesToRun; i ++)
+				{
+						CPU.run();
+				}
+			}
+			cyclesToRun = Math.min(GRAPHICS.update(cyclesToRun), TIMERCONTROLLER.update(cyclesToRun));
 		}
 		frames ++;
 		frameNotComplete = true;
@@ -145,24 +164,6 @@ waitFile("romInput").then(async function (buffer) {
 	setTimeout(executeFrame, 10);
 	printFPS();
 
-
-//pseudo scheduler
-// while (framenotcomplete)
-// {
-// 	//execute one event cycle
-// 	for (let i = 0; i < cyclesToRun; i ++)
-// 	{
-// 		CPU.run();
-// 	}
-// 	cyclesToRun = Math.min(GRAPHICS.update(cyclesToRun), TIMERCONTROLLER.update(cyclesToRun));
-
-// 	//AUDIOCONTROLLER.update(cyclesToRun);
-// 	//DMA.update(cyclesTorun); //make this instant for now
-// }
-//
-//
-//
-//
 
 
 });

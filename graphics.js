@@ -272,6 +272,11 @@ const graphics = function(mmu, cpu, setFrameComplete) {
     this.ioregion.getIOReg("BG3PA"), this.ioregion.getIOReg("BG3PB"), this.ioregion.getIOReg("BG3PC"), this.ioregion.getIOReg("BG3PD"), this.vramMem, this.paletteRamMem, 3);
   this.objectLayer = new objectLayer(this.vramMem, this.paletteRamMem16, this.oamRegion);
 
+  //window
+  this.windowController = new windowController(this.ioregion.getIOReg("WIN0H"), this.ioregion.getIOReg("WIN1H"), this.ioregion.getIOReg("WIN0V"), this.ioregion.getIOReg("WIN1V"),
+    this.ioregion.getIOReg("WININ0"), this.ioregion.getIOReg("WININ1"), this.ioregion.getIOReg("WINOUT"), this.ioregion.getIOReg("WINOBJ"), this.objectLayer.sprites);
+
+
   //renderScanline functions indexed by mode
   this.renderScanline = [
     this.renderScanlineMode0.bind(this),
@@ -303,16 +308,13 @@ graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
   this.bg2Display = (newDISPCNTVal & this.displayENUMS["BG2DISPLAY"]) >>> 10;
   this.bg3Display = (newDISPCNTVal & this.displayENUMS["BG3DISPLAY"]) >>> 11;
   this.objDisplay = (newDISPCNTVal & this.displayENUMS["OBJDISPLAY"]) >>> 12;
-  this.win0Display = (newDISPCNTVal & this.displayENUMS["WIN0DISPLAY"]);
-  this.win1Display = (newDISPCNTVal & this.displayENUMS["WIN1DISPLAY"]);
-  this.winOBJDisplay = (newDISPCNTVal & this.displayENUMS["WINOBJDISPLAY"]);
-  this.winEnabled = (this.win0display | this.win1display | this.winobjdisplay) !== 0;
 
+  //this.windowEnabled = this.window.setDisplay(newDISPCNTVal & this.displayENUMS["WIN0DISPLAY"], newDISPCNTVal & this.displayENUMS["WIN1DISPLAY"], newDISPCNTVal & this.displayENUMS["WINOBJDISPLAY"]);
+  this.windowEnabled = this.windowController.setDisplay( (newDISPCNTVal & (this.displayENUMS["WIN0DISPLAY"] + this.displayENUMS["WIN1DISPLAY"] + this.displayENUMS["WINOBJDISPLAY"])) >>> 13 );
   this.objectLayer.setMappingMode(this.objMappingMode);
 }
 
 graphics.prototype.updateDISPSTAT= function (newDISPSTATVal) {
-  console.log("SET");
   this.vblankIRQEnable = newDISPSTATVal & this.displayENUMS["VBLANKIRQENABLE"];
   this.hblankIRQEnable = newDISPSTATVal & this.displayENUMS["HBLANKIRQENABLE"];
   this.vCountIRQEnable = newDISPSTATVal & this.displayENUMS["VCOUNTIRQENABLE"];
@@ -371,29 +373,9 @@ graphics.prototype.setVCount = function (scanline) {
 graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
   let backdrop = this.paletteRamMem16[0];
   // let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
-  // let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
   // for (let i = 0; i < 240; i ++)
   // {
-  //   imageDataArr[imageDataPos] = convertColor[(bg0ScanlineArr[bg0ScanlineArrIndex] === 0x8000) ? backdrop : bg0ScanlineArr[bg0ScanlineArrIndex]];
-  //   imageDataPos ++;
-  //   bg0ScanlineArrIndex ++;
-  // }
-
-  // let bg1ScanlineArr = this.bg1.renderScanlineBGMode0[this.bg1Display](scanline);
-  // let bg1ScanlineArrIndex = this.bg1.scanlineArrIndex;
-  // for (let i = 0; i < 240; i ++)
-  // {
-  //   imageDataArr[imageDataPos] = convertColor[(bg1ScanlineArr[bg1ScanlineArrIndex] === 0x8000) ? backdrop : bg1ScanlineArr[bg1ScanlineArrIndex]];
-  //   imageDataPos ++;
-  //   bg1ScanlineArrIndex ++;
-  // }
-
-  // let phantomBGS = this.objectLayer.renderScanline(scanline);
-  // let pbg0 = phantomBGS[0];
-
-  // for (let i = 0; i < 240; i ++)
-  // {
-  //   imageDataArr[imageDataPos] = convertColor[pbg0[i] === 0x8000 ? backdrop : pbg0[i]];
+  //   imageDataArr[imageDataPos] = convertColor[(bg0ScanlineArr[i] === 0x8000) ? backdrop : bg0ScanlineArr[i]];
   //   imageDataPos ++;
   // }
 
@@ -401,41 +383,30 @@ graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageD
   let pbg0 = phantomBGS[0];
 
   let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
-  let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
-
   let bg1ScanlineArr = this.bg1.renderScanlineBGMode0[this.bg1Display](scanline);
-  let bg1ScanlineArrIndex = this.bg1.scanlineArrIndex;
-
   let bg2ScanlineArr = this.bg2.renderScanlineBGMode0[this.bg2Display](scanline);
-  let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
-
   let bg3ScanlineArr = this.bg3.renderScanlineBGMode0[this.bg3Display](scanline);
-  let bg3ScanlineArrIndex = this.bg3.scanlineArrIndex;
 
-  this.mergeLayersMode0(imageDataArr, imageDataPos, pbg0, bg0ScanlineArr, bg0ScanlineArrIndex, bg1ScanlineArr, bg1ScanlineArrIndex, bg2ScanlineArr, bg2ScanlineArrIndex, bg3ScanlineArr, bg3ScanlineArrIndex, backdrop, convertColor);
+  this.mergeLayersMode0(imageDataArr, imageDataPos, pbg0, bg0ScanlineArr, bg1ScanlineArr, bg2ScanlineArr, bg3ScanlineArr, backdrop, convertColor);
 };
 
 graphics.prototype.renderScanlineMode1 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
   let bg2ScanlineArr = this.bg2.renderScanlineBGMode2[this.bg2Display](scanline);
-  let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
 
   for (let i = 0; i < 240; i ++)
   {
-    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[bg2ScanlineArrIndex]];
+    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[i]];
     imageDataPos ++;
-    bg2ScanlineArrIndex ++;
   }
 };
 
 graphics.prototype.renderScanlineMode2 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
   let bg2ScanlineArr = this.bg2.renderScanlineBGMode2[this.bg2Display](scanline);
-  let bg2ScanlineArrIndex = this.bg2.scanlineArrIndex;
 
   for (let i = 0; i < 240; i ++)
   {
-    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[bg2ScanlineArrIndex]];
+    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[i]];
     imageDataPos ++;
-    bg2ScanlineArrIndex ++;
   }
 };
 
@@ -476,28 +447,28 @@ graphics.prototype.renderScanlineMode5 = function(scanline, imageDataPos, imageD
   }
 };
 
-graphics.prototype.mergeLayersMode0 = function (imageDataArr, imageDataIndex, pbgBuf, bg0Buf, bg0Index, bg1Buf, bg1Index, bg2Buf, bg2Index, bg3Buf, bg3Index, backdrop, convertColor) {
+graphics.prototype.mergeLayersMode0 = function (imageDataArr, imageDataIndex, pbgBuf, bg0Buf, bg1Buf, bg2Buf, bg3Buf, backdrop, convertColor) {
   for (let i = 0; i < 240; i ++)
   {
     if (pbgBuf[i] !== 0x8000)
     {
       imageDataArr[i + imageDataIndex] = convertColor[pbgBuf[i]];
     }
-    else if (bg0Buf[i + bg0Index] !== 0x8000)
+    else if (bg0Buf[i] !== 0x8000)
     {
-      imageDataArr[i + imageDataIndex] = convertColor[bg0Buf[i + bg0Index]];
+      imageDataArr[i + imageDataIndex] = convertColor[bg0Buf[i]];
     }
-    else if (bg1Buf[i + bg1Index] !== 0x8000)
+    else if (bg1Buf[i] !== 0x8000)
     {
-      imageDataArr[i + imageDataIndex] = convertColor[bg1Buf[i + bg1Index]];
+      imageDataArr[i + imageDataIndex] = convertColor[bg1Buf[i]];
     }
-    else if (bg2Buf[i + bg2Index] !== 0x8000)
+    else if (bg2Buf[i] !== 0x8000)
     {
-      imageDataArr[i + imageDataIndex] = convertColor[bg2Buf[i + bg2Index]];
+      imageDataArr[i + imageDataIndex] = convertColor[bg2Buf[i]];
     }
-    else if (bg3Buf[i + bg3Index] !== 0x8000)
+    else if (bg3Buf[i] !== 0x8000)
     {
-      imageDataArr[i + imageDataIndex] = convertColor[bg3Buf[i + bg3Index]]; 
+      imageDataArr[i + imageDataIndex] = convertColor[bg3Buf[i]]; 
     }
     else
     {
@@ -508,48 +479,103 @@ graphics.prototype.mergeLayersMode0 = function (imageDataArr, imageDataIndex, pb
 }
 
 //called every 4 cpu cycles
-graphics.prototype.pushPixel = function() {
+// graphics.prototype.pushPixel = function() {
+//   if (this.vblank)
+//   {
+//     this.pixel ++;
+//     if (this.pixel === 308)
+//     {
+//       this.pixel = 0;
+//       this.scanline ++;
+//       if (this.scanline === 228)
+//       {
+//         this.scanline = 0;
+//         this.vblank = false;
+//         this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["VBLANKCLEAR"];
+//       }
+//       this.setVCount(this.scanline);
+//     }
+//   }
+//   else if (this.hblank)
+//   {
+//     this.pixel ++;
+//     if (this.pixel === 308) //go to next scanline
+//     {
+//       this.pixel = 0;
+//       this.hblank = false;
+//       this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["HBLANKCLEAR"];
+//       this.scanline ++;
+//       if (this.scanline === 160)
+//       {
+//         this.setVblank();
+//         this.finishDraw();
+//       }
+//       this.setVCount(this.scanline);
+//     }
+//   }
+//   else
+//   {
+//     this.pixel ++;
+//     if (this.pixel === 240)
+//     {
+//       this.setHblank();
+//       this.renderScanline[this.mode](this.scanline, this.scanline * 240, this.imageDataArr, this.convertColor);
+//     }
+//   }
+// };
+
+graphics.prototype.update = function(numCycles) {
   if (this.vblank)
   {
-    this.pixel ++;
-    if (this.pixel === 308)
+    this.pixel += numCycles;
+    if (this.pixel === 1232)
     {
       this.pixel = 0;
       this.scanline ++;
-      if (this.scanline === 228)
+      if (this.scanline === 228) //end of vblank
       {
         this.scanline = 0;
         this.vblank = false;
         this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["VBLANKCLEAR"];
+        this.setVCount(0);
+        return 960;
       }
       this.setVCount(this.scanline);
+      return 1232;
     }
+    return 1232 - this.pixel;
   }
   else if (this.hblank)
   {
-    this.pixel ++;
-    if (this.pixel === 308) //go to next scanline
+    this.pixel += numCycles;
+    if (this.pixel === 1232) //end of hblank
     {
       this.pixel = 0;
       this.hblank = false;
       this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["HBLANKCLEAR"];
       this.scanline ++;
-      if (this.scanline === 160)
+      if (this.scanline === 160) //start of vblank
       {
+        this.setVCount(this.scanline);
         this.setVblank();
         this.finishDraw();
+        return 1232;
       }
       this.setVCount(this.scanline);
+      return 960;
     }
+    return 1232 - this.pixel;
   }
   else
   {
-    this.pixel ++;
-    if (this.pixel === 240)
+    this.pixel += numCycles;
+    if (this.pixel === 960)
     {
       this.setHblank();
       this.renderScanline[this.mode](this.scanline, this.scanline * 240, this.imageDataArr, this.convertColor);
+      return 272;
     }
+    return 960 - this.pixel;
   }
 };
 
@@ -611,10 +637,10 @@ graphics.prototype.updateRegisters = function(mode) {
 
 
 // let fn = (arg0, arg1, arg2) => {
-//   let somevar = arg0 + arg1 + arg2;
+//   arr[0] = 1231;
 // };
 // let fn2 = (arg0, arg1, arg2) => {
-//   let somevar = arg0 + arg1 + arg2;
+//   arr[-5] = 32123;
 // };
 // let fnArr = [fn, fn2];
 // let lookup = 0;
@@ -622,14 +648,7 @@ graphics.prototype.updateRegisters = function(mode) {
 // let timenow = (new Date).getTime();
 // for (let i = 0; i < 1000000000; i++)
 // {
-//   if (lookup)
-//   {
-//     fn2(0, 1, 2);
-//   }
-//   else
-//   {
-//     fn(0, 1, 2);
-//   }
+//   fn();
 // }
 // console.log((new Date).getTime() - timenow);
 
@@ -637,7 +656,7 @@ graphics.prototype.updateRegisters = function(mode) {
 // //obj.hallo2();
 // for (let i = 0; i < 1000000000; i++)
 // {
-//   fnArr[lookup](0, 1, 2);
+//   fn2();
 // }
 // console.log((new Date).getTime() - timenow);
 
