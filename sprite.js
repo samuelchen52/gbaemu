@@ -196,7 +196,7 @@ sprite.prototype.writeTileToScanlineBPP4 = function (tileAddr, tileLine, scanlin
     for (let i = startPixel; i < 8; i ++)
     {
       let paletteIndex = (vramMem8[tileAddr + ((7 - i) >>> 1)] >>> (4 * ((i + 1) & 1)) ) & 15;
-      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex + palBankIndex + 0x100] : 0x8000;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex + palBankIndex + 0x100] : scanlineArr[scanlineArrIndex];
       scanlineArrIndex ++;
     }
   }
@@ -205,7 +205,7 @@ sprite.prototype.writeTileToScanlineBPP4 = function (tileAddr, tileLine, scanlin
     for (let i = startPixel; i < 8; i ++)
     {
       let paletteIndex = (vramMem8[tileAddr + (i >>> 1)] >>> (4 * (i & 1))) & 15;
-      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex + palBankIndex + 0x100] : 0x8000;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex + palBankIndex + 0x100] : scanlineArr[scanlineArrIndex];
       scanlineArrIndex ++;
     }
   }
@@ -218,7 +218,7 @@ sprite.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, scanlin
     for (let i = startPixel; i < 8; i ++)
     {
       let paletteIndex = vramMem8[tileAddr + 7 - i];
-      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex] : 0x8000;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex] : scanlineArr[scanlineArrIndex];
       scanlineArrIndex ++;
     }
   }
@@ -227,7 +227,7 @@ sprite.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, scanlin
     for (let i = startPixel; i < 8; i ++)
     {
       let paletteIndex = vramMem8[tileAddr + i];
-      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex] : 0x8000;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex] : scanlineArr[scanlineArrIndex];
       scanlineArrIndex ++;
     }
   }

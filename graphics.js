@@ -239,7 +239,7 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   this.win0Display = 0;
   this.win1Display = 0;
   this.winOBJDisplay = 0;
-  this.winEnabled = 0;
+  this.windowEnabled = 0;
 
   //interrupt enables
   this.hblankIRQEnable = false;
@@ -373,9 +373,25 @@ graphics.prototype.setVCount = function (scanline) {
 graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
   let backdrop = this.paletteRamMem16[0];
   // let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
+  // let bg0ScanlineArrIndex = this.bg0.scanlineArrIndex;
+  // for (let i = 0; i < 240; i ++)
+  // {
+  //   imageDataArr[imageDataPos] = convertColor[(bg0ScanlineArr[i + bg0ScanlineArrIndex] === 0x8000) ? backdrop : bg0ScanlineArr[i + ]];
+  //   imageDataPos ++;
+  // }
+
+  // let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
   // for (let i = 0; i < 240; i ++)
   // {
   //   imageDataArr[imageDataPos] = convertColor[(bg0ScanlineArr[i] === 0x8000) ? backdrop : bg0ScanlineArr[i]];
+  //   imageDataPos ++;
+  // }
+
+  // let phantomBGS = this.objectLayer.renderScanline(scanline);
+  // let pbg0 = phantomBGS[0];
+  // for (let i = 0; i < 240; i ++)
+  // {
+  //   imageDataArr[imageDataPos] = convertColor[(pbg0[i] === 0x8000) ? backdrop : pbg0[i]];
   //   imageDataPos ++;
   // }
 
@@ -387,7 +403,15 @@ graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageD
   let bg2ScanlineArr = this.bg2.renderScanlineBGMode0[this.bg2Display](scanline);
   let bg3ScanlineArr = this.bg3.renderScanlineBGMode0[this.bg3Display](scanline);
 
-  this.mergeLayersMode0(imageDataArr, imageDataPos, pbg0, bg0ScanlineArr, bg1ScanlineArr, bg2ScanlineArr, bg3ScanlineArr, backdrop, convertColor);
+  if (this.windowEnabled)
+  {
+    this.mergeLayersWindow(this.windowController.getEnableScanline(scanline), this.windowController.windowCNT,
+     imageDataArr, imageDataPos, pbg0, bg0ScanlineArr, bg1ScanlineArr, bg2ScanlineArr, bg3ScanlineArr, backdrop, convertColor);
+  }
+  else
+  {
+    this.mergeLayers(imageDataArr, imageDataPos, pbg0, bg0ScanlineArr, bg1ScanlineArr, bg2ScanlineArr, bg3ScanlineArr, backdrop, convertColor);
+  }
 };
 
 graphics.prototype.renderScanlineMode1 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
@@ -447,7 +471,7 @@ graphics.prototype.renderScanlineMode5 = function(scanline, imageDataPos, imageD
   }
 };
 
-graphics.prototype.mergeLayersMode0 = function (imageDataArr, imageDataIndex, pbgBuf, bg0Buf, bg1Buf, bg2Buf, bg3Buf, backdrop, convertColor) {
+graphics.prototype.mergeLayers = function (imageDataArr, imageDataIndex, pbgBuf, bg0Buf, bg1Buf, bg2Buf, bg3Buf, backdrop, convertColor) {
   for (let i = 0; i < 240; i ++)
   {
     if (pbgBuf[i] !== 0x8000)
@@ -475,7 +499,37 @@ graphics.prototype.mergeLayersMode0 = function (imageDataArr, imageDataIndex, pb
       imageDataArr[i + imageDataIndex]  = convertColor[backdrop];
     }
   }
+}
 
+//enable buffer
+graphics.prototype.mergeLayersWindow = function (enableScanline, windowCNT, imageDataArr, imageDataIndex, pbgBuf, bg0Buf, bg1Buf, bg2Buf, bg3Buf, backdrop, convertColor) {
+  for (let i = 0; i < 240; i ++)
+  {
+    if ((pbgBuf[i] !== 0x8000) && (windowCNT[enableScanline[i]][4]))
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[pbgBuf[i]];
+    }
+    else if ((bg0Buf[i] !== 0x8000) && (windowCNT[enableScanline[i]][0]))
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[bg0Buf[i]];
+    }
+    else if ((bg1Buf[i] !== 0x8000) && (windowCNT[enableScanline[i]][1]))
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[bg1Buf[i]];
+    }
+    else if ((bg2Buf[i] !== 0x8000) && (windowCNT[enableScanline[i]][2]))
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[bg2Buf[i]];
+    }
+    else if ((bg3Buf[i] !== 0x8000) && (windowCNT[enableScanline[i]][3]))
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[bg3Buf[i]]; 
+    }
+    else
+    {
+      imageDataArr[i + imageDataIndex]  = convertColor[backdrop];
+    }
+  }
 }
 
 //called every 4 cpu cycles
