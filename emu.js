@@ -70,6 +70,7 @@ waitFile("romInput").then(async function (buffer) {
 	const GRAPHICS = new graphics(MMU, CPU, function(){frameNotComplete = false;});
 	const TIMERCONTROLLER = new timerController(MMU, CPU);
 	const KEYPAD = new keypad(MMU);
+	const DMACONTROLLER = new DMAController(MMU, CPU, GRAPHICS);
 
 	//for debugging
 	let instructionNum = 1;

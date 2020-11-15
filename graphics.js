@@ -276,6 +276,9 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   this.windowController = new windowController(this.ioregion.getIOReg("WIN0H"), this.ioregion.getIOReg("WIN1H"), this.ioregion.getIOReg("WIN0V"), this.ioregion.getIOReg("WIN1V"),
     this.ioregion.getIOReg("WININ0"), this.ioregion.getIOReg("WININ1"), this.ioregion.getIOReg("WINOUT"), this.ioregion.getIOReg("WINOBJ"), this.objectLayer.sprites);
 
+  //DMA callback
+  this.hblankCallback = null;
+  this.vblankCallback = null;
 
   //renderScanline functions indexed by mode
   this.renderScanline = [
@@ -325,8 +328,6 @@ graphics.prototype.setHblank = function () {
   this.hblank = true;
   this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["HBLANKSET"];
 
-  // console.log("ayo");
-  // console.log(this.hblankIRQEnable);
   if (this.hblankIRQEnable) //if hblank irq enabled, throw interrupt
   {
     this.ioregionMem[this.ifByte1] |= 2;
@@ -334,14 +335,14 @@ graphics.prototype.setHblank = function () {
     this.cpu.halt = false;
     this.cpu.checkInterrupt = true;
   }
+
+  this.hblankCallback();
 };
 
 graphics.prototype.setVblank = function () {
   this.vblank = true;
   this.ioregionMem[this.dispstatByte1] |= this.displayENUMS["VBLANKSET"];
 
-  //console.log("ayo");
-  //console.log(this.vblankIRQEnable);
   if (this.vblankIRQEnable) //if vblank irq enabled, throw interrupt
   {
     this.ioregionMem[this.ifByte1] |= 1;
@@ -349,6 +350,8 @@ graphics.prototype.setVblank = function () {
     this.cpu.halt = false;
     this.cpu.checkInterrupt = true;
   }
+
+  this.vblankCallback();
 };
 
 graphics.prototype.setVCount = function (scanline) {
@@ -582,7 +585,7 @@ graphics.prototype.update = function(numCycles) {
   if (this.vblank)
   {
     this.pixel += numCycles;
-    if (this.pixel === 1232)
+    if (this.pixel === 1232) //should hblank be toggled in dispstat in vblank? (gbatek says no hblank interrupts generated during vblank, but the conditions are? no games seem to rely on this anyway)
     {
       this.pixel = 0;
       this.scanline ++;
@@ -610,7 +613,7 @@ graphics.prototype.update = function(numCycles) {
       this.scanline ++;
       if (this.scanline === 160) //start of vblank
       {
-        this.setVCount(this.scanline);
+        this.setVCount(160);
         this.setVblank();
         this.finishDraw();
         return 1232;
