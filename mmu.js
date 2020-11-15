@@ -1,9 +1,10 @@
 const mmu = function() {
 
 	//set up memory regions
-	this.memENUMS = ["BIOS", "BOARDWORKRAM", "CHIPWORKRAM", "IOREGISTERS", "PALETTERAM", "VRAM", "OAM", "ROM1", "ROM2", "SRAM"];
+	this.memENUMS = ["BIOS", "NULL", "BOARDWORKRAM", "CHIPWORKRAM", "IOREGISTERS", "PALETTERAM", "VRAM", "OAM", "ROM1", "ROM2", "SRAM", "UNDEFINED"];
 	this.memRegions = [
 	new memRegionBIOS("BIOS", 16 * 1024), //16 kb of BIOS
+	null,
 	new memRegion("BOARDWORKRAM", 256 * 1024), //256 kb of on board work ram (EWRAM)
 	new memRegion("CHIPWORKRAM", 32 * 1024), //32 kb of on chip work ram (IEWRAM)
 	new ioRegion(), //1023 bytes for io registers
@@ -35,12 +36,12 @@ mmu.prototype.decodeAddr = function (memAddr) {
 		
 		case 0x2000000: //EWRAM (256 KB, mirrored completely across 2XXXXXX)
 		this.maskedAddr = memAddr & 0x3FFFF;
-		return this.memRegions[1];
+		return this.memRegions[2];
 		break;
 		
 		case 0x3000000: //IWRAM (32 KB, mirrored completely across 3XXXXXX)
 		this.maskedAddr = memAddr & 0x7FFF;
-		return this.memRegions[2];
+		return this.memRegions[3];
 		break;
 		
 		case 0x4000000: //IOREGS (not mirrored, except for 0x400800 ??)
@@ -49,33 +50,33 @@ mmu.prototype.decodeAddr = function (memAddr) {
 			throw Error("accessing invalid IO memory at addr 0x" + memAddr.toString(16) + "!");
 		}
 		this.maskedAddr = memAddr & 0xFFFFFF;
-		return this.memRegions[3];
+		return this.memRegions[4];
 		break;
 		
 		case 0x5000000: //PALETTERAM (1 KB, mirrored completely across 5XXXXXX)	
 		this.maskedAddr = memAddr & 0x3FF;
-		return this.memRegions[4];
+		return this.memRegions[5];
 		break;
 		
 		case 0x6000000: //VRAM (96 KB, mirrored completely across 6XXXXXX, every 128 KB, made up of 64 KB, 32KB, 32KB, where 32 KB chunks mirror each other)
 		memAddr &= 0x1FFFF;
 		this.maskedAddr = (memAddr & 0x10000) ? (memAddr & 0x17FFF) : memAddr;
-		return this.memRegions[5];
+		return this.memRegions[6];
 		break;
 		
 		case 0x7000000:  //OAM (1 KB, mirrored completely across 7XXXXX)
 		this.maskedAddr = memAddr & 0x3FF;
-		return this.memRegions[6];
+		return this.memRegions[7];
 		break;
 		
 		case 0x8000000: //ROM1, first 16 MB (takes up whole 24 bit address space)
 		this.maskedAddr = memAddr & 0xFFFFFF;
-		return this.memRegions[7];
+		return this.memRegions[8];
 		break;
 		
 		case 0x9000000: //ROM2, second 16 MB (takes up whole 24 bit address space)
 		this.maskedAddr = memAddr & 0xFFFFFF;		
-		return this.memRegions[8];
+		return this.memRegions[9];
 		break;
 		
 		case 0xE000000: //SRAM (64 KB, mirrored?)
@@ -84,12 +85,12 @@ mmu.prototype.decodeAddr = function (memAddr) {
 			throw Error("accessing invalid SRAM at memory addr 0x" + memAddr.toString(16) + "!");
 		}
 		this.maskedAddr = memAddr & 0xFFFFFF;
-		return this.memRegions[9];
+		return this.memRegions[10];
 		break;
 
 		default: 
 		this.maskedAddr = memAddr;
-		return this.memRegions[10];
+		return this.memRegions[11];
 	}
 	console.log("this should never happen");
 }
