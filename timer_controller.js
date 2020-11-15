@@ -33,7 +33,7 @@ const timer = function(TMCNTL, TMCNTH, nextTimer, cpu, ioregionMem, ifByte1, int
 	this.freq = 1;
 	this.freqPow = 0;
 	this.cascade = false;
-	this.raiseIRQ = false;
+	this.irqEnable = false;
 	this.enabled = false;
 
 	this.leftoverCycles = 0;
@@ -55,10 +55,10 @@ timer.prototype.updateTMCNTLVal = function (newTMCNTLVal) {
 	//Note: When simultaneously changing the start bit from 0 to 1, and setting the reload value at the same time (by a single 32bit I/O operation), then the newly written reload value is recognized as new counter value.
 	//to handle this, check if counter === reload i.e. both timer ioregs are being written to at the same time (TMCNTH callbacks are triggered first)
 	//it IS possible for this condition to be met without a word write e.g. when timer is updated and has overflowed back to its reload value but this should be rare enough, and our timings are inaccurate anyway
-	if ((this.reload === this.counter) && (this.enabled))
-	{
-		this.counter = newTMCNTLVal;
-	}
+	// if ((this.reload === this.counter) && (this.enabled))
+	// {
+	// 	this.counter = newTMCNTLVal;
+	// }
 	this.reload = newTMCNTLVal;
 };
 
@@ -68,7 +68,7 @@ timer.prototype.updateTMCNTHVal = function (newTMCNTHVal) {
 	this.freq = Math.pow(2, this.freqPow);
 
 	this.cascade = newTMCNTHVal & this.timerENUMS["TMCASCADE"];
-	this.raiseIRQ = newTMCNTHVal & this.timerENUMS["TMIRQ"];
+	this.irqEnable = newTMCNTHVal & this.timerENUMS["TMIRQ"];
 
 	if (!this.enabled && (newTMCNTHVal & this.timerENUMS["TMENABLE"])) //if timer is starting, set counter to initial reload value
 	{
@@ -90,7 +90,7 @@ timer.prototype.update = function (numCycles) {
 			{
 				this.nextTimer.increment();
 			}
-			if (this.raiseIRQ)
+			if (this.irqEnable)
 			{
 				this.ioregionMem[this.ifByte1] |= this.interruptFlag;
 		    this.cpu.halt = false;
@@ -115,7 +115,7 @@ timer.prototype.increment = function () {
 		{
 			this.nextTimer.increment();
 		}
-		if (this.raiseIRQ)
+		if (this.irqEnable)
 		{
 			this.ioregionMem[this.ifByte1] |= this.interruptFlag;
 	    this.cpu.halt = false;
