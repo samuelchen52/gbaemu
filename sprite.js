@@ -306,79 +306,63 @@ sprite.prototype.renderScanlineNormalWindow = function (scanlineArr, scanline) {
 
 	for (let i = 0; i < numTilesRender; i ++)
 	{
-		this.writeTileToScanlineWindow[this.bpp8](tileAddr, tileLine, scanlineArrIndex, vramMem, scanlineArr, hflip, vflip);
+		if (scanlineArrIndex >= -7) //only render if on screen
+		{
+			if (scanlineArrIndex < 0)
+			{
+				this.writeTileToScanlineWindow[this.bpp8](tileAddr, tileLine, 0, vramMem, scanlineArr, hflip, vflip,  0 - scanlineArrIndex);
+			}
+			else
+			{
+				this.writeTileToScanlineWindow[this.bpp8](tileAddr, tileLine, scanlineArrIndex, vramMem, scanlineArr, hflip, vflip, 0);
+			}
+		}
 		scanlineArrIndex += 8;
 		tileAddr += tileOffset;
 	}
 };
 
-sprite.prototype.writeTileToScanlineBPP4Window = function (tileAddr, tileLine, scanlineArrIndex, vramMem8, scanlineArr, hflip, vflip) {
+sprite.prototype.writeTileToScanlineBPP4Window = function (tileAddr, tileLine, scanlineArrIndex, vramMem8, scanlineArr, hflip, vflip, startPixel) {
   tileAddr += 4 * (vflip ? (7 - tileLine) : tileLine);
-  let paletteIndex0 = (vramMem8[tileAddr] & 15);
-  let paletteIndex1 = ((vramMem8[tileAddr] >>> 4) & 15);
-  let paletteIndex2 = (vramMem8[tileAddr + 1] & 15);
-  let paletteIndex3 = ((vramMem8[tileAddr + 1] >>> 4) & 15);
-  let paletteIndex4 = (vramMem8[tileAddr + 2] & 15);
-  let paletteIndex5 = ((vramMem8[tileAddr + 2] >>> 4) & 15);
-  let paletteIndex6 = (vramMem8[tileAddr + 3] & 15);
-  let paletteIndex7 = ((vramMem8[tileAddr + 3] >>> 4) & 15);
-
   if (hflip)
   {
-  	//b3  b2  b1  b0
-  	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex + 7] = paletteIndex0 ? 4 : scanlineArr[scanlineArrIndex + 7];
-  	scanlineArr[scanlineArrIndex + 6] = paletteIndex1 ? 4 : scanlineArr[scanlineArrIndex + 6];
-  	scanlineArr[scanlineArrIndex + 5] = paletteIndex2 ? 4 : scanlineArr[scanlineArrIndex + 5];
-  	scanlineArr[scanlineArrIndex + 4] = paletteIndex3 ? 4 : scanlineArr[scanlineArrIndex + 4];
-  	scanlineArr[scanlineArrIndex + 3] = paletteIndex4 ? 4 : scanlineArr[scanlineArrIndex + 3];
-  	scanlineArr[scanlineArrIndex + 2] = paletteIndex5 ? 4 : scanlineArr[scanlineArrIndex + 2];
-  	scanlineArr[scanlineArrIndex + 1] = paletteIndex6 ? 4 : scanlineArr[scanlineArrIndex + 1]; 
-  	scanlineArr[scanlineArrIndex] = paletteIndex7 ? 4 : scanlineArr[scanlineArrIndex];
+    for (let i = startPixel; i < 8; i ++)
+    {
+      let paletteIndex = (vramMem8[tileAddr + ((7 - i) >>> 1)] >>> (4 * ((i + 1) & 1)) ) & 15;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? 4 : scanlineArr[scanlineArrIndex];
+      scanlineArrIndex ++;
+    }
   }
   else
   {
-  	//b0  b1  b2  b3
-  	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = paletteIndex0 ? 4 : scanlineArr[scanlineArrIndex];
-    scanlineArr[scanlineArrIndex + 1] = paletteIndex1 ? 4 : scanlineArr[scanlineArrIndex + 1];
-    scanlineArr[scanlineArrIndex + 2] = paletteIndex2 ? 4 : scanlineArr[scanlineArrIndex + 2];
-    scanlineArr[scanlineArrIndex + 3] = paletteIndex3 ? 4 : scanlineArr[scanlineArrIndex + 3];
-    scanlineArr[scanlineArrIndex + 4] = paletteIndex4 ? 4 : scanlineArr[scanlineArrIndex + 4];
-    scanlineArr[scanlineArrIndex + 5] = paletteIndex5 ? 4 : scanlineArr[scanlineArrIndex + 5];
-    scanlineArr[scanlineArrIndex + 6] = paletteIndex6 ? 4 : scanlineArr[scanlineArrIndex + 6]; 
-    scanlineArr[scanlineArrIndex + 7] = paletteIndex7 ? 4 : scanlineArr[scanlineArrIndex + 7];
+    for (let i = startPixel; i < 8; i ++)
+    {
+      let paletteIndex = (vramMem8[tileAddr + (i >>> 1)] >>> (4 * (i & 1))) & 15;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? 4 : scanlineArr[scanlineArrIndex];
+      scanlineArrIndex ++;
+    }
   }
 }
 
-//at bpp8, one line of pixels in a tile encoded in 8 bytes
-sprite.prototype.writeTileToScanlineBPP8Window = function (tileAddr, tileLine, scanlineArrIndex, vramMem8, scanlineArr, hflip, vflip) {
+sprite.prototype.writeTileToScanlineBPP8Window = function (tileAddr, tileLine, scanlineArrIndex, vramMem8, scanlineArr, hflip, vflip, startPixel) {
   tileAddr += 8 * (vflip ? (7 - tileLine) : tileLine);
   if (hflip)
   {
-  	//b7b6b5b4b3b2b1b0
-  	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = vramMem8[tileAddr + 7] ? 4 : scanlineArr[scanlineArrIndex];
-  	scanlineArr[scanlineArrIndex + 1] = vramMem8[tileAddr + 6] ? 4 : scanlineArr[scanlineArrIndex + 1];
-  	scanlineArr[scanlineArrIndex + 2] = vramMem8[tileAddr + 5] ? 4 : scanlineArr[scanlineArrIndex + 2];
-  	scanlineArr[scanlineArrIndex + 3] = vramMem8[tileAddr + 4] ? 4 : scanlineArr[scanlineArrIndex + 3];
-  	scanlineArr[scanlineArrIndex + 4] = vramMem8[tileAddr + 3] ? 4 : scanlineArr[scanlineArrIndex + 4];
-  	scanlineArr[scanlineArrIndex + 5] = vramMem8[tileAddr + 2] ? 4 : scanlineArr[scanlineArrIndex + 5];
-  	scanlineArr[scanlineArrIndex + 6] = vramMem8[tileAddr + 1] ? 4 : scanlineArr[scanlineArrIndex + 6];
-  	scanlineArr[scanlineArrIndex + 7] = vramMem8[tileAddr] ? 4 : scanlineArr[scanlineArrIndex + 7];
+    for (let i = startPixel; i < 8; i ++)
+    {
+      let paletteIndex = vramMem8[tileAddr + 7 - i];
+      scanlineArr[scanlineArrIndex] = paletteIndex ? 4 : scanlineArr[scanlineArrIndex];
+      scanlineArrIndex ++;
+    }
   }
   else
   {
-  	//b0b1b2b3b4b5b6b7
-  	//0 1 2 3 4 5 6 7
-  	scanlineArr[scanlineArrIndex] = vramMem8[tileAddr] ? 4 : scanlineArr[scanlineArrIndex];
-  	scanlineArr[scanlineArrIndex + 1] = vramMem8[tileAddr + 1] ? 4 : scanlineArr[scanlineArrIndex + 1];
-  	scanlineArr[scanlineArrIndex + 2] = vramMem8[tileAddr + 2] ? 4 : scanlineArr[scanlineArrIndex + 2];
-  	scanlineArr[scanlineArrIndex + 3] = vramMem8[tileAddr + 3] ? 4 : scanlineArr[scanlineArrIndex + 3];
-  	scanlineArr[scanlineArrIndex + 4] = vramMem8[tileAddr + 4] ? 4 : scanlineArr[scanlineArrIndex + 4];
-  	scanlineArr[scanlineArrIndex + 5] = vramMem8[tileAddr + 5] ? 4 : scanlineArr[scanlineArrIndex + 5];
-  	scanlineArr[scanlineArrIndex + 6] = vramMem8[tileAddr + 6] ? 4 : scanlineArr[scanlineArrIndex + 6];
-  	scanlineArr[scanlineArrIndex + 7] = vramMem8[tileAddr + 7] ? 4 : scanlineArr[scanlineArrIndex + 7];
+    for (let i = startPixel; i < 8; i ++)
+    {
+      let paletteIndex = vramMem8[tileAddr + i];
+      scanlineArr[scanlineArrIndex] = paletteIndex ? 4 : scanlineArr[scanlineArrIndex];
+      scanlineArrIndex ++;
+    }
   }
 }
 
