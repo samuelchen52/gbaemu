@@ -34,19 +34,21 @@ ioReg.prototype.read32 = function (memAddr) {
 
 ioReg.prototype.write8 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val;
+	this.triggerCallbacks();
 }
 
 ioReg.prototype.write16 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
 	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
+	this.triggerCallbacks();
 }
 
 ioReg.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
 	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
+	this.triggerCallbacks();
 
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
-	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 //for now, assuming writes to read only / unused mem dont do anything, and reading from write only / unused mem just returns 0
@@ -64,7 +66,7 @@ ioRegReadOnly.prototype.write8 = function (memAddr, val) {
 }
 
 ioRegReadOnly.prototype.write16 = function (memAddr, val) {
-	console.log("ignored: writing halfword to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
+	//console.log("ignored: writing halfword to " + this.name + " at mem addr: 0x" + (memAddr >>> 0).toString(16));
 }
 
 ioRegReadOnly.prototype.write32 = function (memAddr, val) {
@@ -123,6 +125,8 @@ ioRegWord.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
 	this.ioRegionMemory[(memAddr + 2)] = (val & 0xFF0000) >>> 16;
 	this.ioRegionMemory[(memAddr + 3)] = (val & 0xFF000000) >>> 24;
+
+	this.triggerCallbacks();
 }
 
 
@@ -163,6 +167,8 @@ ioRegWordWriteOnly.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
 	this.ioRegionMemory[(memAddr + 2)] = (val & 0xFF0000) >>> 16;
 	this.ioRegionMemory[(memAddr + 3)] = (val & 0xFF000000) >>> 24;
+
+	this.triggerCallbacks();
 }
 
 
@@ -193,19 +199,17 @@ ioRegByte.prototype.read32 = function (memAddr) {
 
 ioRegByte.prototype.write16 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
+	this.triggerCallbacks();
 
 	this.ioRegs[this.regIndex + 1].write8(memAddr + 1, (val & 0xFF00) >>> 8); 
-	this.ioRegs[this.regIndex + 1].triggerCallbacks();
 }
 
 ioRegByte.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
+	this.triggerCallbacks();
 
 	this.ioRegs[this.regIndex + 1].write8(memAddr + 1, (val & 0xFF00) >>> 8); 
-	this.ioRegs[this.regIndex + 1].triggerCallbacks();
-
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
-	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 
@@ -243,19 +247,17 @@ ioRegByteWriteOnly.prototype.read32 = function (memAddr) {
 
 ioRegByteWriteOnly.prototype.write16 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
+	this.triggerCallbacks();
 
 	this.ioRegs[this.regIndex + 1].write8(memAddr + 1, (val & 0xFF00) >>> 8); 
-	this.ioRegs[this.regIndex + 1].triggerCallbacks();
 }
 
 ioRegByteWriteOnly.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
+	this.triggerCallbacks();
 
 	this.ioRegs[this.regIndex + 1].write8(memAddr + 1, (val & 0xFF00) >>> 8); 
-	this.ioRegs[this.regIndex + 1].triggerCallbacks();
-
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
-	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 
@@ -271,12 +273,14 @@ ioRegIF.constructor = ioRegIF;
 ioRegIF.prototype.write8 = function (memAddr, val) {
 	//console.log("oldval: " + val);
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
+	this.triggerCallbacks();
 }
 
 ioRegIF.prototype.write16 = function (memAddr, val) {
 	//console.log("oldval: " + val);
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
 	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
+	this.triggerCallbacks();
 	//console.log("new val: " + (this.ioRegionMemory[memAddr] + (this.ioRegionMemory[memAddr + 1] << 8)) );
 }
 
@@ -284,9 +288,9 @@ ioRegIF.prototype.write32 = function (memAddr, val) {
 	//console.log("oldval: " + val);
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
 	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
+	this.triggerCallbacks();
 
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
-	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 //represents register DISPSTAT (bits 0 - 2 are read only)
@@ -307,21 +311,23 @@ ioRegDISPSTAT.prototype.write8 = function (memAddr, val) {
 	{
 		this.ioRegionMemory[memAddr] = val;
 	}
+	this.triggerCallbacks();
 }
 
 ioRegDISPSTAT.prototype.write16 = function (memAddr, val) {
 	val &= ~7;
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] & 7) + val;
 	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
+	this.triggerCallbacks();
 }
 
 ioRegDISPSTAT.prototype.write32 = function (memAddr, val) {
 	val &= ~7;
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] & 7) + val;
 	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
+	this.triggerCallbacks();
 
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
-	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 //represents register IOREGTMCNTL
@@ -357,19 +363,21 @@ ioRegTMCNTL.prototype.read32 = function (memAddr) {
 
 ioRegTMCNTL.prototype.write8 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val;
+	this.triggerCallbacks();
 }
 
 ioRegTMCNTL.prototype.write16 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
 	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
+	this.triggerCallbacks();
 }
 
 ioRegTMCNTL.prototype.write32 = function (memAddr, val) {
 	this.ioRegionMemory[memAddr] = val & 0xFF;
 	this.ioRegionMemory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
+	this.triggerCallbacks();
 
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
-	this.ioRegs[this.regIndex + 2].triggerCallbacks();
 }
 
 
