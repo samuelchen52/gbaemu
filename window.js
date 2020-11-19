@@ -48,6 +48,8 @@ const windowController = function(WIN0H, WIN1H, WIN0V, WIN1V, WININ0, WININ1, WI
 	}
 	this.objScanlineBuffer = new Uint8Array(240); 
 
+	this.sprites = sprites;
+
 	WIN0H.addCallback((newWIN0HVal) => {this.updateWIN0H(newWIN0HVal);});
 	WIN1H.addCallback((newWIN1HVal) => {this.updateWIN1H(newWIN1HVal);});
 	WIN0V.addCallback((newWIN0VVal) => {this.updateWIN0V(newWIN0VVal);});
