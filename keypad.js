@@ -17,7 +17,9 @@
 	this.keyCodeToKeyDown = new Uint16Array(255);
 	this.keyCodeToKeyUp = new Uint16Array(255);
 
-	this.keyCodeToKeyDown.fill(65535);
+	//0000001111111111 - 0x3FF, default state
+
+	this.keyCodeToKeyDown.fill(0x3FF);
 	this.keyCodeToKeyDown[65]  = 1022; //1111111110 A
 	this.keyCodeToKeyDown[83]  = 1021; //1111111101 B
 	this.keyCodeToKeyDown[191] = 1019; //1111111011 select
@@ -41,11 +43,11 @@
 	this.keyCodeToKeyUp[76]  = ~767;
 	this.keyCodeToKeyUp[75]  = ~511;
 
-	this.ioregMem16[0x98] = 65535; //fill KEYINPUT with all 1s i.e. no buttons pressed
+	this.ioregMem16[0x98] = 0x3FF; //fill KEYINPUT with all 1s i.e. no buttons pressed
 
 	$(document).keydown((e) => {
 		//console.log(e.keyCode);
-		if (e.keyCode === 83)
+		if (e.keyCode === 68)
 		{
 			window.debug = true;
 		} 
@@ -54,7 +56,7 @@
 
 	$(document).keyup((e) => {
 		//console.log("keyup");
-	  this.ioregMem16[0x98] |= this.keyCodeToKeyUp[e.keyCode];
+	  this.ioregMem16[0x98] |= (this.keyCodeToKeyUp[e.keyCode] & 0x3FF);
 	});
 };
 	
