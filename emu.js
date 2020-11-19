@@ -66,93 +66,98 @@ waitFile("romInput").then(async function (buffer) {
 	let frameNotComplete = true;
 
 	//set up hardware
-	const CPU = new cpu(0x08000000, MMU);
+	const CPU = new cpu(0x8000000, MMU);
 	const GRAPHICS = new graphics(MMU, CPU, function(){frameNotComplete = false;});
 	const TIMERCONTROLLER = new timerController(MMU, CPU);
 	const KEYPAD = new keypad(MMU);
 	const DMACONTROLLER = new DMAController(MMU, CPU, GRAPHICS);
 
 	//for debugging
-	let instructionNum = 1;
-	let cnt = 0;
+	window.instructionNum = 1;
 	let frames = 0;
 
 	$("#runbutton").click(function()
 	{
-		CPU.run(true, instructionNum);
-		instructionNum ++;
-		cnt ++;
-		GRAPHICS.updateRegisters(CPU.mode);
-		if (cnt === 4)
+		if (CPU.halt)
 		{
-		 GRAPHICS.pushPixel();
-		 cnt = 0;
+			while (CPU.halt)
+			{
+				GRAPHICS.update(1);
+				TIMERCONTROLLER.update(1)
+			}
 		}
+		else
+		{
+			if (window.debug)
+			{
+				while (!CPU.checkInterrupt)
+				{
+					if (!CPU.halt)
+					{
+						CPU.run(false, window.instructionNum);
+						window.instructionNum ++;
+					}
+					GRAPHICS.update(1);
+					TIMERCONTROLLER.update(1)
+				}
+			}
+			else
+			{
+				CPU.run(true, window.instructionNum);
+				window.instructionNum ++;
+				GRAPHICS.update(1);
+				TIMERCONTROLLER.update(1);
+			}
+			GRAPHICS.updateRegisters(CPU.mode);
+		}
+		//GRAPHICS.updateRegisters(CPU.mode);
 	});
 
 	//for debugging
-	// while (instructionNum <= 281800) //281857
+	// while (window.instructionNum <= 3000000)
 	// {
 
 	// 	try {
-	// 		CPU.run(false, instructionNum);
-	// 		instructionNum ++;
-	// 		CPU.run(false, instructionNum);
-	// 		instructionNum ++;
-	// 		CPU.run(false, instructionNum);
-	// 		instructionNum ++;
-	// 		CPU.run(false, instructionNum);
-	// 		instructionNum ++;
-	// 		GRAPHICS.pushPixel();
+	// 		if (!CPU.halt)
+	// 		{
+	// 			CPU.run(false, window.instructionNum);
+	// 			window.instructionNum ++;
+	// 		}
+	// 		GRAPHICS.update(1);
+	// 		TIMERCONTROLLER.update(1)			
 	// 	}
 	// 	catch (err)
 	// 	{
-	// 		console.log("error on instruction " + instructionNum );
+	// 		console.log("error on instruction " + window.instructionNum );
 	// 		//download(strData, strFileName);
 	// 		throw (err);
 	// 	}
-	// 	// await new Promise(function (resolve, reject)
-	// 	// {
-	// 	// 	resolve();
-	// 	// 	//setTimeout(function(){resolve()}, 10);
-	// 	// });
-	// 	//instructionNum ++;
 	// }
 	console.log("finished");
-	// download(strData, strFileName);
+	//download(strData, strFileName);
 
-	const printFPS = function () {
-		setTimeout(function (){
-			console.log("FPS: " + frames / 30);
-			frames = 0;
-			printFPS();
-		}, 30000);
-	}
+	
 
-	// const executeFrame = function() {
-	// 	while (frameNotComplete)
-	// 	{
-	// 		CPU.run(); //TIMERCONTROLLER.update(1);
-	// 		CPU.run(); //TIMERCONTROLLER.update(1);
-	// 		CPU.run(); //TIMERCONTROLLER.update(1);
-	// 		CPU.run(); //TIMERCONTROLLER.update(1);
-	// 		GRAPHICS.update(1);
-	// 	}
-	// 	frames ++;
-	// 	frameNotComplete = true;
-	// 	setTimeout(executeFrame, 10);
-	// };
 
-	cyclesToRun = 0;
+
+	let	cyclesToRun = 0;
 
 	const executeFrame = function() {
 		while (frameNotComplete)
 		{
+			// if (!CPU.halt)
+			// {
+			// 	CPU.run(false, window.instructionNum);
+			// 	window.instructionNum ++;
+			// }
+			// GRAPHICS.update(1);
+			// TIMERCONTROLLER.update(1)			
+
 			if (!CPU.halt)
 			{
 				for (var i = 0; i < cyclesToRun; i ++)
 				{
-						CPU.run();
+					CPU.run(false, window.instructionNum);
 				}
 			}
 			cyclesToRun = Math.min(GRAPHICS.update(cyclesToRun), TIMERCONTROLLER.update(cyclesToRun));
@@ -161,10 +166,17 @@ waitFile("romInput").then(async function (buffer) {
 		frameNotComplete = true;
 		setTimeout(executeFrame, 10);
 	};
-
 	setTimeout(executeFrame, 10);
+
+	const printFPS = function () {
+		setTimeout(function (){
+			console.log("FPS: " + frames / 30);
+			frames = 0;
+			printFPS();
+		}, 30000);
+	}
 	printFPS();
-
-
-
 });
+
+
+

@@ -147,7 +147,6 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   this.mmu = mmu;
   this.registers = cpu.registers;
   this.setFrameComplete = setFrameComplete;
-  this.startIRQ = cpu.startIRQ.bind(cpu);
   this.cpu = cpu;
 
   //debugging stuff
@@ -318,6 +317,7 @@ graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
 }
 
 graphics.prototype.updateDISPSTAT= function (newDISPSTATVal) {
+  //console.log("updated dispstat: 0x" + newDISPSTATVal.toString(16));
   this.vblankIRQEnable = newDISPSTATVal & this.displayENUMS["VBLANKIRQENABLE"];
   this.hblankIRQEnable = newDISPSTATVal & this.displayENUMS["HBLANKIRQENABLE"];
   this.vCountIRQEnable = newDISPSTATVal & this.displayENUMS["VCOUNTIRQENABLE"];
@@ -418,22 +418,44 @@ graphics.prototype.renderScanlineMode0 = function(scanline, imageDataPos, imageD
 };
 
 graphics.prototype.renderScanlineMode1 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+  let backdrop = this.paletteRamMem16[0];
+  let phantomBGS = this.objectLayer.renderScanline(scanline);
+  let pbg0 = phantomBGS[0];
+
+  let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
+  let bg1ScanlineArr = this.bg1.renderScanlineBGMode0[this.bg1Display](scanline);
   let bg2ScanlineArr = this.bg2.renderScanlineBGMode2[this.bg2Display](scanline);
 
-  for (let i = 0; i < 240; i ++)
+  if (this.windowEnabled)
   {
-    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[i]];
-    imageDataPos ++;
+    this.mergeLayersWindow(this.windowController.getEnableScanline(scanline), this.windowController.windowCNT,
+     imageDataArr, imageDataPos, pbg0, bg0ScanlineArr, bg1ScanlineArr, bg2ScanlineArr, this.transparentScanline, backdrop, convertColor);
+  }
+  else
+  {
+    this.mergeLayers(imageDataArr, imageDataPos, pbg0, bg0ScanlineArr, bg1ScanlineArr, bg2ScanlineArr, this.transparentScanline, backdrop, convertColor);
   }
 };
 
 graphics.prototype.renderScanlineMode2 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
-  let bg2ScanlineArr = this.bg2.renderScanlineBGMode2[this.bg2Display](scanline);
+  let backdrop = this.paletteRamMem16[0];
 
-  for (let i = 0; i < 240; i ++)
+  let phantomBGS = this.objectLayer.renderScanline(scanline);
+  let pbg2 = phantomBGS[2];
+
+  // let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
+  // let bg1ScanlineArr = this.bg1.renderScanlineBGMode0[this.bg1Display](scanline);
+  // let bg2ScanlineArr = this.bg2.renderScanlineBGMode0[this.bg2Display](scanline);
+  // let bg3ScanlineArr = this.bg3.renderScanlineBGMode0[this.bg3Display](scanline);
+
+  if (this.windowEnabled)
   {
-    imageDataArr[imageDataPos] = convertColor[bg2ScanlineArr[i]];
-    imageDataPos ++;
+    this.mergeLayersWindow(this.windowController.getEnableScanline(scanline), this.windowController.windowCNT,
+     imageDataArr, imageDataPos, pbg2, this.transparentScanline, this.transparentScanline, this.transparentScanline, this.transparentScanline, backdrop, convertColor);
+  }
+  else
+  {
+    this.mergeLayers(imageDataArr, imageDataPos, pbg2, this.transparentScanline, this.transparentScanline, this.transparentScanline, this.transparentScanline, backdrop, convertColor);
   }
 };
 
