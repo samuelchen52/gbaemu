@@ -201,6 +201,7 @@ const ioRegion = function() {
 	// this.getIOReg("TM2CNTL").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
 	// this.getIOReg("TM3CNTL").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
 	//this.getIOReg("HALTCNT").addCallback(()=> {console.log("THIS ROM IS USING HALT!!")});
+	this.memory[this.getIOReg("SOUNDBIAS").regIndex + 1] = 0x2;
 }
 
 ioRegion.prototype.read8 = function (memAddr) {
@@ -241,3 +242,17 @@ ioRegion.prototype.getIOReg = function (name) {
 	}
 	throw Error("failed to retrieve ioreg: " + name);
 }
+
+ioRegion.prototype.dumpMemory = function (memAddr) {
+	let memory = this.memory;
+	let numBytes = 12 * 16 + memAddr;
+	for (let i = memAddr; i < numBytes; i += 16)
+	{
+		let str = "";
+		for (let p = 0; p < 16; p ++)
+		{
+			str += memory[i + p].toString(16).padStart(2, "0") + " "; 
+		}
+		console.log((i & 0xFF).toString(16).padStart(2, "0") + ": " + str);
+	}
+};
