@@ -187,8 +187,8 @@ cpu.prototype.updateHALTCNT = function (newHALTCNTVal) {
 
 //interrupt handling functions -------------------------------------------------------------------
 cpu.prototype.startSWI = function (swiNum) {
-  console.log("swi " + swiNum + " at: " + (this.registers[15][0] - this.insize * 2).toString(16));
-  this.registers[14][2] = this.registers[15][0] - (this.state ? 2 : 4); //set r14_svc to return address (PC is two instructions ahead)
+  //console.log("swi 0x" + swiNum + " at: " + (this.registers[15][0] - this.insize * 2).toString(16));
+  this.registers[14][2] = this.registers[15][0] - (this.state ? 2 : 4); //set r14_svc to return address (PC is two instructions ahead of swi instruction that called this, so minus one instruction size to get to next instruction)
   this.registers[17][1] = this.registers[16][0]; //save CPSR in SPSR_svc
   this.registers[16][0] &= 0xFFFFFF00;
   this.registers[16][0] += 147; //128 (i bit) + 19 (svc mode)
@@ -201,21 +201,17 @@ cpu.prototype.startSWI = function (swiNum) {
 }
 
 cpu.prototype.startIRQ = function () {
-  //console.log("FIRE!");
-  if (window.enableSee)
-  {
-    console.log(this.interruptEnable);
-    console.log(this.ioregionMem16[this.ifVal]);
-    console.log(!(this.registers[16][0] & 128));
-    console.log(this.masterInterruptEnable);
-    console.log("ALL TOGETHER!!: " + ((this.interruptEnable & this.ioregionMem16[this.ifVal]) && !(this.registers[16][0] & 128) && this.masterInterruptEnable));
-    window.enableSee = false;
-  }
+  //console.log(this.interruptCause);
   //check if bit in IE matches any bits in IF e.g. vblank, check master interrupt enable bit and CPSR interrupt enable bit
   if ((this.interruptEnable & this.ioregionMem16[this.ifVal]) && !(this.registers[16][0] & 128) && this.masterInterruptEnable)
   {
-    //alert("HALLO");
-    this.registers[14][4] = this.registers[15][0] - (this.state ? 2 : 4); //set r14_irq to return address (PC is two instructions ahead)
+    // if (window.debug)
+    // {
+    //   console.log("INTERRUPT FIRE");
+    // }
+    //throw Error();
+    // console.log("[-----------------------INTERRUPT-------------------------------]");
+    this.registers[14][4] = this.registers[15][0] - (this.state ? 0 : 4); //set r14_irq to return address (PC is two instructions ahead of current instruction and bios returns by subs r15, r14, -4, so minus one instruction size in arm)
     this.registers[17][3] = this.registers[16][0]; //save CPSR in SPSR_irq
     this.registers[16][0] &= 0xFFFFFF00;
     this.registers[16][0] += 146; //128 (i bit) + 18 (irq mode)
@@ -321,19 +317,93 @@ cpu.prototype.resetPipeline = function (){
 };
 
 //main run function ----------------------------------------------------------------------------------------
-cpu.prototype.run = function(debug, inum) {
-  this.instructionNum = inum;
+// cpu.prototype.run = function(debug, inum) {
+//   this.instructionNum = inum;
+//   this.checkStackOverflow();
+//   try {
+//     if (this.halt)
+//     {
+//       return;
+//     }
+//     if (this.checkInterrupt)
+//     {
+//       this.checkInterrupt = false;
+//       this.startIRQ();
+//     }
+//     var pipelinecopy0 = this.pipeline[0];
+//     var pipelinecopy1 = this.pipeline[1];
+//     var pipelinecopy2 = this.pipeline[2];
 
-  try {
-    if (this.halt)
-    {
-      return;
-    }
+//     this.pipeline[0] = this.fetch();
+
+//     this.pipeline[1] = pipelinecopy0;
+//     this.pipeline[2] = this.decode(pipelinecopy0);   
+
+//     if (debug)
+//     {
+//       //console.log(this.pipelinecopy[2]);
+//       console.log("[" + inum +  "] executing opcode: " + (this.state ? THUMBopcodes[pipelinecopy2] : ARMopcodes[pipelinecopy2]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
+//     }
+//     if (inum >= 1)
+//     {
+//       //this.LOG.logRegs(this.mode);
+//     }
+//     // if ((this.registers[15][0] - (this.state ? 4 : 8)) === 0x0000013C)
+//     // {
+//     //   console.log("[--------------------------RETURN-------------------------------]");
+//     // }
+//     // if (!this.state)
+//     // {
+//     //   ARMcount[pipelinecopy2]++;
+//     // }
+//     // else
+//     // {
+//     //   THUMBcount[pipelinecopy2]++;
+//     // }
+//     this.execute(pipelinecopy1, pipelinecopy2);
+//   }
+//   catch (err)
+//   {
+//     console.log("[" + inum +  "] executing opcode: " + (this.state ? THUMBopcodes[pipelinecopy2] : ARMopcodes[pipelinecopy2]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
+//     console.log(err);
+//     console.log("instr: " + pipelinecopy1.toString(16));
+//     throw Error(err);
+//   }
+
+//   this.registers[15][0] += this.insize; //increment pc
+// }
+
+// cpu.prototype.run = function() {
+//   if (!this.halt)
+//   {
+//     if (this.checkInterrupt)
+//     {
+//       this.startIRQ();
+//       this.checkInterrupt = false;
+//     }
+
+//     this.pipeline[4] = this.pipeline[2];
+//     this.pipeline[3] = this.pipeline[1];
+
+//     this.pipeline[2] = this.decode(this.pipeline[0]); 
+//     this.pipeline[1] = this.pipeline[0];  
+
+//     this.pipeline[0] = this.fetch();
+
+//     this.execute(this.pipeline[3], this.pipeline[4]);
+//     this.registers[15][0] += this.insize; //increment pc
+//   }
+// }
+
+cpu.prototype.run = function() {
+  if (!this.halt)
+  {
     if (this.checkInterrupt)
     {
       this.startIRQ();
       this.checkInterrupt = false;
     }
+
     var pipelinecopy0 = this.pipeline[0];
     var pipelinecopy1 = this.pipeline[1];
     var pipelinecopy2 = this.pipeline[2];
@@ -343,51 +413,7 @@ cpu.prototype.run = function(debug, inum) {
     this.pipeline[1] = pipelinecopy0;
     this.pipeline[2] = this.decode(pipelinecopy0);   
 
-    if (debug)
-    {
-      //console.log(this.pipelinecopy[2]);
-      console.log("[" + inum +  "] executing opcode: " + (this.state ? THUMBopcodes[pipelinecopy2] : ARMopcodes[pipelinecopy2]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
-    }
-    if (inum >= 1)
-    {
-      //this.LOG.logRegs(this.mode);
-    }
-    // if ((this.registers[15][0] - (this.state ? 4 : 8)) === 0x8000440)
-    // {
-    //   console.log(inum);
-    //   throw Error();
-    // }
     this.execute(pipelinecopy1, pipelinecopy2);
-    // if ((window.debug && ((this.registers[15][0] - (this.state ? 4 : 8)) === 0x138)))
-    // {
-    //   throw Error();
-    // }
+    this.registers[15][0] += this.insize; //increment pc
   }
-  catch (err)
-  {
-    console.log(pipelinecopy2.toString(16));
-    console.log("[" + inum +  "] executing opcode: " + (this.state ? THUMBopcodes[pipelinecopy2] : ARMopcodes[pipelinecopy2]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
-    console.log(err);
-    throw Error(err);
-  }
-
-  this.registers[15][0] += this.insize; //increment pc
 }
-
-
-// cpu.prototype.run = function () {
-//   let pipelinecopy0 = this.pipeline[0];
-//   let pipelinecopy1 = this.pipeline[1];
-//   let pipelinecopy2 = this.pipeline[2];
-
-//   this.pipeline[0] = this.fetch();
-
-//   this.pipeline[1] = pipelinecopy0;
-//   this.pipeline[2] = this.decode(pipelinecopy0);   
-
-//   this.execute(pipelinecopy1, pipelinecopy2);
-//   this.registers[15][0] += this.insize; //increment pc
-// }
-
-
-
