@@ -1,13 +1,14 @@
 const DMAController = function(mmu, cpu, graphics) {
 	let ioregion = mmu.getMemoryRegion("IOREGISTERS");
 
-	this.DMAChannel0 = new DMAChannel0(mmu, cpu, ioregion.getIOReg("DMA0SAD"), ioregion.getIOReg("DMA0DAD"), ioregion.getIOReg("DMA0CNTL"), ioregion.getIOReg("DMA0CNTH"), 0xFFFFFFF, 0xFFFFFFF, 0x3FFF, 1);
-	this.DMAChannel1 = new DMAChannel12(mmu, cpu, ioregion.getIOReg("DMA1SAD"), ioregion.getIOReg("DMA1DAD"), ioregion.getIOReg("DMA1CNTL"), ioregion.getIOReg("DMA1CNTH"), 0x1FFFFFFF, 0xFFFFFFF, 0x3FFF, 2);
-	this.DMAChannel2 = new DMAChannel12(mmu, cpu, ioregion.getIOReg("DMA2SAD"), ioregion.getIOReg("DMA2DAD"), ioregion.getIOReg("DMA2CNTL"), ioregion.getIOReg("DMA2CNTH"), 0x1FFFFFFF, 0xFFFFFFF, 0x3FFF, 4);
-	this.DMAChannel3 = new DMAChannel3(mmu, cpu, ioregion.getIOReg("DMA3SAD"), ioregion.getIOReg("DMA3DAD"), ioregion.getIOReg("DMA3CNTL"), ioregion.getIOReg("DMA3CNTH"), 0x1FFFFFFF, 0x1FFFFFFF, 0xFFFF, 8);
+	this.DMAChannel0 = new DMAChannel0(mmu, cpu, ioregion.getIOReg("DMA0SAD"), ioregion.getIOReg("DMA0DAD"), ioregion.getIOReg("DMA0CNTL"), ioregion.getIOReg("DMA0CNTH"), 0x7FFFFFF, 0x7FFFFFF, 0x3FFF, 1);
+	this.DMAChannel1 = new DMAChannel12(mmu, cpu, ioregion.getIOReg("DMA1SAD"), ioregion.getIOReg("DMA1DAD"), ioregion.getIOReg("DMA1CNTL"), ioregion.getIOReg("DMA1CNTH"), 0xFFFFFFF, 0x7FFFFFF, 0x3FFF, 2);
+	this.DMAChannel2 = new DMAChannel12(mmu, cpu, ioregion.getIOReg("DMA2SAD"), ioregion.getIOReg("DMA2DAD"), ioregion.getIOReg("DMA2CNTL"), ioregion.getIOReg("DMA2CNTH"), 0xFFFFFFF, 0x7FFFFFF, 0x3FFF, 4);
+	this.DMAChannel3 = new DMAChannel3(mmu, cpu, ioregion.getIOReg("DMA3SAD"), ioregion.getIOReg("DMA3DAD"), ioregion.getIOReg("DMA3CNTL"), ioregion.getIOReg("DMA3CNTH"), 0xFFFFFFF, 0xFFFFFFF, 0xFFFF, 8);
 
 	graphics.vblankCallback = this.triggerVblankDMA.bind(this);
 	graphics.hblankCallback = this.triggerHblankDMA.bind(this);
+	window.dma = this;
 };
 
 DMAController.prototype.triggerVblankDMA = function () {
@@ -29,12 +30,14 @@ const DMAChannel = function (mmu, cpu, DMASAD, DMADAD, DMACNTL, DMACNTH, sadMask
 	window.ioRegion = ioRegion;
 
 	this.memRegions = mmu.memRegions;
+	this.memRegionsENUMS = mmu.memENUMS;
 	this.ioRegionMem = ioRegion.memory;
   this.ifByte2 = ioRegion.getIOReg("IF").regIndex + 1;
 	this.interruptFlag = interruptFlag;
 	this.sadMask = sadMask;
 	this.dadMask = dadMask;
 	this.dmacntlMask = dmacntlMask;
+	this.cpu = cpu;
 
 	this.srcAddr = 0;
 	this.destAddr = 0;
@@ -50,9 +53,15 @@ const DMAChannel = function (mmu, cpu, DMASAD, DMADAD, DMACNTL, DMACNTH, sadMask
 	this.srcMemRegion = null;
 	this.srcMemRegionMask = 0;
 	this.srcIncrAmount = 0;
+	this.srcAddrInvalid = true;
 	this.destMemRegion = null;
 	this.destMemRegionMask = 0;
 	this.destIncrAmount = 0;
+	this.destAddrInvalid = true;
+	this.DMACNTHByte2 = DMACNTH.regIndex + 1;
+
+	this.srcMemRegionName = "";
+	this.destMemRegionName = "";
 
 	DMASAD.addCallback((newDMASADVal) => {this.updateDMASAD(newDMASADVal)});
 	DMADAD.addCallback((newDMADADVal) => {this.updateDMADAD(newDMADADVal)});
@@ -85,18 +94,21 @@ DMAChannel.prototype.memRegionMasks = [
 ];
 
 DMAChannel.prototype.updateDMASAD = function (newDMASADVal) {
-	console.log(newDMASADVal);
 	newDMASADVal &= this.sadMask;
 
 	let memRegionIndex = (newDMASADVal & 0xFF000000) >>> 24;
 	if ((memRegionIndex < 0x2) || (memRegionIndex >= 0xA))
 	{
-		throw Error("DMA source addr out of bounds : " + memRegionIndex);
+		//console.log("DMA source addr out of bounds : " + memRegionIndex);
+		this.destAddrInvalid = true;
+		return;
 	}
 
 	this.srcMemRegion = this.memRegions[memRegionIndex];
 	this.srcMemRegionMask = this.memRegionMasks[memRegionIndex];
 	this.srcAddr = newDMASADVal & 0x00FFFFFF;
+	this.srcMemRegionName = this.memRegionsENUMS[memRegionIndex];
+	this.srcAddrInvalid = false;
 };
 
 DMAChannel.prototype.updateDMADAD = function (newDMADADVal) {
@@ -105,12 +117,16 @@ DMAChannel.prototype.updateDMADAD = function (newDMADADVal) {
 	let memRegionIndex = (newDMADADVal & 0xFF000000) >>> 24;
 	if ((memRegionIndex < 0x2) || (memRegionIndex >= 0x8))
 	{
-		throw Error("DMA dest addr out of bounds : " + memRegionIndex);
+		//console.log("DMA dest addr out of bounds : " + memRegionIndex);
+		this.srcAddrInvalid = true;
+		return;
 	}
 
 	this.destMemRegion = this.memRegions[memRegionIndex];
 	this.destMemRegionMask = this.memRegionMasks[memRegionIndex];
 	this.destAddr = newDMADADVal & 0x00FFFFFF;
+	this.destMemRegionName = this.memRegionsENUMS[memRegionIndex];
+	this.destAddrInvalid = false;
 };
 
 //number of units to transfer
@@ -143,7 +159,7 @@ DMAChannel.prototype.updateDMACNTH = function (newDMACNTHVal) {
 
 //taking into account mirrored addresses, will NOT check addresses of non mirrored regions (io region is the only valid SRC/DEST that isnt mirrored)
 DMAChannel.prototype.startTransfer = function (shouldStart) {
-	if (shouldStart)
+	if (shouldStart && !this.destAddrInvalid && !this.srcAddrInvalid)
 	{
 		let srcMemRegion = this.srcMemRegion;
 		let srcMemRegionMask = this.srcMemRegionMask;
@@ -156,7 +172,8 @@ DMAChannel.prototype.startTransfer = function (shouldStart) {
 		let destIncrAmount = this.destIncrAmount;
 
 		// console.log("starting DMA, src addr: 0x" + srcAddr.toString(16) + " dest addr: 0x" + destAddr.toString(16));
-		// console.log("chunkSize: " + this.chunkSize + " numTransfers: " + (this.numTransfers).toString(16));
+		// console.log("src mem region: " + this.srcMemRegionName + " dest mem region: " + this.destMemRegionName);
+		// console.log("chunkSize: " + this.chunkSize + " numBytes: " + (this.numTransfers * this.chunkSize).toString(16));
 		// console.log("srcIncrAmount: " + srcIncrAmount + " destIncrAmount: " + destIncrAmount);
 		//transfer halfwords
 		if (this.chunkSize === 2)
@@ -191,12 +208,13 @@ DMAChannel.prototype.startTransfer = function (shouldStart) {
 
 		if (!(((this.timingMode === 1) || (this.timingMode === 2)) && (this.repeat)))
 		{
+			this.ioRegionMem[this.DMACNTHByte2] &= 127;
 			this.enable = 0;
 		}
 
 		if (this.irqEnable)
-		{
-			this.ioregionMem[this.ifByte2] |= this.interruptFlag;
+		{	
+			this.ioRegionMem[this.ifByte2] |= this.interruptFlag;
 	    this.cpu.halt = false;
 	    this.cpu.checkInterrupt = true;
 		}
