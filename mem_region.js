@@ -27,6 +27,20 @@ memRegion.prototype.write32 = function (memAddr, val) {
 	this.memory[(memAddr + 3)] = (val & 0xFF000000) >>> 24;
 }
 
+memRegion.prototype.dumpMemory = function (memAddr) {
+	let memory = this.memory;
+	let numBytes = 12 * 16 + memAddr;
+	for (let i = memAddr; i < numBytes; i += 16)
+	{
+		let str = "";
+		for (let p = 0; p < 16; p ++)
+		{
+			str += memory[i + p].toString(16).padStart(2, "0") + " "; 
+		}
+		console.log((i & 0xFF).toString(16).padStart(2, "0") + ": " + str);
+	}
+};
+
 
 //VRAM and PALETTERAM
 const memRegionDisplay = function (name, size) {
@@ -89,31 +103,43 @@ memRegionSRAM.prototype = Object.create(memRegion.prototype);
 memRegionSRAM.constructor = memRegionSRAM;
 
 memRegionSRAM.prototype.read8 = function (memAddr, val) {
-	throw Error("SRAM not implemented")
+	if (memAddr === 0x0000000)
+	{
+		return 0x62;
+	}
+	else if (memAddr === 0x0000001)
+	{
+		return 0x13;
+	}
+	return this.memory[memAddr];
+	//throw Error("SRAM not implemented")
+	return 0x09;
+	return 0xC2;
+	//throw Error("SRAM not implemented")
 }
 
 memRegionSRAM.prototype.read16 = function (memAddr, val) {
 	console.log("error: reading halfword at: SRAM");
-	throw Error("SRAM not implemented")
+	//throw Error("SRAM not implemented")
 }
 
 memRegionSRAM.prototype.read32 = function (memAddr, val) {
 	console.log("error: reading word at: SRAM");
-	throw Error("SRAM not implemented")
+	//throw Error("SRAM not implemented")
 }
 
-memRegionSRAM.prototype.write8 = function (memAddr, val) {
-	throw Error("SRAM not implemented")
-}
+// memRegionSRAM.prototype.write8 = function (memAddr, val) {
+// 	throw Error("SRAM not implemented")
+// }
 
 memRegionSRAM.prototype.write16 = function (memAddr, val) {
 	console.log("error: writing halfword to: SRAM");
-	throw Error("SRAM not implemented")
+	//throw Error("SRAM not implemented")
 }
 
 memRegionSRAM.prototype.write32 = function (memAddr, val) {
 	console.log("error: writing word to: SRAM");
-	throw Error("SRAM not implemented")
+	//throw Error("SRAM not implemented")
 }
 
 //unused memory
