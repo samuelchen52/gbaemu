@@ -217,9 +217,9 @@ windowController.prototype.getObjectWindow = function (scanline, upperLayer) {
 	let sprites = this.sprites;
 	let objScanlineBuffer = this.objScanlineBuffer.fill(2);
 
-	for (let i = 0; i < 128; i ++)
+	for (let i = 127; i >= 0; i --)
 	{
-		if (sprites[i].shouldRenderWindow())
+		if (sprites[i].shouldRenderWindow(scanline))
 		{
 			sprites[i].renderScanlineWindow[sprites[i].mode](objScanlineBuffer, scanline);
 		}
@@ -227,7 +227,7 @@ windowController.prototype.getObjectWindow = function (scanline, upperLayer) {
 
 	for (let i = 0; i < 240; i ++)
 	{
-		objScanlineBuffer[i] = upperLayer[i] === 2 ? objScanlineBuffer[i] : upperLayer[i];
+		objScanlineBuffer[i] = (upperLayer[i] === 2) ? objScanlineBuffer[i] : upperLayer[i];
 	}
 
 	return objScanlineBuffer;
