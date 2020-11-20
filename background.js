@@ -22,6 +22,8 @@ const background = function(bgcnt, bghofs, bgvofs, bgx, bgy, bgpa, bgpb, bgpc, b
 
   if (bgNum >= 2)
   {
+    this.internalRefX = 0;
+    this.internalRefY = 0;
     this.refX = 0;
     this.refY = 0;
     this.bgpa = 0;
@@ -128,11 +130,13 @@ background.prototype.updateBGVOFS = function (newBGVOFSVal) {
 }
 
 background.prototype.updateBGX = function (newBGXVal) {
-  this.refX = newBGXVal & 0x8000000 ? -1 * (~(newBGXVal - 1) & 0xFFFFFFF) : newBGXVal;
+  this.refX = newBGXVal & 0x8000000 ? -1 * (~(newBGXVal - 1) & 0xFFFFFFF) : newBGXVal & 0xFFFFFFF;
+  this.internalRefX = this.refX;
 }
 
 background.prototype.updateBGY = function (newBGYVal) {
-  this.refY = newBGYVal & 0x8000000 ? -1 * (~(newBGYVal - 1) & 0xFFFFFFF) : newBGYVal;
+  this.refY = newBGYVal & 0x8000000 ? -1 * (~(newBGYVal - 1) & 0xFFFFFFF) : newBGYVal & 0xFFFFFFF;
+  this.internalRefY = this.refY;
 }
 
 background.prototype.updateBGPA = function (newBGPAVal) {
@@ -282,10 +286,9 @@ background.prototype.renderScanlineMode2 = function(scanline) {
   let paletteRamMem16 = this.paletteRamMem16;
   let scanlineArr = this.scanlineArr;
   let screenSize = this.screenSizeAffine;
-  //let screenSizeTiles = screenSize >>> 3;
 
-  let refX = this.refX;
-  let refY = this.refY;
+  let refX = this.internalRefX;
+  let refY = this.internalRefY;
 
   let bgpa = this.bgpa;
   let bgpb = this.bgpb;
@@ -293,19 +296,21 @@ background.prototype.renderScanlineMode2 = function(scanline) {
   let bgpd = this.bgpd;
 
   let pa = 0;
-  let pb = scanline * bgpb;
   let pc = 0;
-  let pd = scanline * bgpd;
 
   for (let i = 0; i < 240; i ++)
   {
-    let textureXCoord = (pa + pb + refX) >> 8;
-    let textureYCoord = (pc + pd + refY) >> 8;
+    let textureXCoord = (pa + bgpb + refX) >> 8;
+    let textureYCoord = (pc + bgpd + refY) >> 8;
 
     scanlineArr[i] = this.getColor[this.wrapAround](textureXCoord, textureYCoord, screenSize, screenAddr, tileBase, vramMem8, paletteRamMem16);
     pa += bgpa;
     pc += bgpc;
   }
+
+  this.internalRefX += bgpb;
+  this.internalRefY += bgpd;
+
   return scanlineArr; 
 };
 
@@ -394,3 +399,8 @@ background.prototype.renderScanlineMode5 = function (scanline, page) {
   this.scanlineArrIndex = 0;
   return scanlineArr;
 }
+
+background.prototype.copyRefPoint = function () {
+  this.internalRefX = this.refX;
+  this.internalRefY = this.refY;
+};

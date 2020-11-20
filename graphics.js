@@ -336,6 +336,7 @@ graphics.prototype.setHblank = function () {
     this.cpu.checkInterrupt = true;
   }
 
+  //DMA
   this.hblankCallback();
 };
 
@@ -351,6 +352,13 @@ graphics.prototype.setVblank = function () {
     this.cpu.checkInterrupt = true;
   }
 
+  //copy over ref point to internal ref registers (happens every vblank)
+  this.bg0.copyRefPoint();
+  this.bg1.copyRefPoint();
+  this.bg2.copyRefPoint();
+  this.bg3.copyRefPoint();
+
+  //DMA
   this.vblankCallback();
 };
 
@@ -438,24 +446,23 @@ graphics.prototype.renderScanlineMode1 = function(scanline, imageDataPos, imageD
 };
 
 graphics.prototype.renderScanlineMode2 = function(scanline, imageDataPos, imageDataArr, convertColor) { 
+  throw Error();
   let backdrop = this.paletteRamMem16[0];
 
   let phantomBGS = this.objectLayer.renderScanline(scanline);
   let pbg2 = phantomBGS[2];
 
-  // let bg0ScanlineArr = this.bg0.renderScanlineBGMode0[this.bg0Display](scanline);
-  // let bg1ScanlineArr = this.bg1.renderScanlineBGMode0[this.bg1Display](scanline);
-  // let bg2ScanlineArr = this.bg2.renderScanlineBGMode0[this.bg2Display](scanline);
-  // let bg3ScanlineArr = this.bg3.renderScanlineBGMode0[this.bg3Display](scanline);
+  let bg2ScanlineArr = this.bg2.renderScanlineBGMode2[this.bg2Display](scanline);
+  let bg3ScanlineArr = this.bg3.renderScanlineBGMode2[this.bg3Display](scanline);
 
   if (this.windowEnabled)
   {
     this.mergeLayersWindow(this.windowController.getEnableScanline(scanline), this.windowController.windowCNT,
-     imageDataArr, imageDataPos, pbg2, this.transparentScanline, this.transparentScanline, this.transparentScanline, this.transparentScanline, backdrop, convertColor);
+     imageDataArr, imageDataPos, pbg2, bg2ScanlineArr, bg3ScanlineArr, this.transparentScanline, this.transparentScanline, backdrop, convertColor);
   }
   else
   {
-    this.mergeLayers(imageDataArr, imageDataPos, pbg2, this.transparentScanline, this.transparentScanline, this.transparentScanline, this.transparentScanline, backdrop, convertColor);
+    this.mergeLayers(imageDataArr, imageDataPos, pbg2, bg2ScanlineArr, bg3ScanlineArr, this.transparentScanline, this.transparentScanline, backdrop, convertColor);
   }
 };
 
