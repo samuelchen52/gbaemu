@@ -132,7 +132,7 @@ sprite.prototype.updateOBJAttr0 = function (newOBJAttr0Val) {
   this.rightX = this.xCoord + (this.objWidthTable[this.size][this.shape] * (this.mode === 3 ? 2 : 1));
   this.spriteRowSize = this.objWidthTable[this.size][this.shape] << (2 + this.bpp8); //(this.objWidthTable[this.size][this.shape] >>> 3) * (0x20 << this.bpp8)
 
-  this.display = this.objectLayer.updateSpritesPerPBGDisplay(this.display, !((this.mode === 2) || (this.gfxMode === 2)), this.priority);
+  this.display = !((this.mode === 2) || (this.gfxMode === 2));
 };
 
 sprite.prototype.updateOBJAttr1 = function (newOBJAttr1Val) {
@@ -154,7 +154,7 @@ sprite.prototype.updateOBJAttr2 = function (newOBJAttr2Val) {
   this.palBankIndex = (newOBJAttr2Val & this.spriteENUMS["PALBANKINDEX"]) >>> 12;
 
   //'priority' === obj layer num
-  this.priority = this.objectLayer.updateSpritesPerPBGPrio(this.priority, (newOBJAttr2Val & this.spriteENUMS["PRIORITY"]) >>> 10);
+  this.priority = this.objectLayer.updateSpritesPerPBG(this.priority, (newOBJAttr2Val & this.spriteENUMS["PRIORITY"]) >>> 10);
 };
 
 sprite.prototype.renderScanlineNormal = function (PBGs, scanline) {

@@ -174,7 +174,7 @@ const graphics = function(mmu, cpu, setFrameComplete) {
     new layer(this.bg1.scanlineArr, 1, 0, 0, false, 20, 2),
     new layer(this.bg2.scanlineArr, 2, 0, 0, false, 20, 3),
     new layer(this.bg3.scanlineArr, 3, 0, 0, false, 20, 4),
-    new layer(this.objectLayer.PBGs[0], 4, 0, 0, true, 20, 0),
+    new layer(this.objectLayer.PBGs[0], 4, 0, 1, true, 20, 0),
     new layer(this.objectLayer.PBGs[1], 4, 1, 0, true, 20, 0),
     new layer(this.objectLayer.PBGs[2], 4, 2, 0, true, 20, 0),
     new layer(this.objectLayer.PBGs[3], 4, 3, 0, true, 20, 0)
@@ -313,8 +313,19 @@ graphics.prototype.updateLayersMode = function (oldMode, newMode) {
       layer.sortVal = 20;
       if (modeToLayerDisplay[newMode][i] && layer.display)
       {
-        this.numActiveLayers ++;
-        layer.sortVal = layer.layerNum + (layer.prio * 5);
+        if (layer.isObj)
+        {
+          if (this.objDisplay)
+          {
+            this.numActiveLayers ++;
+            layer.sortVal = layer.layerNum + (layer.prio * 5);
+          }
+        }
+        else
+        {
+          this.numActiveLayers ++;
+          layer.sortVal = layer.layerNum + (layer.prio * 5);
+        }
       }
     }
     this.sortActiveLayers(layers.length);
@@ -327,7 +338,7 @@ graphics.prototype.updateBGPriority = function (layerIndex, oldPrio, newPrio) {
   {
     let layer = this.layers[layerIndex];
     layer.prio = newPrio;
-    if (this.modeToLayerDisplay[this.mode][layerIndex] && layer.display) //an active layers priority was changed, update sortval
+    if (this.modeToLayerDisplay[this.mode][layerIndex] && layer.display)
     {
       layer.sortVal = layer.layerNum + (layer.prio * 5);
       this.sortActiveLayers(this.numActiveLayers);
@@ -342,7 +353,7 @@ graphics.prototype.updateBGDisplay = function (layerIndex, oldDisplay, newDispla
   {
     let layer = this.layers[layerIndex];
     layer.display = newDisplay;
-    if (this.modeToLayerDisplay[this.mode][layerIndex]) //an active layer was either removed or added, update sortval
+    if (this.modeToLayerDisplay[this.mode][layerIndex])
     {
       layer.sortVal = newDisplay ? (layer.layerNum + (layer.prio * 5)) : 20;
       this.numActiveLayers += newDisplay ? 1 : -1;

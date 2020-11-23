@@ -2,7 +2,7 @@ const objectLayer = function(vramMem, paletteRamMem16, oamMem, graphics) {
   this.sprites = [];
   this.OBJAffines = [];
   this.PBGs = [new Uint16Array(248), new Uint16Array(248), new Uint16Array(248), new Uint16Array(248)];
-  this.spritesPerPBG = [0, 0, 0, 0];
+  this.spritesPerPBG = [128, 0, 0, 0];
 
   this.mappingMode = 0; //0 - 2d, 1 - 1d
 
@@ -45,24 +45,7 @@ objectLayer.prototype.renderScanline = function (scanline) {
 	}
 };
 
-objectLayer.prototype.updateSpritesPerPBGDisplay = function (oldDisplay, newDisplay, prio) {
-  if (oldDisplay !== newDisplay)
-  {
-    this.spritesPerPBG[prio] += newDisplay ? 1 : -1;
-    if ((this.spritesPerPBG[prio] === 1) && (newDisplay)) //PBG was turned on
-    {
-      this.graphics.updateObjLayerDisplay(this.graphics.objLayerNumToLayerIndex[prio], 1);
-    }
-    else if ((this.spritesPerPBG[prio] === 0) && (!newDisplay)) //turned off
-    {
-      this.graphics.updateObjLayerDisplay(this.graphics.objLayerNumToLayerIndex[prio], 0);
-    }
-  }
-
-  return newDisplay;
-};
-
-objectLayer.prototype.updateSpritesPerPBGPrio = function (oldPrio, newPrio) {
+objectLayer.prototype.updateSpritesPerPBG = function (oldPrio, newPrio) {
   if (oldPrio !== newPrio)
   {
     this.spritesPerPBG[oldPrio] --;
