@@ -1,13 +1,10 @@
-const objectLayer = function(vramMem, paletteRamMem16, oamMem) {
-	this.scanlineArrIndex = 0;
-  this.scanlineArr = new Uint16Array(248);
-
+const objectLayer = function(vramMem, paletteRamMem16, oamMem, graphics) {
   this.sprites = [];
   this.OBJAffines = [];
-  this.phantomBGS = [new Uint16Array(248), new Uint16Array(248), new Uint16Array(248), new Uint16Array(248)];
-  
-  this.mappingMode = 0; //0 - 2d, 1 - 1d
+  this.PBGs = [new Uint16Array(248), new Uint16Array(248), new Uint16Array(248), new Uint16Array(248)];
+  this.spritesPerPBG = [0, 0, 0, 0];
 
+  this.mappingMode = 0; //0 - 2d, 1 - 1d
 
   //initialize all OBJ Affine Parameter objects
   let OBJAffineIORegs = oamMem.getOBJAffineIORegs();
@@ -19,29 +16,69 @@ const objectLayer = function(vramMem, paletteRamMem16, oamMem) {
   //initialize all sprites
   for (let i = 0; i < 128; i ++)
   {
-  	this.sprites.push(new sprite(vramMem, paletteRamMem16, this.OBJAffines, oamMem.getIOReg("OBJ" + i + "ATTR0"), oamMem.getIOReg("OBJ" + i + "ATTR1"), oamMem.getIOReg("OBJ" + i + "ATTR2"), i) );
+  	this.sprites.push(new sprite(vramMem, paletteRamMem16, this.OBJAffines, oamMem.getIOReg("OBJ" + i + "ATTR0"), oamMem.getIOReg("OBJ" + i + "ATTR1"), oamMem.getIOReg("OBJ" + i + "ATTR2"), this, i) );
   }
+
+  this.graphics = graphics;
 };
 
 objectLayer.prototype.renderScanline = function (scanline) {
 	let sprites = this.sprites;
-	let phantomBGS = this.phantomBGS;
-	phantomBGS[0].fill(0x8000);
-  phantomBGS[1].fill(0x8000);
-  phantomBGS[2].fill(0x8000);
-  phantomBGS[3].fill(0x8000);
-  window.phantombg = phantomBGS[0];
-  window.sprites = sprites;
-  window.OBJAffines = this.OBJAffines;
+	let PBGs = this.PBGs;
+  let spritesPerPBG = this.spritesPerPBG;
+
+  if (spritesPerPBG[0])
+    PBGs[0].fill(0x8000);
+  if (spritesPerPBG[1])
+    PBGs[1].fill(0x8000);
+  if (spritesPerPBG[2])
+    PBGs[2].fill(0x8000);
+  if (spritesPerPBG[3])
+    PBGs[3].fill(0x8000);
 
 	for (let i = 127; i >= 0; i--)
 	{
 		if (sprites[i].shouldRender(scanline))
 		{
-			sprites[i].renderScanline[sprites[i].mode](phantomBGS, scanline);
+			sprites[i].renderScanline[sprites[i].mode](PBGs, scanline);
 		}
 	}
-	return phantomBGS;
+};
+
+objectLayer.prototype.updateSpritesPerPBGDisplay = function (oldDisplay, newDisplay, prio) {
+  if (oldDisplay !== newDisplay)
+  {
+    this.spritesPerPBG[prio] += newDisplay ? 1 : -1;
+    if ((this.spritesPerPBG[prio] === 1) && (newDisplay)) //PBG was turned on
+    {
+      this.graphics.updateObjLayerDisplay(this.graphics.objLayerNumToLayerIndex[prio], 1);
+    }
+    else if ((this.spritesPerPBG[prio] === 0) && (!newDisplay)) //turned off
+    {
+      this.graphics.updateObjLayerDisplay(this.graphics.objLayerNumToLayerIndex[prio], 0);
+    }
+  }
+
+  return newDisplay;
+};
+
+objectLayer.prototype.updateSpritesPerPBGPrio = function (oldPrio, newPrio) {
+  if (oldPrio !== newPrio)
+  {
+    this.spritesPerPBG[oldPrio] --;
+    this.spritesPerPBG[newPrio] ++;
+
+    if (this.spritesPerPBG[oldPrio] === 0)
+    {
+      this.graphics.updateObjLayerDisplay(this.graphics.objLayerNumToLayerIndex[oldPrio], 0);
+    }
+    if (this.spritesPerPBG[newPrio] === 1)
+    {
+      this.graphics.updateObjLayerDisplay(this.graphics.objLayerNumToLayerIndex[newPrio], 1);
+    }
+  }
+
+  return newPrio;
 };
 
 objectLayer.prototype.setMappingMode = function (mappingMode) {

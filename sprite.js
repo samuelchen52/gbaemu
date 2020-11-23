@@ -1,4 +1,4 @@
-const sprite = function(vramMem, paletteRamMem16, OBJAffines, OBJAttr0, OBJAttr1, OBJAttr2, spriteNum) {
+const sprite = function(vramMem, paletteRamMem16, OBJAffines, OBJAttr0, OBJAttr1, OBJAttr2, objectLayer, spriteNum) {
 
 	this.vramMem = vramMem;
 	this.paletteRamMem16 = paletteRamMem16;
@@ -6,6 +6,7 @@ const sprite = function(vramMem, paletteRamMem16, OBJAffines, OBJAttr0, OBJAttr1
 	this.OBJAttr0 = OBJAttr0;
 	this.OBJAttr1 = OBJAttr1;
 	this.OBJAttr2 = OBJAttr2;
+	this.objectLayer = objectLayer;
 	this.spriteNum = spriteNum;
 
 	//attribute 0
@@ -31,7 +32,7 @@ const sprite = function(vramMem, paletteRamMem16, OBJAffines, OBJAttr0, OBJAttr1
 	//other
 	this.bottomY = 8;
 	this.rightX = 8;
-	this.render = false;
+	this.display = false;
 	this.mappingMode = 0;
 	this.spriteRowSize = 256; //in 1d mode
 
@@ -129,8 +130,9 @@ sprite.prototype.updateOBJAttr0 = function (newOBJAttr0Val) {
 
   this.bottomY = this.yCoord + (this.objHeightTable[this.size][this.shape] * (this.mode  === 3 ? 2 : 1));
   this.rightX = this.xCoord + (this.objWidthTable[this.size][this.shape] * (this.mode === 3 ? 2 : 1));
-  this.render = !((this.mode === 2) || (this.gfxMode === 2));
   this.spriteRowSize = this.objWidthTable[this.size][this.shape] << (2 + this.bpp8); //(this.objWidthTable[this.size][this.shape] >>> 3) * (0x20 << this.bpp8)
+
+  this.display = this.objectLayer.updateSpritesPerPBGDisplay(this.display, !((this.mode === 2) || (this.gfxMode === 2)), this.priority);
 };
 
 sprite.prototype.updateOBJAttr1 = function (newOBJAttr1Val) {
@@ -144,17 +146,18 @@ sprite.prototype.updateOBJAttr1 = function (newOBJAttr1Val) {
 
   this.bottomY = this.yCoord + (this.objHeightTable[this.size][this.shape] * (this.mode  === 3 ? 2 : 1));
   this.rightX = this.xCoord + (this.objWidthTable[this.size][this.shape] * (this.mode === 3 ? 2 : 1));
-  this.render = !((this.mode === 2) || (this.gfxMode === 2));
   this.spriteRowSize = this.objWidthTable[this.size][this.shape] << (2 + this.bpp8); //(this.objWidthTable[this.size][this.shape] >>> 3) * (0x20 << this.bpp8)
 };
 
 sprite.prototype.updateOBJAttr2 = function (newOBJAttr2Val) {
   this.tileIndex = newOBJAttr2Val & this.spriteENUMS["TILEINDEX"];
-  this.priority = (newOBJAttr2Val & this.spriteENUMS["PRIORITY"]) >>> 10;
   this.palBankIndex = (newOBJAttr2Val & this.spriteENUMS["PALBANKINDEX"]) >>> 12;
+
+  //'priority' === obj layer num
+  this.priority = this.objectLayer.updateSpritesPerPBGPrio(this.priority, (newOBJAttr2Val & this.spriteENUMS["PRIORITY"]) >>> 10);
 };
 
-sprite.prototype.renderScanlineNormal = function (phantomBGS, scanline) {
+sprite.prototype.renderScanlineNormal = function (PBGs, scanline) {
 	let hflip = this.hflip;
 	let vflip = this.vflip;
 	let numTilesRender = Math.ceil((Math.min(this.rightX, 240) - this.xCoord) / 8);
@@ -165,7 +168,7 @@ sprite.prototype.renderScanlineNormal = function (phantomBGS, scanline) {
 	+ (((vflip ? (this.bottomY - (scanline + 1)) : (scanline - this.yCoord)) >>> 3) * (this.mappingMode ? this.spriteRowSize : 1024)) //add tile row offset
 	+ (hflip ? ((numTilesRender - 1) * (0x20 << this.bpp8)) : 0); //add tile number offset
 	let scanlineArrIndex = this.xCoord;
-	let scanlineArr = phantomBGS[this.priority];
+	let scanlineArr = PBGs[this.priority];
 	let vramMem = this.vramMem;
 	let paletteRamMem16 = this.paletteRamMem16;
 	let palBankIndex = this.palBankIndex;
@@ -233,10 +236,10 @@ sprite.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, scanlin
   }
 }
 
-sprite.prototype.renderScanlineAffine = function (phantomBGS, scanline) {
+sprite.prototype.renderScanlineAffine = function (PBGs, scanline) {
 	let spriteRowSize = this.mappingMode ? this.spriteRowSize : 1024;
 	let OBJAffine = this.OBJAffines[this.affineIndex];
-	let scanlineArr = phantomBGS[this.priority];
+	let scanlineArr = PBGs[this.priority];
 	let bpp8 = this.bpp8;
 	let baseTileAddr = 0x10000 //add 4 char block offset
 	+ (this.tileIndex * 0x20);  //add start tile offset
@@ -419,7 +422,7 @@ sprite.prototype.getColorBPP8Window = function(tileAddr, xDiff, yDiff, vramMem8,
 
 
 sprite.prototype.shouldRender = function (scanline) {
-	return this.render 
+	return this.display 
 	&& ((scanline >= this.yCoord) && (scanline < this.bottomY)) 
 	&& (((this.xCoord >= 0) && (this.xCoord < 240)) || ((this.rightX >= 0) && (this.rightX < 240)));
 };
