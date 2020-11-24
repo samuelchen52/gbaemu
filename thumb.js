@@ -10,7 +10,11 @@ const thumb = function(mmu, registers, changeState, setCPSR, resetPipeline, star
 
 	this.shiftCarryFlag = undefined;
 	this.initFnTable();
+
+	this.initLUT();
 };
+
+thumb.prototype.thumbLUT = new Uint8Array(1024);
 
 thumb.prototype.LSLRegByReg = function (register, shiftamt) {
 	if (shiftamt === 0)
@@ -561,11 +565,9 @@ thumb.prototype.executeOpcode41 = function (instr, mode) { //41 - LDR IMM OFFSET
 	let rb = bitSlice(instr, 3, 5);
 	let rd = bitSlice(instr, 0, 2);
 	let addr = this.registers[rb][this.registerIndices[mode][rb]] + offset;
-	//console.log("hello2");
+
 	let data = this.mmu.read32(addr & 0xFFFFFFFC);
 	data = rotateRight(data, (addr & 3) << 3);
-
-	//console.log(data);
 
 	this.registers[rd][this.registerIndices[mode][rd]] = data;
 };
@@ -847,238 +849,12 @@ thumb.prototype.executeOpcode60 = function (instr, mode) { //60 - LONG BRANCH 2
 };
 
 thumb.prototype.decode = function (instr) {
-	// 1111 1100 0000 0000
-	// 5432 1098 7654 3210
-	// xxxx xxxx xxxx xxxx
-	switch (bitSlice(instr, 13, 15)) //MAIN SWITCH
-	{
-		case 0:
-		switch (bitSlice(instr, 11, 12))
-		{
-			case 0: return 0; break; //LSL IMM5
-
-			case 1: return 1; break; //LSR IMM5
-
-			case 2: return 2; break; //ASR IMM5
-
-			case 3:
-			switch (bitSlice(instr, 9, 10))
-			{
-				case 0: return 3; break; //ADD REGISTER
-
-				case 1: return 4; break; //SUBTRACT REGISTER
-
-				case 2: return 5; break; //ADD IMM3
-
-				case 3: return 6; break; //SUB IMM3
-			}
-			break;
-		}
-		break;
-
-		case 1:
-		switch (bitSlice(instr, 11, 12))
-		{
-			case 0: return 7; break; //MOV IMM8
-
-			case 1: return 8; break; //CMP IMM8
-
-			case 2: return 9; break; //ADD IMM8
-
-			case 3: return 10; break; //SUB IMM8
-		}
-		break;
-
-		case 2:
-		switch (bitSlice(instr, 10, 12))
-		{
-			case 0:
-			switch(bitSlice(instr, 6, 9))
-			{
-				case 0:  return 11; break; //AND
-				case 1:  return 12; break; //XOR
-				case 2:  return 13; break; //LSL
-				case 3:  return 14; break; //LSR
-				case 4:  return 15; break; //ASR
-				case 5:  return 16; break; //ADC
-				case 6:  return 17; break; //SBC
-				case 7:  return 18; break; //ROTATE RIGHT
-				case 8:  return 19; break; //TST
-				case 9:  return 20; break; //NEG
-				case 10: return 21; break; //CMP
-				case 11: return 22; break; //NEGCMP
-				case 12: return 23; break; //OR
-				case 13: return 24; break; //MUL
-				case 14: return 25; break; //BIT CLEAR
-				case 15: return 26; break; //NOT
-			}
-			break;
-
-			case 1:
-			switch(bitSlice(instr, 8, 9))
-			{
-				case 0: return 27; break; //ADD check if there is a 1 in next two bits
-
-				case 1: return 28; break; //CMP check if there is a 1 in next two bits
-
-				case 2: return 29; break; //MOV check if there is a 1 in next two bits
-
-				case 3: return 30; break; //BX check if some bits are zero
-			}
-
-			case 2:
-			case 3:
-			return 31;
-			break; //LDR IMM (PC)
-
-			case 4:
-			return bitSlice(instr, 9, 9) === 0 ? 32 : 33;
-			break; //return bit 9 === 0 ? STR REG OFFSET : STRH REG OFFSET
-
-			case 5:
-			return bitSlice(instr, 9, 9) === 0 ? 34 : 35;
-			break; //return bit 9 === 0 ? STRB REG OFFSET : LDSB REG OFFSET
-
-			case 6:
-			return bitSlice(instr, 9, 9) === 0 ? 36 : 37;
-			break; //return bit 9 === 0 ? LDR REG OFFSET : LDRH REG OFFSET
-
-			case 7:
-			return bitSlice(instr, 9, 9) === 0 ? 38 : 39;
-			break; //return bit 9 === 0 ? LDRB REG OFFSET : LDSH REG OFFSET
-		}
-		break;
-
-		case 3:
-		switch(bitSlice(instr, 11, 12))
-		{
-			case 0: return 40; break; //STR IMM OFFSET
-			case 1: return 41; break; //LDR IMM OFFSET
-			case 2: return 42; break; //STRB IMM OFFSET
-			case 3: return 43; break; //LDRB IMM OFFSET
-		}
-		break;
-
-		case 4:
-		switch(bitSlice(instr, 11, 12))
-		{
-			case 0: return 44; break; //STRH IMM OFFSET
-			case 1: return 45; break; //LDRH IMM OFFSET
-			case 2: return 46; break; //STR IMM OFFSET(SP)
-			case 3: return 47; break; //LDR IMM OFFSET(SP)
-		}
-		break;
-
-		case 5:
-		switch(bitSlice(instr, 11, 12))
-		{
-			case 0: return 48; break; //ADD RD PC IMM
-			case 1: return 49; break; //ADD RD SP IMM
-			case 2:
-			return bitSlice(instr, 10, 10) === 0 ? (bitSlice(instr, 7, 7) === 0 ? 50 : 51) : 52;
-			//return if bit 10 === 0 ? (bit 7 === 0 ? ADD SP IMM : ADD SP -IMM) : PUSH
-			break;
-			case 3: return 53; break; //POP
-		} 
-		break;
-
-		case 6:
-		switch (bitSlice(instr, 11, 12))
-		{
-			case 0: return 54; break; //STMIA
-			case 1: return 55; break; //LDMIA
-			case 2: return 56; break; //CONDITIONAL BRANCH
-			case 3: 
-			return bitSlice(instr, 8, 10) === 7 ? 57 : 56;
-			break; //return bits 8 - 10 are all 1 ? SW INTR : CONDITIONAL BRANCH
-		}
-		break;
-
-		case 7:
-		switch (bitSlice(instr, 11, 12))
-		{
-			case 0: return 58; break; //UNCONDITIONAL BRANCH
-			case 2: return 59; break; //LONG BRANCH 1
-			case 3: return 60; break; //LONG BRANCH 2
-		}
-		break;
-	}
-	//undefined instruction
-	return 100;
+	return this.thumbLUT[bitSlice(instr, 6, 15)];
 };
 
 thumb.prototype.execute = function (instr, opcode, mode) {
 	this.executeOpcode[opcode](instr, mode);
 };
-
-// thumb.prototype.execute = function (instr, opcode, mode) {
-// 	switch (opcode)
-// 	{
-// 		case 0: this.executeOpcode0(instr, mode); break;
-// 		case 1: this.executeOpcode1(instr, mode); break;
-// 		case 2: this.executeOpcode2(instr, mode); break;
-// 		case 3: this.executeOpcode3(instr, mode); break;
-// 		case 4: this.executeOpcode4(instr, mode); break;
-// 		case 5: this.executeOpcode5(instr, mode); break;
-// 		case 6: this.executeOpcode6(instr, mode); break;
-// 		case 7: this.executeOpcode7(instr, mode); break;
-// 		case 8: this.executeOpcode8(instr, mode); break;
-// 		case 9: this.executeOpcode9(instr, mode); break;
-// 		case 10: this.executeOpcode10(instr, mode); break;
-// 		case 11: this.executeOpcode11(instr, mode); break;
-// 		case 12: this.executeOpcode12(instr, mode); break;
-// 		case 13: this.executeOpcode13(instr, mode); break;
-// 		case 14: this.executeOpcode14(instr, mode); break;
-// 		case 15: this.executeOpcode15(instr, mode); break;
-// 		case 16: this.executeOpcode16(instr, mode); break;
-// 		case 17: this.executeOpcode17(instr, mode); break;
-// 		case 18: this.executeOpcode18(instr, mode); break;
-// 		case 19: this.executeOpcode19(instr, mode); break;
-// 		case 20: this.executeOpcode20(instr, mode); break;
-// 		case 21: this.executeOpcode21(instr, mode); break;
-// 		case 22: this.executeOpcode22(instr, mode); break;
-// 		case 23: this.executeOpcode23(instr, mode); break;
-// 		case 24: this.executeOpcode24(instr, mode); break;
-// 		case 25: this.executeOpcode25(instr, mode); break;
-// 		case 26: this.executeOpcode26(instr, mode); break;
-// 		case 27: this.executeOpcode27(instr, mode); break;
-// 		case 28: this.executeOpcode28(instr, mode); break;
-// 		case 29: this.executeOpcode29(instr, mode); break;
-// 		case 30: this.executeOpcode30(instr, mode); break;
-// 		case 31: this.executeOpcode31(instr, mode); break;
-// 		case 32: this.executeOpcode32(instr, mode); break;
-// 		case 33: this.executeOpcode33(instr, mode); break;
-// 		case 34: this.executeOpcode34(instr, mode); break;
-// 		case 35: this.executeOpcode35(instr, mode); break;
-// 		case 36: this.executeOpcode36(instr, mode); break;
-// 		case 37: this.executeOpcode37(instr, mode); break;
-// 		case 38: this.executeOpcode38(instr, mode); break;
-// 		case 39: this.executeOpcode39(instr, mode); break;
-// 		case 40: this.executeOpcode40(instr, mode); break;
-// 		case 41: this.executeOpcode41(instr, mode); break;
-// 		case 42: this.executeOpcode42(instr, mode); break;
-// 		case 43: this.executeOpcode43(instr, mode); break;
-// 		case 44: this.executeOpcode44(instr, mode); break;
-// 		case 45: this.executeOpcode45(instr, mode); break;
-// 		case 46: this.executeOpcode46(instr, mode); break;
-// 		case 47: this.executeOpcode47(instr, mode); break;
-// 		case 48: this.executeOpcode48(instr, mode); break;
-// 		case 49: this.executeOpcode49(instr, mode); break;
-// 		case 50: this.executeOpcode50(instr, mode); break;
-// 		case 51: this.executeOpcode51(instr, mode); break;
-// 		case 52: this.executeOpcode52(instr, mode); break;
-// 		case 53: this.executeOpcode53(instr, mode); break;
-// 		case 54: this.executeOpcode54(instr, mode); break;
-// 		case 55: this.executeOpcode55(instr, mode); break;
-// 		case 56: this.executeOpcode56(instr, mode); break;
-// 		case 57: this.executeOpcode57(instr, mode); break;
-// 		case 58: this.executeOpcode58(instr, mode); break;
-// 		case 59: this.executeOpcode59(instr, mode); break;
-// 		case 60: this.executeOpcode60(instr, mode); break;
-// 		case 100: throw Error("executing undefined instruction");
-// 		default: throw Error("invalid thumb opcode: " + opcode); //should never happen
-// 	}
-// };
 	
 thumb.prototype.initFnTable = function () {
 	this.executeOpcode = [];
@@ -1143,4 +919,151 @@ thumb.prototype.initFnTable = function () {
 	this.executeOpcode.push(this.executeOpcode58.bind(this));
 	this.executeOpcode.push(this.executeOpcode59.bind(this));
 	this.executeOpcode.push(this.executeOpcode60.bind(this));
+}
+
+thumb.prototype.initLUT = function () {
+	const thumbtable = 
+	[
+	'0000 0fff ffss sddd - LSL IMM5',
+	'0000 1fff ffss sddd - LSR IMM5', 
+	'0001 0fff ffss sddd - ASR IMM5',
+
+	'0001 100n nnss sddd - ADD REGISTER',
+	'0001 101n nnss sddd - SUBTRACT REGISTER',
+	'0001 110n nnss sddd - ADD IMM3',
+	'0001 111n nnss sddd - SUB IMM3',
+
+	'0010 0ddd nnnn nnnn - MOV IMM8',
+	'0010 1ddd nnnn nnnn - CMP IMM8',
+	'0011 0ddd nnnn nnnn - ADD IMM8',
+	'0011 1ddd nnnn nnnn - SUB IMM8',
+
+	'0100 0000 00ss sddd - AND',
+	'0100 0000 01ss sddd - XOR',
+	'0100 0000 10ss sddd - LSL',
+	'0100 0000 11ss sddd - LSR',
+	'0100 0001 00ss sddd - ASR',
+	'0100 0001 01ss sddd - ADC',
+	'0100 0001 10ss sddd - SBC',
+	'0100 0001 11ss sddd - ROTATE RIGHT',
+	'0100 0010 00ss sddd - TST',
+	'0100 0010 01ss sddd - NEG',
+	'0100 0010 10ss sddd - CMP',
+	'0100 0010 11ss sddd - NEGCMP',
+	'0100 0011 00ss sddd - OR',
+	'0100 0011 01ss sddd - MUL',
+	'0100 0011 10ss sddd - BIT CLEAR',
+	'0100 0011 11ss sddd - NOT',
+
+	'0100 0100 xxss sddd - ADD hi register',
+	'0100 0101 xxss sddd - CMP hi register',
+	'0100 0110 xxss sddd - MOV hi register',
+	'0100 0111 0sss s000 - BX only uses rs',
+
+	'0100 1ddd nnnn nnnn - LDR IMM (PC)',
+
+	'0101 000s ssbb bddd - STR REG OFFSET',
+	'0101 001s ssbb bddd - STRH REG OFFSET',
+
+	'0101 010s ssbb bddd - STRB REG OFFSET',
+	'0101 011s ssbb bddd - LDSB REG OFFSET',
+
+	'0101 100s ssbb bddd - LDR REG OFFSET',
+	'0101 101s ssbb bddd - LDRH REG OFFSET',
+
+	'0101 110s ssbb bddd - LDRB REG OFFSET',
+	'0101 111s ssbb bddd - LDSH REG OFFSET',
+
+	'0110 0sss ssbb bddd - STR IMM OFFSET',
+	'0110 1sss ssbb bddd - LDR IMM OFFSET ',
+	'0111 0sss ssbb bddd - STRB IMM OFFSET',
+	'0111 1sss ssbb bddd - LDRB IMM OFFSET',
+
+	'1000 0sss ssbb bddd - STRH IMM OFFSET',
+	'1000 1sss ssbb bddd - LDRH IMM OFFSET',
+
+
+	'1001 0ddd nnnn nnnn - STR IMM OFFSET(SP)',
+	'1001 1ddd nnnn nnnn - LDR IMM OFFSET(SP)',
+
+
+	'1010 0ddd nnnn nnnn - ADD RD PC IMM',
+	'1010 1ddd nnnn nnnn - ADD RD SP IMM',
+
+
+	'1011 0000 0nnn nnnn - ADD SP IMM',
+	'1011 0000 1nnn nnnn - ADD SP -IMM',
+
+
+	'1011 010p rrrr rrrr - PUSH',
+	'1011 110p rrrr rrrr - POP',
+
+
+	'1100 0bbb rrrr rrrr - STMIA',
+	'1100 1bbb rrrr rrrr - LDMIA',
+
+	'1101 oooo ssss ssss - CONDITIONAL BRANCH',
+	'1101 1111 nnnn nnnn - SW INTR',
+
+
+	'1110 0sss ssss ssss - UNCONDITIONAL BRANCH',
+
+
+	'1111 0nnn nnnn nnnn - LONG BRANCH 1',
+	'1111 1nnn nnnn nnnn - LONG BRANCH 2',
+	];
+
+	const parsethumb = function (str) {
+	return str.substring(0,12).split(" ").join("");
+	}
+
+	const isNum =  function (char) {
+		return (char >= '0') && (char <= '9');
+	}
+
+	const getIndices = function (str) {
+		let arr = [];
+		for (let i = 0; i < str.length; i++)
+		{
+			if (!isNum(str[i]))
+			{
+				arr.push(i);
+			}
+		}
+		return arr;
+	}
+
+	const generateAllNums = function (str) {
+		let arr = [];
+		let indices = getIndices(str);
+		let chararr = str.split("");
+
+		if (indices.length === 0)
+		{
+			return [parseInt(str, 2)];
+		}
+
+		let range = Math.pow(2, indices.length);
+		for (let i = 0; i < range; i ++)
+		{
+			let fillnum = i.toString(2).padStart(indices.length, "0");
+			for (let i = 0; i < indices.length; i ++)
+			{
+				chararr[indices[i]] = fillnum[i];
+			}
+			arr.push(parseInt(chararr.join(""), 2));
+		}
+		return arr;
+	}
+
+	this.thumbLUT.fill(100);
+	for (let i = 0; i < thumbtable.length; i ++)
+	{
+		thumbtable[i] = parsethumb(thumbtable[i]);
+		let allNums = generateAllNums(thumbtable[i]);
+		for (let p = 0; p < allNums.length; p ++)
+		{
+			this.thumbLUT[allNums[p]] = i;
+		}
+	}
 }

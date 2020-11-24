@@ -10,7 +10,11 @@ const arm = function(mmu, registers, changeState, setCPSR, resetPipeline, startS
 
 	this.shiftCarryFlag = undefined;
 	this.initFnTable();
+
+	this.initLUT();
 };
+
+arm.prototype.armLUT = new Uint8Array(4096);
 
 arm.prototype.shiftRegByImm = function (register, shiftamt, type) {
 	if (shiftamt === 0)
@@ -1385,8 +1389,12 @@ arm.prototype.executeOpcode45 = function (instr, mode) { //45 - MSR register Psr
 	}
 	if ((fsxc & 0x1) && (p)) //set CPSR_ctl
 	{
-	//	psr = (psr & 0xFFFFFF20) + (op & 0x000000DF); //20 -> 00100000 DF -> 11011111 to keep the t bit intact
-	psr = (psr & 0xFFFFFF00) + (op & 0x000000FF);
+		//psr = (psr & 0xFFFFFF20) + (op & 0x000000DF); //20 -> 00100000 DF -> 11011111 to keep the t bit intact
+		if (!psrBit && ((psr & 32) !== (op & 32)))
+		{
+			throw Error("t bit in cpsr is being changed, should not be happening");
+		}	
+		psr = (psr & 0xFFFFFF00) + (op & 0x000000FF);
 	}
 
 	if (psrBit) //set SPSR
@@ -1780,6 +1788,11 @@ arm.prototype.executeOpcode63 = function (instr, mode) { //63 - MSR imm Psr[fiel
 	let fsxc = bitSlice(instr, 16, 19);
 	let p = bitSlice(this.registers[16][0], 0, 4) === 16 ? 0 : 1; //privileged
 
+	if (!p)
+	{
+		console.log("????");
+	}
+
 	let op = rotateRight(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1);
 	let psr = this.registers[16 + psrBit][this.registerIndices[mode][16 + psrBit]];
 	if (psr === undefined)
@@ -1808,6 +1821,10 @@ arm.prototype.executeOpcode63 = function (instr, mode) { //63 - MSR imm Psr[fiel
 	if ((fsxc & 0x1) && (p)) //set CPSR_ctl
 	{
 		//psr = (psr & 0xFFFFFF20) + (op & 0x000000DF);  //20 -> 00100000 DF -> 11011111 to keep the t bit intact
+		if (!psrBit && ((psr & 32) !== (op & 32)))
+		{
+			throw Error("t bit in cpsr is being changed, should not be happening");
+		}	
 		psr = (psr & 0xFFFFFF00) + (op & 0x000000FF);
 	}
 	
@@ -2157,6 +2174,7 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 
 	if (s)
 	{
+		console.log("fancy");
 		if (l && (bitSlice(rlist, 15, 15)))
 		{
 			this.SPSRtoCPSR(mode);
@@ -2333,425 +2351,14 @@ arm.prototype.executeOpcode79 = function (instr, mode) { //79 - SMULL / SMLAL Rd
 	this.registers[rdlo][this.registerIndices[mode][rdlo]] = Number(result & 0xFFFFFFFFn);
 }
 
-arm.prototype.decode = function (instr) {
-	//3322 2222 2222 1111 1111 1100 0000 0000
-	//1098 7654 3210 9876 5432 1098 7654 3210
-	//xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
-
-	//stt0 -> use register after shifting with 5 bits
-	//0tt1 -> use register after shifting with bottom byte of another register
-	//mmmm mmmm -> use 8 bit imm after 4 bit imm shift
-
-	switch (bitSlice(instr, 24, 27)) //MAIN SWITCH
-	{
-		case 0: //FIRST GROUP OF INSTRUCTIONS
-		if (bitSlice(instr, 4, 4))
-		{
-			if (bitSlice(instr, 7, 7))
-			{
-				switch (bitSlice(instr, 4, 7))
-				{
-					case 9: 
-					switch (bitSlice(instr, 22, 23))
-					{
-						case 0: return 1; break;	//MUL / MLA
-
-						case 2: return 0; break;	//UMULL / UMLAL
-
-						case 3: return 79; break;	//SMULL / SMLAL
-					}
-					break;
-
-					case 11:
-					switch (bitSlice(instr, 20, 22))
-					{
-						case 0: return 2; break;	//STRH p=0 i=0, check if bits 8 - 11 are set to 0
-
-						case 1: return 3; break;	//LDRH p=0 i=0, check if bits 8 - 11 are set to 0
-
-						case 4: return 4; break;	//STRH p=0 i=1
-
-						case 5: return 5; break;	//LDRH p=0 i=1
-					}
-					break;
-
-					case 13: 
-					switch (bitSlice(instr, 20, 22))
-					{
-
-						case 1: return 6; break;	//LDRSB p=0 i=0, check if bits 8 - 11 are set to 0
-
-						case 5: return 7; break;	//LDRSB p=0 i=1
-					}
-					break;
-
-					case 15:
-					switch (bitSlice(instr, 20, 22))
-					{
-
-						case 1: return 8; break;	//LDRSH p=0 i=0, check if bits 8 - 11 are set to 0
-
-						case 5: return 9; break;	//LDRSH p=0 i=1
-					} 
-					break;
-				}
-			}
-			else
-			{
-				switch (bitSlice(instr, 21, 23))
-				{
-					case 0: return 10; break;	//AND 0tt1
-
-					case 1: return 11; break;	//EOR 0tt1
-
-					case 2: return 12; break;	//SUB 0tt1 
-
-					case 3: return 13; break;	//RSB 0tt1 
-
-					case 4: return 14; break;	//ADD 0tt1 
-
-					case 5: return 15; break;	//ADC 0tt1 
-
-					case 6: return 16; break;	//SBC 0tt1 
-
-					case 7: return 17; break;	//RSC 0tt1 
-				}
-			}
-		}
-		else
-		{
-			switch (bitSlice(instr, 21, 23))
-			{
-				case 0: return 18; break;	//AND stt0
-
-				case 1: return 19; break;	//EOR stt0
-
-				case 2: return 20; break;	//SUB stt0 
-
-				case 3: return 21; break;	//RSB stt0 
-
-				case 4: return 22; break;	//ADD stt0 
-
-				case 5: return 23; break;	//ADC stt0 
-
-				case 6: return 24; break;	//SBC stt0 
-
-				case 7: return 25; break;	//RSC stt0 
-			}
-		}
-		break;
-		//3322 2222 2222 1111 1111 1100 0000 0000
-		//1098 7654 3210 9876 5432 1098 7654 3210
-		//xxxx xxxx xxxx xxxx xxxx xxxx xxxx xxxx
-		case 1:
-		if (bitSlice(instr, 4, 4))
-		{
-			if (!bitSlice(instr, 7, 7))
-			{
-				switch (bitSlice(instr, 21, 23))
-				{
-					case 0: return 26; break;	//TST 0tt1 check if S bit has been set to 1
-
-					case 1: 
-					if (bitSlice(instr, 20, 20)) //S bit differentiates TEQ from BRANCH AND EXCHANGE with this parsing
-					{
-						return 27; //TEQ 0tt1
-					}
-					else
-					{
-						return 28; //BRANCH AND EXCHANGE check if a whole bunch of bits are set
-					}
-					break;
-
-					case 2: return 29; break;	//CMP 0tt1 check if S bit has been set to 1
-
-					case 3: return 30; break;	//CMN 0tt1 check if S bit has been set to 1
-
-					case 4: return 31; break;	//ORR 0tt1 
-
-					case 5: return 32; break;	//MOV 0tt1 check if some bits are set to zero
-
-					case 6: return 33; break;	//BIC 0tt1 
-
-					case 7: return 34; break;	//MVN 0tt1 check if some bits are set to zero
-				}
-			}
-			else
-			{
-				switch (bitSlice(instr, 5, 6))
-				{
-					case 0:
-					return 35;
-					break;	//SWP check if a bunch of bits are zero
-
-					case 1:
-					switch ((bitSlice(instr, 22, 22) << 1) + bitSlice(instr, 20, 20))
-					{
-						case 0:
-						return 36;
-						break;	//STRH p=1 i=0 check if bits are zero 
-
-						case 1:
-						return 37;
-						break;	//LDRH p=1 i=0 check if bits are zero
-
-						case 2:
-						return 38;
-						break;	//STRH p=1 i=1
-
-						case 3:
-						return 39;
-						break;	//LDRH p=1 i=1
-					}
-					break;
-
-					case 2:
-					switch (bitSlice(instr, 20, 20) + (bitSlice(instr, 22, 22) << 1))
-					{
-						case 1:
-						return 40;
-						break;	//LDRSB p=1 i=0	check if bits are zero
-
-						case 3:
-						return 41;
-						break;	//LDRSB p=1 i=1
-					}
-					break;
-
-					case 3:
-					switch (bitSlice(instr, 20, 20) + (bitSlice(instr, 22, 22) << 1))
-					{
-						case 1:
-						return 42;
-						break;	//LDRSH p=1 i=0	check if bits are zero
-
-						case 3:
-						return 43;
-						break;	//LDRSH p=1 i=1
-					}
-					break;
-				}
-			}
-		}
-		else
-		{
-			switch(bitSlice(instr, 20, 23))
-			{
-				case 0:
-				case 4:
-				return 44;
-				break;	//MRS check if a whole bunch of bits are set
-				
-				case 2:
-				case 6:
-				return 45;
-				break;	//MRS register check if a whole bunch of bits are set
-
-				case 1:
-				return 46;
-				break;	//TST stt0
-
-				case 3:
-				return 47;
-				break;	//TEQ stt0
-
-				case 5:
-				return 48;
-				break;	//CMP stt0
-
-				case 7:
-				return 49;
-				break;	//CMN stt0
-
-				case 8:
-				case 9:
-				return 50;
-				break;	//ORR stt0
-
-				case 10:
-				case 11:
-				return 51;
-				break;	//MOV stt0 check if some bits are set to zero
-
-				case 12:
-				case 13:
-				return 52;
-				break;	//BIC stt0
-
-				case 14:
-				case 15:
-				return 53;
-				break;	//MVN stt0 check if some bits are set to zero
-
-			}
-		}
-		break;
-
-		case 2:
-		switch (bitSlice(instr, 21, 23))
-		{
-			case 0: return 54; break;	//AND imm
-			case 1: return 55; break;	//EOR imm
-			case 2: return 56; break;	//SUB imm 
-			case 3: return 57; break;	//RSB imm 
-			case 4: return 58; break;	//ADD imm 
-			case 5: return 59; break;	//ADC imm 
-			case 6: return 60; break;	//SBC imm 
-			case 7: return 61; break;	//RSC imm 
-		}
-		break;
-
-		case 3:
-		switch (bitSlice(instr, 21, 23))
-		{
-			case 0: return 62; break;	//TST imm check if 20th bit zero
-			case 1: return bitSlice(instr, 20, 20) === 0 ? 63 : 64; break;	//TEQ imm or MSR imm (if 20th bit is 0)
-			case 2: return 65; break;	//CMP imm check if 20th bit zero
-			case 3: return bitSlice(instr, 20, 20) === 0 ? 63 : 66; break;	//CMN imm or MSR imm (if 20th bit is 0)
-			case 4: return 67; break;	//ORR imm 
-			case 5: return 68; break;	//MOV imm check if some bits are set to zero
-			case 6: return 69; break;	//BIC imm 
-			case 7: return 70; break;	//MVN imm check if some bits are set to zero
-		}
-		break;
-
-		//LDR / STR i=0
-		case 4:
-		case 5:
-		return 71;
-		break;
-
-		//LDR / STR i=1 check if bit is zero
-		case 6:
-		case 7:
-		return 72;
-		break;
-
-		//LDM / STM
-		case 8:
-		case 9:
-		return 73;
-		break;
-
-		//B / BL
-		case 10:
-		case 11:
-		return 74;
-		break;
-
-		//LDC / STC
-		case 12:
-		case 13:
-		return 75;
-		break;
-
-		//MRC / MCR	/ CDP
-		case 14:
-		//return 4th is zero ? CDP : MRC / MCR
-		return bitSlice(instr, 4, 4) === 0 ? 76 : 77;
-		break;
-
-		//SW INTERRUPT
-		case 15:
-		return 78;
-		break;
-
-	}
-	//undefined instruction
-	return 100;
+arm.prototype.fetch = function () {
+	return this.mmu.read32(this.registers[15][0]);
 };
 
-// arm.prototype.execute = function (instr, opcode, mode) {
-// 	if (!this.checkCondition(bitSlice(instr, 28, 31)))
-// 	{
-// 		return;
-// 	}
-// 	switch (opcode)
-// 	{
-// 		case 0: this.executeOpcode0(instr, mode); break;
-// 		case 1: this.executeOpcode1(instr, mode); break;
-// 		case 2: this.executeOpcode2(instr, mode); break;
-// 		case 3: this.executeOpcode3(instr, mode); break;
-// 		case 4: this.executeOpcode4(instr, mode); break;
-// 		case 5: this.executeOpcode5(instr, mode); break;
-// 		case 6: this.executeOpcode6(instr, mode); break;
-// 		case 7: this.executeOpcode7(instr, mode); break;
-// 		case 8: this.executeOpcode8(instr, mode); break;
-// 		case 9: this.executeOpcode9(instr, mode); break;
-// 		case 10: this.executeOpcode10(instr, mode); break;
-// 		case 11: this.executeOpcode11(instr, mode); break;
-// 		case 12: this.executeOpcode12(instr, mode); break;
-// 		case 13: this.executeOpcode13(instr, mode); break;
-// 		case 14: this.executeOpcode14(instr, mode); break;
-// 		case 15: this.executeOpcode15(instr, mode); break;
-// 		case 16: this.executeOpcode16(instr, mode); break;
-// 		case 17: this.executeOpcode17(instr, mode); break;
-// 		case 18: this.executeOpcode18(instr, mode); break;
-// 		case 19: this.executeOpcode19(instr, mode); break;
-// 		case 20: this.executeOpcode20(instr, mode); break;
-// 		case 21: this.executeOpcode21(instr, mode); break;
-// 		case 22: this.executeOpcode22(instr, mode); break;
-// 		case 23: this.executeOpcode23(instr, mode); break;
-// 		case 24: this.executeOpcode24(instr, mode); break;
-// 		case 25: this.executeOpcode25(instr, mode); break;
-// 		case 26: this.executeOpcode26(instr, mode); break;
-// 		case 27: this.executeOpcode27(instr, mode); break;
-// 		case 28: this.executeOpcode28(instr, mode); break;
-// 		case 29: this.executeOpcode29(instr, mode); break;
-// 		case 30: this.executeOpcode30(instr, mode); break;
-// 		case 31: this.executeOpcode31(instr, mode); break;
-// 		case 32: this.executeOpcode32(instr, mode); break;
-// 		case 33: this.executeOpcode33(instr, mode); break;
-// 		case 34: this.executeOpcode34(instr, mode); break;
-// 		case 35: this.executeOpcode35(instr, mode); break;
-// 		case 36: this.executeOpcode36(instr, mode); break;
-// 		case 37: this.executeOpcode37(instr, mode); break;
-// 		case 38: this.executeOpcode38(instr, mode); break;
-// 		case 39: this.executeOpcode39(instr, mode); break;
-// 		case 40: this.executeOpcode40(instr, mode); break;
-// 		case 41: this.executeOpcode41(instr, mode); break;
-// 		case 42: this.executeOpcode42(instr, mode); break;
-// 		case 43: this.executeOpcode43(instr, mode); break;
-// 		case 44: this.executeOpcode44(instr, mode); break;
-// 		case 45: this.executeOpcode45(instr, mode); break;
-// 		case 46: this.executeOpcode46(instr, mode); break;
-// 		case 47: this.executeOpcode47(instr, mode); break;
-// 		case 48: this.executeOpcode48(instr, mode); break;
-// 		case 49: this.executeOpcode49(instr, mode); break;
-// 		case 50: this.executeOpcode50(instr, mode); break;
-// 		case 51: this.executeOpcode51(instr, mode); break;
-// 		case 52: this.executeOpcode52(instr, mode); break;
-// 		case 53: this.executeOpcode53(instr, mode); break;
-// 		case 54: this.executeOpcode54(instr, mode); break;
-// 		case 55: this.executeOpcode55(instr, mode); break;
-// 		case 56: this.executeOpcode56(instr, mode); break;
-// 		case 57: this.executeOpcode57(instr, mode); break;
-// 		case 58: this.executeOpcode58(instr, mode); break;
-// 		case 59: this.executeOpcode59(instr, mode); break;
-// 		case 60: this.executeOpcode60(instr, mode); break;
-// 		case 61: this.executeOpcode61(instr, mode); break;
-// 		case 62: this.executeOpcode62(instr, mode); break;
-// 		case 63: this.executeOpcode63(instr, mode); break;
-// 		case 64: this.executeOpcode64(instr, mode); break;
-// 		case 65: this.executeOpcode65(instr, mode); break;
-// 		case 66: this.executeOpcode66(instr, mode); break;
-// 		case 67: this.executeOpcode67(instr, mode); break;
-// 		case 68: this.executeOpcode68(instr, mode); break;
-// 		case 69: this.executeOpcode69(instr, mode); break;
-// 		case 70: this.executeOpcode70(instr, mode); break;
-// 		case 71: this.executeOpcode71(instr, mode); break;
-// 		case 72: this.executeOpcode72(instr, mode); break;
-// 		case 73: this.executeOpcode73(instr, mode); break;
-// 		case 74: this.executeOpcode74(instr, mode); break;
-// 		case 75: this.executeOpcode75(instr, mode); break;
-// 		case 76: this.executeOpcode76(instr, mode); break;
-// 		case 77: this.executeOpcode77(instr, mode); break;
-// 		case 78: this.executeOpcode78(instr, mode); break;
-// 		case 79: this.executeOpcode79(instr, mode); break;
-// 		case 100: throw Error("executing undefined instruction");
-// 		default: throw Error("invalid arm opcode: " + opcode); //should never happen
-// 	}
-// };
+
+arm.prototype.decode = function (instr) {
+	return this.armLUT[((bitSlice(instr, 20, 27) << 4) + bitSlice(instr, 4, 7))];
+};
 
 arm.prototype.execute = function (instr, opcode, mode) {
 	if (this.checkCondition(bitSlice(instr, 28, 31)))
@@ -2842,4 +2449,155 @@ arm.prototype.initFnTable = function () {
 	this.executeOpcode.push(this.executeOpcode77.bind(this));
 	this.executeOpcode.push(this.executeOpcode78.bind(this));
 	this.executeOpcode.push(this.executeOpcode79.bind(this));
+}
+
+arm.prototype.initLUT = function () {
+	const armtable = 
+	[
+	'0000 10as 1001 |MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG',
+	'0000 00as 1001 |MULTIPLY AND MULTIPLY-ACCUMULATE',
+	'0000 u000 1011 |p=0 i=0 STRH',
+	'0000 u001 1011 |p=0 i=0 LDRH',
+	'0000 u100 1011 |p=0 i=1 STRH',
+	'0000 u101 1011 |p=0 i=1 LDRH',
+	'0000 u001 1101 |p=0 i=0 LDRSB',
+	'0000 u101 1101 |p=0 i=1 LDRSB',
+	'0000 u001 1111 |p=0 i=0 LDRSH',
+	'0000 u101 1111 |p=0 i=1 LDRSH',
+	'0000 000S 0tt1 |AND and',
+	'0000 001S 0tt1 |EOR exclusive or',
+	'0000 010S 0tt1 |SUB subtract',
+	'0000 011S 0tt1 |RSB reverse subtract',
+	'0000 100S 0tt1 |ADD addition',
+	'0000 101S 0tt1 |ADC add with carry',
+	'0000 110S 0tt1 |SBC subtract with carry',
+	'0000 111S 0tt1 |RSC reverse subtract with carry',
+	'0000 000S stt0 |AND and',
+	'0000 001S stt0 |EOR exclusive or',
+	'0000 010S stt0 |SUB subtract',
+	'0000 011S stt0 |RSB reverse subtract',
+	'0000 100S stt0 |ADD addition',
+	'0000 101S stt0 |ADC add with carry',
+	'0000 110S stt0 |SBC subtract with carry',
+	'0000 111S stt0 |RSC reverse subtract with carry',
+
+	'0001 0001 0tt1 |TST test bits (dddd is either all 0s or 1s)',
+	'0001 0011 0tt1 |TEQ test bitwise equality (dddd is either all 0s or 1s)',
+	'0001 0010 0001 |BRANCH AND EXCHANGE',
+	'0001 0101 0tt1 |CMP compare (dddd is either all 0s or 1s)',
+	'0001 0111 0tt1 |CMN compare negative (dddd is either all 0s or 1s)',
+	'0001 100S 0tt1 |ORR or',
+	'0001 101S 0tt1 |MOV move register or constant',
+	'0001 110S 0tt1 |BIC bit clear',
+	'0001 111S 0tt1 |MVN move negative register',
+	'0001 0b00 1001 |SWP',
+	'0001 u0w0 1011 |p=1 i=0 STRH',
+	'0001 u0w1 1011 |p=1 i=0 LDRH',
+	'0001 u1w0 1011 |p=1 i=1 STRH',
+	'0001 u1w1 1011 |p=1 i=1 LDRH',
+	'0001 u0w1 1101 |p=1 i=0 LDRSB',
+	'0001 u1w1 1101 |p=1 i=1 LDRSB',
+	'0001 u0w1 1111 |p=1 i=0 LDRSH',
+	'0001 u1w1 1111 |p=1 i=1 LDRSH',
+	'0001 0p00 0000 |MRS',
+	'0001 0p10 0000 |MSR register',
+	'0001 0001 stt0 |TST test bits (dddd is either all 0s or 1s)',
+	'0001 0011 stt0 |TEQ test bitwise equality (dddd is either all 0s or 1s)',
+	'0001 0101 stt0 |CMP compare (dddd is either all 0s or 1s)',
+	'0001 0111 stt0 |CMN compare negative (dddd is either all 0s or 1s)',
+	'0001 100S stt0 |ORR or',
+	'0001 101S stt0 |MOV move register or constant',
+	'0001 110S stt0 |BIC bit clear',
+	'0001 111S stt0 |MVN move negative register',
+
+
+	'0010 000S mmmm |AND and',
+	'0010 001S mmmm |EOR exclusive or',
+	'0010 010S mmmm |SUB subtract',
+	'0010 011S mmmm |RSB reverse subtract',
+	'0010 100S mmmm |ADD addition',
+	'0010 101S mmmm |ADC add with carry',
+	'0010 110S mmmm |SBC subtract with carry',
+	'0010 111S mmmm |RSC reverse subtract with carry',
+
+	'0011 0001 mmmm |TST test bits (dddd is either all 0s or 1s)',
+	'0011 0p10 mmmm |MSR imm',
+	'0011 0011 mmmm |TEQ test bitwise equality (dddd is either all 0s or 1s)',
+	'0011 0101 mmmm |CMP compare (dddd is either all 0s or 1s)',
+	'0011 0111 mmmm |CMN compare negative (dddd is either all 0s or 1s)',
+	'0011 100S mmmm |ORR or',
+	'0011 101S mmmm |MOV move register or constant',
+	'0011 110S mmmm |BIC bit clear',
+	'0011 111S mmmm |MVN move negative register',
+
+	'010p ubwl oooo |LDR / STR i = 0',
+	'011p ubwl stt0 |LDR / STR i = 1',
+
+	'100p uswl rrrr |LDM, STM',
+	'101L oooo oooo |BRANCH / BRANCH AND LINK',
+	'110p unwo mmmm |LDC / STC',
+	'1110 oooo iii0 |CDP',
+	'1110 oooa iii1 |MRC / MCR',
+	'1111 xxxx xxxx |SOFTWARE INTERRUPT',
+
+	'0000 11as 1001 |SIGNED MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG',
+	];
+
+	const parsearm = function (str) {
+		return str.substring(0,14).split(" ").join("");
+	}
+
+	const parsethumb = function (str) {
+		return str.substring(0,12).split(" ").join("");
+	}
+
+	const isNum =  function (char) {
+		return (char >= '0') && (char <= '9');
+	}
+
+	const getIndices = function (str) {
+		let arr = [];
+		for (let i = 0; i < str.length; i++)
+		{
+			if (!isNum(str[i]))
+			{
+				arr.push(i);
+			}
+		}
+		return arr;
+	}
+
+	const generateAllNums = function (str) {
+		let arr = [];
+		let indices = getIndices(str);
+		let chararr = str.split("");
+
+		if (indices.length === 0)
+		{
+			return [parseInt(str, 2)];
+		}
+
+		let range = Math.pow(2, indices.length);
+		for (let i = 0; i < range; i ++)
+		{
+			let fillnum = i.toString(2).padStart(indices.length, "0");
+			for (let i = 0; i < indices.length; i ++)
+			{
+				chararr[indices[i]] = fillnum[i];
+			}
+			arr.push(parseInt(chararr.join(""), 2));
+		}
+		return arr;
+	}
+
+	this.armLUT.fill(100);
+	for (let i = 0; i < armtable.length; i ++)
+	{
+		armtable[i] = parsearm(armtable[i]);
+		let allNums = generateAllNums(armtable[i]);
+		for (let p = 0; p < allNums.length; p ++)
+		{
+			this.armLUT[allNums[p]] = i;
+		}
+	}
 }
