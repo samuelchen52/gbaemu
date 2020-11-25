@@ -13,16 +13,17 @@ const mmu = function() {
 	new oamRegion(), //1kb for oam
 	new memRegionROM("ROM1", 16 * 1024 * 1024), //first 16 mb of game rom
 	new memRegionROM("ROM2", 16 * 1024 * 1024), //second 16 mb of game rom
-	new memRegionSRAM(0), //64 kb for sram (unimplemented)
+	new memRegionSRAM(64 * 1024), //64 kb for sram (unimplemented)
 	new memRegionUndefined() //dummy region
 	];
 
 	this.maskedAddr;
+	window.mmu = this;
 };
 
 //returns the memory region that the memory address refers to, and sets
 //maskedAddr above to an address that accounts for memory mirrors
-mmu.prototype.decodeAddr = function (memAddr) {
+mmu.prototype.decodeAddr = function (memAddr, val) {
 	switch (memAddr & 0xFF000000)
 	{
 		case 0: //BIOS (16 KB, not mirrored)
@@ -45,10 +46,6 @@ mmu.prototype.decodeAddr = function (memAddr) {
 		break;
 		
 		case 0x4000000: //IOREGS (not mirrored, except for 0x400800 ??)
-		if ((memAddr & 0xFFFFFF) > 0x410)
-		{
-			throw Error("accessing invalid IO memory at addr 0x" + memAddr.toString(16) + "!");
-		}
 		this.maskedAddr = memAddr & 0xFFFFFF;
 		return this.memRegions[4];
 		break;
