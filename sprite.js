@@ -48,16 +48,6 @@ const sprite = function(vramMem, paletteRamMem16, OBJAffines, OBJAttr0, OBJAttr1
 		this.renderScanlineAffine.bind(this)
 	];
 
-	this.writeTileToScanline = [
-	  this.writeTileToScanlineBPP4,
-	  this.writeTileToScanlineBPP8
-  ];
-
-	this.getColor = [
-	  this.getColorBPP4,
-	  this.getColorBPP8
-  ];
-
   //window versions
   this.renderScanlineWindow = [
 		this.renderScanlineNormalWindow.bind(this),
@@ -65,17 +55,6 @@ const sprite = function(vramMem, paletteRamMem16, OBJAffines, OBJAttr0, OBJAttr1
 		null,
 		this.renderScanlineAffineWindow.bind(this)
 	];
-
-	this.writeTileToScanlineWindow = [
-	  this.writeTileToScanlineBPP4Window,
-	  this.writeTileToScanlineBPP8Window
-  ];
-
-  this.getColorWindow = [
-	  this.getColorBPP4Window,
-	  this.getColorBPP8Window
-  ];
-
 };
 
 sprite.prototype.spriteENUMS = {
@@ -167,6 +146,7 @@ sprite.prototype.renderScanlineNormal = function (PBGs, scanline) {
 	+ (this.tileIndex * 0x20)  //add start tile offset
 	+ (((vflip ? (this.bottomY - (scanline + 1)) : (scanline - this.yCoord)) >>> 3) * (this.mappingMode ? this.spriteRowSize : 1024)) //add tile row offset
 	+ (hflip ? ((numTilesRender - 1) * (0x20 << this.bpp8)) : 0); //add tile number offset
+	let writeTileToScanline = this.bpp8 ? this.writeTileToScanlineBPP8 : this.writeTileToScanlineBPP4;
 	let scanlineArrIndex = this.xCoord;
 	let scanlineArr = PBGs[this.priority];
 	let vramMem = this.vramMem;
@@ -179,11 +159,11 @@ sprite.prototype.renderScanlineNormal = function (PBGs, scanline) {
 		{
 			if (scanlineArrIndex < 0)
 			{
-				this.writeTileToScanline[this.bpp8](tileAddr, tileLine, 0, vramMem, paletteRamMem16, scanlineArr, hflip, vflip,  0 - scanlineArrIndex, palBankIndex);
+				writeTileToScanline(tileAddr, tileLine, 0, vramMem, paletteRamMem16, scanlineArr, hflip, vflip,  0 - scanlineArrIndex, palBankIndex);
 			}
 			else
 			{
-				this.writeTileToScanline[this.bpp8](tileAddr, tileLine, scanlineArrIndex, vramMem, paletteRamMem16, scanlineArr, hflip, vflip, 0, palBankIndex);
+				writeTileToScanline(tileAddr, tileLine, scanlineArrIndex, vramMem, paletteRamMem16, scanlineArr, hflip, vflip, 0, palBankIndex);
 			}
 		}
 		scanlineArrIndex += 8;
@@ -246,6 +226,7 @@ sprite.prototype.renderScanlineAffine = function (PBGs, scanline) {
 	let vramMem = this.vramMem;
 	let paletteRamMem16 = this.paletteRamMem16;
 	let palBankIndex = this.palBankIndex;
+	let getColor = this.bpp8 ? this.getColorBPP8 : this.getColorBPP4;
 
 	let halfHeight = (this.objHeightTable[this.size][this.shape] >>> 1);
 	let halfWidth = (this.objWidthTable[this.size][this.shape] >>> 1);
@@ -271,7 +252,7 @@ sprite.prototype.renderScanlineAffine = function (PBGs, scanline) {
 			let yDiff = textureYCoord + halfHeight;
 			let tileAddr = baseTileAddr + ((yDiff >>> 3) * spriteRowSize) + ((xDiff >>> 3) * (0x20 << bpp8));
 
-			scanlineArr[i] = this.getColor[bpp8](tileAddr, xDiff, yDiff, vramMem, scanlineArr[i], paletteRamMem16, palBankIndex);
+			scanlineArr[i] = getColor(tileAddr, xDiff, yDiff, vramMem, scanlineArr[i], paletteRamMem16, palBankIndex);
 		}
 
  		relativeXCoord ++;
@@ -303,6 +284,7 @@ sprite.prototype.renderScanlineNormalWindow = function (scanlineArr, scanline) {
 	+ (this.tileIndex * 0x20)  //add start tile offset
 	+ (((vflip ? (this.bottomY - (scanline + 1)) : (scanline - this.yCoord)) >>> 3) * (this.mappingMode ? this.spriteRowSize : 1024)) //add tile row offset
 	+ (hflip ? ((numTilesRender - 1) * (0x20 << this.bpp8)) : 0); //add tile number offset
+	let writeTileToScanlineWindow = this.bpp8 ? this.writeTileToScanlineBPP8Window : this.writeTileToScanlineBPP4Window;
 	let scanlineArrIndex = this.xCoord;
 	let vramMem = this.vramMem;
 
@@ -312,11 +294,11 @@ sprite.prototype.renderScanlineNormalWindow = function (scanlineArr, scanline) {
 		{
 			if (scanlineArrIndex < 0)
 			{
-				this.writeTileToScanlineWindow[this.bpp8](tileAddr, tileLine, 0, vramMem, scanlineArr, hflip, vflip,  0 - scanlineArrIndex);
+				writeTileToScanlineWindow(tileAddr, tileLine, 0, vramMem, scanlineArr, hflip, vflip,  0 - scanlineArrIndex);
 			}
 			else
 			{
-				this.writeTileToScanlineWindow[this.bpp8](tileAddr, tileLine, scanlineArrIndex, vramMem, scanlineArr, hflip, vflip, 0);
+				writeTileToScanlineWindow(tileAddr, tileLine, scanlineArrIndex, vramMem, scanlineArr, hflip, vflip, 0);
 			}
 		}
 		scanlineArrIndex += 8;
@@ -375,6 +357,7 @@ sprite.prototype.renderScanlineAffineWindow = function (scanlineArr, scanline) {
 	let baseTileAddr = 0x10000 //add 4 char block offset
 	+ (this.tileIndex * 0x20);  //add start tile offset
 	let vramMem = this.vramMem;
+	let getColorWindow = this.bpp8 ? this.getColorBPP8Window : this.getColorBPP4Window;
 
 	let halfHeight = (this.objHeightTable[this.size][this.shape] >>> 1);
 	let halfWidth = (this.objWidthTable[this.size][this.shape] >>> 1);
@@ -400,7 +383,7 @@ sprite.prototype.renderScanlineAffineWindow = function (scanlineArr, scanline) {
 			let yDiff = textureYCoord + halfHeight;
 			let tileAddr = baseTileAddr + ((yDiff >>> 3) * spriteRowSize) + ((xDiff >>> 3) * (0x20 << bpp8));
 
-			scanlineArr[i] = this.getColorWindow[bpp8](tileAddr, xDiff, yDiff, vramMem, scanlineArr[i]);
+			scanlineArr[i] = getColorWindow(tileAddr, xDiff, yDiff, vramMem, scanlineArr[i]);
 		}
 
  		relativeXCoord ++;
