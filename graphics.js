@@ -129,6 +129,18 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   this.if = this.ioregion.getIOReg("IF");
   this.ifByte1 = this.if.regIndex;
 
+  //blending stuff
+  this.blendMode = 0;
+  this.firstTarget = [0, 0, 0, 0, 0, 0]; //bg0-3, obj, bd
+  this.secondTarget = [0, 0, 0, 0, 0, 0];
+  this.eva = 0;
+  this.evb = 0;
+  this.evy = 0;
+
+  this.ioregion.getIOReg("BLDCNT").addCallback((newBLDCNTVal) => {this.updateBLDCNT(newBLDCNTVal)});
+  this.ioregion.getIOReg("BLDALPHA").addCallback((newBLDALPHAVal) => {this.updateBLDALPHA(newBLDALPHAVal)});
+  this.ioregion.getIOReg("BLDY").addCallback((newBLDYVal) => {this.updateBLDY(newBLDYVal)});
+
   //backgrounds
   this.bg0 = new background(this.ioregion.getIOReg("BG0CNT"), this.ioregion.getIOReg("BG0HOFS"), this.ioregion.getIOReg("BG0VOFS"), null, null, null, null, null, null, this.vramMem, this.paletteRamMem, this, 0);
   this.bg1 = new background(this.ioregion.getIOReg("BG1CNT"), this.ioregion.getIOReg("BG1HOFS"), this.ioregion.getIOReg("BG1VOFS"), null, null, null, null, null, null, this.vramMem, this.paletteRamMem, this, 1);
@@ -202,6 +214,28 @@ const graphics = function(mmu, cpu, setFrameComplete) {
     this.layers[7].scanlineArr
   ];
 
+  this.sortedWindowIndices = [
+    this.layers[0].windowIndex,
+    this.layers[1].windowIndex,
+    this.layers[2].windowIndex,
+    this.layers[3].windowIndex,
+    this.layers[4].windowIndex,
+    this.layers[5].windowIndex,
+    this.layers[6].windowIndex,
+    this.layers[7].windowIndex
+  ];
+
+  this.sortedIsObj = [
+    this.layers[0].isObj,
+    this.layers[1].isObj,
+    this.layers[2].isObj,
+    this.layers[3].isObj,
+    this.layers[4].isObj,
+    this.layers[5].isObj,
+    this.layers[6].isObj,
+    this.layers[7].isObj
+  ];
+
   this.numActiveLayers = 0;
 
   window.graphics = this;
@@ -243,6 +277,37 @@ graphics.prototype.updateDISPSTAT= function (newDISPSTATVal) {
   this.hblankIRQEnable = newDISPSTATVal & this.displayENUMS["HBLANKIRQENABLE"];
   this.vCountIRQEnable = newDISPSTATVal & this.displayENUMS["VCOUNTIRQENABLE"];
   this.vCountSetting = (newDISPSTATVal & this.displayENUMS["VCOUNTSETTING"]) >>> 8;
+}
+
+graphics.prototype.updateBLDCNT = function (newBLDCNTVal) {
+  this.blendMode = (newBLDCNTVal & 192) >>> 6
+
+  this.firstTarget[0] = newBLDCNTVal & 1;
+  this.firstTarget[1] = newBLDCNTVal & 2;
+  this.firstTarget[2] = newBLDCNTVal & 4;
+  this.firstTarget[3] = newBLDCNTVal & 8;
+  this.firstTarget[4] = newBLDCNTVal & 16;
+  this.firstTarget[5] = newBLDCNTVal & 32;
+
+  this.secondTarget[0] = newBLDCNTVal & 256;
+  this.secondTarget[1] = newBLDCNTVal & 512;
+  this.secondTarget[2] = newBLDCNTVal & 1024;
+  this.secondTarget[3] = newBLDCNTVal & 2048;
+  this.secondTarget[4] = newBLDCNTVal & 4096;
+  this.secondTarget[5] = newBLDCNTVal & 8192;
+}
+
+graphics.prototype.updateBLDALPHA = function (newBLDALPHAVal) {
+  this.eva = newBLDALPHAVal & 31;
+  this.eva = this.eva > 16 ? 16 : this.eva;
+
+  this.evb = (newBLDALPHAVal & 7936) >>> 8;
+  this.evb = this.evb > 16 ? 16 : this.evb;
+}
+
+graphics.prototype.updateBLDY = function (newBLDYVal) {
+  this.evy = newBLDYVal & 31;
+  this.evy = this.evy > 16 ? 16 : this.evy;
 }
 
 graphics.prototype.setHblank = function () {
@@ -442,6 +507,8 @@ graphics.prototype.sortActiveLayers = function (maxIndex) {
   for (let i = 0; i < layers.length; i ++)
   {
     this.sortedScanlineArrs[i] = layers[i].scanlineArr;
+    this.sortedWindowIndices[i] = layers[i].windowIndex;
+    this.sortedIsObj[i] = layers[i].isObj;
   }
 };
 
@@ -566,42 +633,144 @@ graphics.prototype.renderScanlineMode5 = function(scanline, imageDataIndex, imag
   }
 };
 
+//blending is off
+graphics.prototype.blendMode0 = function(color) { 
+  return color;
+};
+
+//alpha blending
+graphics.prototype.blendMode1 = function(color, eva, evb, firstTargetMatch, secondTarget, scanlineArrs, windowIndices, isObj, layerIndex, pixelNum, numActiveLayers, backdrop) {
+  if (firstTargetMatch)
+  {
+    let secondColor = backdrop;
+    let secondColorWindowIndex = 5;
+    for (let p = layerIndex + 1; p < numActiveLayers; p ++)
+    {
+      if ((scanlineArrs[p][pixelNum] !== 0x8000) && !(isObj[p] && isObj[layerIndex]))
+      {
+        secondColor = scanlineArrs[p][pixelNum];
+        secondColorWindowIndex = windowIndices[p];
+        break;
+      }
+    }
+    //sometimes backdrop may be blended to itself, resulting in a brightness change
+    if (secondTarget[secondColorWindowIndex])
+    {
+      let r = ((color & 31) * eva) >>> 4;
+      let g = (((color & 992) >>> 5) * eva) >>> 4;
+      let b = (((color & 31744) >>> 10) * eva) >>> 4;
+
+      let blendR = (((secondColor & 31) * evb) >>> 4) + r;
+      let blendG = ((((secondColor & 992) >>> 5) * evb) >>> 4) + g;
+      let blendB = ((((secondColor & 31744) >>> 10) * evb) >>> 4) + b;
+
+      return (((blendB & 32) ? 31 : blendB) << 10) + (((blendG & 32) ? 31 : blendG) << 5) + ((blendR & 32) ? 31 : blendR);
+    }
+  }
+  return color;
+};
+
+//brightness increase
+graphics.prototype.blendMode2 = function(color, eva, evb, firstTargetMatch) { 
+  if (firstTargetMatch)
+  {
+    let r = (color & 31);
+    let g = (color & 992) >>> 5;
+    let b = (color & 31744) >>> 10;
+
+    r += ((31 - r) * eva) >>> 4;
+    g += ((31 - g) * eva) >>> 4;  
+    b += ((31 - b) * eva) >>> 4;  
+    
+    return (b << 10) + (g << 5) + r;
+  }
+  return color;
+};
+
+//brightness decrease
+graphics.prototype.blendMode3 = function(color, eva, evb, firstTargetMatch) { 
+  if (firstTargetMatch)
+  {
+    let r = (color & 31);
+    let g = (color & 992) >>> 5;
+    let b = (color & 31744) >>> 10;
+
+    r -= (r * eva) >>> 4;
+    g -= (g * eva) >>> 4;  
+    b -= (b * eva) >>> 4;  
+    
+    return (b << 10) + (g << 5) + r;
+  }
+  return color;
+};
+
 graphics.prototype.mergeLayers = function (imageDataArr, imageDataIndex, backdrop, convertColor) {
-  let sortedLayers  = this.sortedLayers;
-  let sortedScanlineArrs = this.sortedScanlineArrs;
-  let bottomLayer = this.numActiveLayers - 1;
+  let scanlineArrs = this.sortedScanlineArrs;
+  let windowIndices = this.sortedWindowIndices;
+  let isObjArr = this.sortedIsObj;
+
+  let blendMode = this.blendMode;
+  let firstTarget = this.firstTarget;
+  let secondTarget = this.secondTarget;
+  let eva = (blendMode === 1) ? this.eva : this.evy;
+  let evb = this.evb;
+  let blend = (blendMode === 0) ? this.blendMode0 : (blendMode === 1 ? this.blendMode1 : (blendMode === 2 ? this.blendMode2 : this.blendMode3));
+  let blendAlpha = this.blendMode1;
+
+  let numActiveLayers = this.numActiveLayers;
 
   for (let i = 0; i < 240; i ++)
   {
     let color = backdrop;
-    for (let p = bottomLayer; p >= 0; p --)
+    let windowIndex = 5; //serves as the blend index as well
+    let isObj = false;
+
+    for (var p = 0; p < numActiveLayers; p ++)
     {
-      if (sortedScanlineArrs[p][i] !== 0x8000)
+      if (scanlineArrs[p][i] !== 0x8000)
       {
-        color = sortedScanlineArrs[p][i];
+        color = scanlineArrs[p][i];
+        windowIndex = windowIndices[p];
+        isObj = isObjArr[p];
+        break;
       }
     }
-    // if (sortedScanlineArrs[2][i] !== 0x8000)
-    // {
-    //   color = sortedScanlineArrs[2][i];
-    // }
-    imageDataArr[i + imageDataIndex] = convertColor[color];
+
+    if (isObj && (color & 0x8000)) //semi trans obj
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[blendAlpha(color, eva, evb, true, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
+    }
+    else
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[blend(color, eva, evb, firstTarget[windowIndex], secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
+    }
   }
 }
 
 graphics.prototype.mergeLayersWindow = function (enableScanline, windowCNT, imageDataArr, imageDataIndex, backdrop, convertColor) {
-  let sortedLayers  = this.sortedLayers;
-  let sortedScanlineArrs = this.sortedScanlineArrs;
-  let bottomLayer = this.numActiveLayers - 1;
+  let scanlineArrs = this.sortedScanlineArrs;
+  let windowIndices = this.sortedWindowIndices;
+  let isObjArr = this.sortedIsObj;
+
+  let blendMode = this.blendMode;
+  let firstTarget = this.firstTarget;
+  let secondTarget = this.secondTarget;
+  let eva = (blendMode === 1) ? this.eva : this.evy;
+  let evb = this.evb;
+  let blend = (blendMode === 0) ? this.blendMode0 : (blendMode === 1 ? this.blendMode1 : (blendMode === 2 ? this.blendMode2 : this.blendMode3));
+  let blendAlpha = this.blendMode1;
+
+  let numActiveLayers = this.numActiveLayers;
 
   for (let i = 0; i < 240; i ++)
   {
     let color = backdrop;
-    for (let p = bottomLayer; p >= 0; p --)
+    for (let p = 0; p < numActiveLayers; p ++)
     {
-      if ((sortedScanlineArrs[p][i] !== 0x8000) && (windowCNT[enableScanline[i]][sortedLayers[p].windowIndex]))
+      if ((scanlineArrs[p][i] !== 0x8000) && (windowCNT[enableScanline[i]][windowIndices[p]]))
       {
-        color = sortedScanlineArrs[p][i];
+        color = scanlineArrs[p][i];
+        break;
       }
     }
     imageDataArr[i + imageDataIndex] = convertColor[color];
@@ -694,57 +863,41 @@ graphics.prototype.updateRegisters = function(mode) {
 
 
 
-// let obj = new Object();
-// obj.x = []
-// Object.prototype.hallo = function (x) {
-//   for (let i = 0; i < 100000000; i ++)
-//   {
-//     x[0] = 5;
-//   }
-// };
+// let fn1 = function (x = 5, y = 10) {
+//   let somevar = x + y;
+// }
 
-// Object.prototype.hallo2 = function () {
-//   for (let i = 0; i < 100000000; i ++)
-//   {
-//     this.x[0] = 10;
-//   }
-// };
-// let fn1 = () => {let somevar = 5  & 10;}
+// let fn2 = function (x = 5, y = 10) {
+//   let somevar = x * y;
+// }
 
-// let fnptrs = [
-//   fn1, 
-//   fn1
-// ]
-// let bool = 1;
+// let fn3 = function (x = 5, y = 10) {
+//   let somevar = x / y;
+// }
 
-// let arr = new Int32Array(3);
+// let fn4 = function (x = 5, y = 10) {
+//   let somevar = x - y;
+// }
 
-
-// let fn = (arg0, arg1, arg2) => {
-//   arr[0] = 1231;
-// };
-// let fn2 = (arg0, arg1, arg2) => {
-//   arr[-5] = 32123;
-// };
-// let fnArr = [fn, fn2];
-// let lookup = 0;
+// let mode = 1;
 
 // let timenow = (new Date).getTime();
 // for (let i = 0; i < 1000000000; i++)
 // {
+//   let fn = (mode === 1) ? fn1 : (mode === 2 ? fn2 : (mode === 3 ? fn3 : fn4));
 //   fn();
 // }
 // console.log((new Date).getTime() - timenow);
 
+// mode = 3;
 // timenow = (new Date).getTime();
-// //obj.hallo2();
-// for (let i = 0; i < 1000000000; i++)
+// for (let i = 0; i < 1000000000;)
 // {
-//   fn2();
+//   let fn = (mode === 1) ? fn1 : (mode === 2 ? fn2 : (mode === 3 ? fn3 : fn4));
+//   for (let p = 0; p < 30; p ++)
+//   {
+//     fn();
+//     i ++;
+//   }
 // }
 // console.log((new Date).getTime() - timenow);
-
-// for (let i = 0; i <= 79; i++)
-// {
-//   console.log("this.executeOpcode.push(this.executeOpcode" + i + ".bind(this))");
-// }
