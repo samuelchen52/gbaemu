@@ -765,15 +765,29 @@ graphics.prototype.mergeLayersWindow = function (enableScanline, windowCNT, imag
   for (let i = 0; i < 240; i ++)
   {
     let color = backdrop;
-    for (let p = 0; p < numActiveLayers; p ++)
+    let windowIndex = 5; //serves as the blend index as well
+    let isObj = false;
+    let blendEnable = windowCNT[enableScanline[i]][5];
+
+    for (var p = 0; p < numActiveLayers; p ++)
     {
-      if ((scanlineArrs[p][i] !== 0x8000) && (windowCNT[enableScanline[i]][windowIndices[p]]))
+      if (scanlineArrs[p][i] !== 0x8000 && (windowCNT[enableScanline[i]][windowIndices[p]]))
       {
         color = scanlineArrs[p][i];
+        windowIndex = windowIndices[p];
+        isObj = isObjArr[p];
         break;
       }
     }
-    imageDataArr[i + imageDataIndex] = convertColor[color];
+
+    if (isObj && (color & 0x8000)) //semi trans obj
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[blendAlpha(color, eva, evb, blendEnable, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
+    }
+    else
+    {
+      imageDataArr[i + imageDataIndex] = convertColor[blend(color, eva, evb, firstTarget[windowIndex] && blendEnable, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
+    }
   }
 }
 
