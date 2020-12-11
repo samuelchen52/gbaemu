@@ -257,25 +257,23 @@ background.prototype.renderScanlineMode2 = function(scanline) {
   let refY = this.internalRefY;
 
   let bgpa = this.bgpa;
-  let bgpb = this.bgpb;
   let bgpc = this.bgpc;
-  let bgpd = this.bgpd;
 
   let pa = 0;
   let pc = 0;
 
   for (let i = 0; i < 240; i ++)
   {
-    let textureXCoord = (pa + bgpb + refX) >> 8;
-    let textureYCoord = (pc + bgpd + refY) >> 8;
+    let textureXCoord = (pa + refX) >> 8;
+    let textureYCoord = (pc + refY) >> 8;
 
     scanlineArr[i] = getColor(textureXCoord, textureYCoord, screenSize, screenAddr, tileBase, vramMem8, paletteRamMem16);
     pa += bgpa;
     pc += bgpc;
   }
 
-  this.internalRefX += bgpb;
-  this.internalRefY += bgpd;
+  this.internalRefX += this.bgpb;
+  this.internalRefY += this.bgpd;
 
   return scanlineArr; 
 };
