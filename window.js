@@ -40,7 +40,7 @@ const windowController = function(WIN0H, WIN1H, WIN0V, WIN1V, WININ0, WININ1, WI
 	this.win0ScanlineBuffer = [];
 	this.win1ScanlineBuffer = [];
 	this.winInScanlineBuffer = [];
-	for (let i = 0; i < 240; i ++)
+	for (let i = 0; i < 160; i ++)
 	{
 		this.win0ScanlineBuffer.push(new Uint8Array(240));
 		this.win1ScanlineBuffer.push(new Uint8Array(240));
