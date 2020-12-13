@@ -1,6 +1,6 @@
-checkEndian();
+var biosBuffer;
 
-const waitFile = function(fileName) //waits for file input (chip8 rom)
+const waitFile = function(fileName)
 {
 	return new Promise(function (resolve, reject)
 	{
@@ -12,19 +12,31 @@ const waitFile = function(fileName) //waits for file input (chip8 rom)
 
         reader.onload = function () {
         	resolve(new Uint8Array(reader.result));
-			}
+				}
         reader.readAsArrayBuffer(file);
     });
 	});
 };
 
-var biosBuffer;
+const disableInput = function ()
+{
+	$("#biosInput").prop("disabled", true);
+	$("#romInput").prop("disabled", true);
+	$("#demo").prop("disabled", true);
+}
 
-waitFile("biosInput").then(function (buffer) {biosBuffer = buffer;})
+const start = function (biosBuffer, romBuffer) {
+	let	cyclesToRun = 0;
+	let frames = 0;
+	let frameNotComplete = true;
 
-
-waitFile("romInput").then(async function (buffer) {
+	//hardware
 	const MMU = new mmu();
+	const CPU = new cpu(0, MMU);
+	const GRAPHICS = new graphics(MMU, CPU, function(){frameNotComplete = false;});
+	const TIMERCONTROLLER = new timerController(MMU, CPU);
+	const KEYPAD = new keypad(MMU);
+	const DMACONTROLLER = new DMAController(MMU, CPU, GRAPHICS);
 
 	//copy BIOS into memory
 	if (biosBuffer !== undefined)
@@ -32,50 +44,57 @@ waitFile("romInput").then(async function (buffer) {
 		let biosMem = MMU.getMemoryRegion("BIOS").memory;
 		for (let i = 0; i < biosBuffer.length; i ++)
 		{
-			biosMem[i] = biosBuffer[i]; //LSB
-			biosMem[i + 1] = biosBuffer[i + 1];
-			biosMem[i + 2] = biosBuffer[i + 2];
-			biosMem[i + 3] = biosBuffer[i + 3]; //MSB
+			biosMem[i] = biosBuffer[i];
 		}
-		console.log("copied BIOS into memory");
+		console.log("loaded BIOS into memory");
+	}
+	else //load normatt bios
+	{
+		let nbios = getNormattBIOS();
+		let biosMem = MMU.getMemoryRegion("BIOS").memory;
+
+		for (let i = 0; i < nbios.length; i ++)
+		{
+			biosMem[i] = nbios[i];
+		}
+		console.log("loaded normatt BIOS");
 	}
 
 	//copy ROM into memory
-	let rom1Mem = MMU.getMemoryRegion("ROM1").memory;
-	let rom2Mem = MMU.getMemoryRegion("ROM2").memory;
-	for (let i = 0; i < Math.min(rom1Mem.length, buffer.length); i+=4)
+	if (romBuffer !== undefined)
 	{
-		rom1Mem[i] = buffer[i]; //LSB
-		rom1Mem[i + 1] = buffer[i + 1];
-		rom1Mem[i + 2] = buffer[i + 2];
-		rom1Mem[i + 3] = buffer[i + 3]; //MSB
+		let rom1Mem = MMU.getMemoryRegion("ROM1").memory;
+		let rom2Mem = MMU.getMemoryRegion("ROM2").memory;
+		for (let i = 0; i < Math.min(rom1Mem.length, romBuffer.length); i++)
+		{
+			rom1Mem[i] = romBuffer[i];
+		}
+		for (let i = rom1Mem.length; i < romBuffer.length; i ++)
+		{
+			let p = i & 0xFFFFFF;
+			rom2Mem[p] = romBuffer[p];
+		}
+		console.log("loaded ROM into memory");
 	}
-	for (let i = rom1Mem.length; i < buffer.length; i ++)
+	else //load TONC demo
 	{
-		let p = i & 0xFFFFFF;
-		rom2Mem[p] = buffer[p]; //LSB
-		rom2Mem[p + 1] = buffer[p + 1];
-		rom2Mem[p + 2] = buffer[p + 2];
-		rom2Mem[p + 3] = buffer[p + 3]; //MSB
-	}
-	console.log("copied ROM into memory");
+		let m7demo = getTONCDemo();
+		let rom1Mem = MMU.getMemoryRegion("ROM1").memory;
 
-	buffer = null;
+		for (let i = 0; i < m7demo.length; i ++)
+		{
+			rom1Mem[i] = m7demo[i];
+		}
+		console.log("loaded DEMO");
+	}
+
+	romBuffer = null;
 	biosBuffer = null;
 
-	let frameNotComplete = true;
+	CPU.initPipeline();
 
-	//set up hardware
-	const CPU = new cpu(0x8000000, MMU);
-	const GRAPHICS = new graphics(MMU, CPU, function(){frameNotComplete = false;});
-	const TIMERCONTROLLER = new timerController(MMU, CPU);
-	const KEYPAD = new keypad(MMU);
-	const DMACONTROLLER = new DMAController(MMU, CPU, GRAPHICS);
-
-	//for debugging
+	//for debugging------------------------------------------------------------------
 	window.instructionNum = 1;
-	let frames = 0;
-
 	$("#runbutton").click(function()
 	{
 		if (CPU.halt)
@@ -113,7 +132,6 @@ waitFile("romInput").then(async function (buffer) {
 		//GRAPHICS.updateRegisters(CPU.mode);
 	});
 
-	//for debugging
 	// while (window.instructionNum <= 3000000)
 	// {
 
@@ -135,19 +153,14 @@ waitFile("romInput").then(async function (buffer) {
 	// }
 	console.log("finished");
 	//download(strData, strFileName);
-
-	
-
-
-
-	let	cyclesToRun = 0;
+	//for debugging------------------------------------------------------------------
 
 	const executeFrame = function() {
 		while (frameNotComplete)
 		{
 			// if (!CPU.halt)
 			// {
-			// 	CPU.run(false, window.instructionNum);
+			// 	CPU.run();
 			// 	window.instructionNum ++;
 			// }
 			// GRAPHICS.update(1);
@@ -156,8 +169,8 @@ waitFile("romInput").then(async function (buffer) {
 			if (!CPU.halt)
 			{
 				for (var i = 0; i < cyclesToRun; i ++)
-				{
-					CPU.run(false, window.instructionNum);
+				{	
+					CPU.run();
 				}
 			}
 			cyclesToRun = Math.min(GRAPHICS.update(cyclesToRun), TIMERCONTROLLER.update(cyclesToRun));
@@ -166,7 +179,7 @@ waitFile("romInput").then(async function (buffer) {
 		frameNotComplete = true;
 		setTimeout(executeFrame, 10);
 	};
-	setTimeout(executeFrame, 10);
+	executeFrame();
 
 	const printFPS = function () {
 		setTimeout(function (){
@@ -176,7 +189,14 @@ waitFile("romInput").then(async function (buffer) {
 		}, 30000);
 	}
 	printFPS();
-});
+};
+
+
+waitFile("biosInput").then(function(buffer) {biosBuffer = buffer;});
+waitFile("romInput").then(function(buffer) {disableInput(); start(biosBuffer, buffer); biosBuffer = null;});
+$("#demo").click(function(){disableInput(); start(biosBuffer); biosBuffer = null;})
+
+
 
 
 

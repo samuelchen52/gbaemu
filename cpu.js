@@ -128,8 +128,6 @@ const cpu = function (pc, mmu) {
     this.THUMB = new thumb(this.mmu, this.registers, this.changeState.bind(this), this.setCPSR.bind(this), this.resetPipeline.bind(this), this.startSWI.bind(this), this.registerIndices);
     this.ARM = new arm(this.mmu, this.registers, this.changeState.bind(this), this.setCPSR.bind(this), this.resetPipeline.bind(this), this.startSWI.bind(this), this.registerIndices);
 
-    this.initPipeline();
-
     //interrupt stuff
     this.ioregion = this.mmu.getMemoryRegion("IOREGISTERS");
     this.ioregionMem16 = new Uint16Array(this.ioregion.memory.buffer); //0x4000000
@@ -319,7 +317,6 @@ cpu.prototype.resetPipeline = function (){
 //main run function ----------------------------------------------------------------------------------------
 // cpu.prototype.run = function(debug, inum) {
 //   this.instructionNum = inum;
-//   this.checkStackOverflow();
 //   try {
 //     if (this.halt)
 //     {
@@ -352,14 +349,14 @@ cpu.prototype.resetPipeline = function (){
 //     // {
 //     //   console.log("[--------------------------RETURN-------------------------------]");
 //     // }
-//     // if (!this.state)
-//     // {
-//     //   ARMcount[pipelinecopy2]++;
-//     // }
-//     // else
-//     // {
-//     //   THUMBcount[pipelinecopy2]++;
-//     // }
+//     if (!this.state)
+//     {
+//       ARMcount[pipelinecopy2] = 1;
+//     }
+//     else
+//     {
+//       THUMBcount[pipelinecopy2] = 1;
+//     }
 //     this.execute(pipelinecopy1, pipelinecopy2);
 //   }
 //   catch (err)
@@ -395,7 +392,35 @@ cpu.prototype.resetPipeline = function (){
 //   }
 // }
 
-cpu.prototype.run = function() {
+cpu.prototype.run = function(numCycles) {
+  // if (!this.halt)
+  // {
+  //   let pipeline = this.pipeline;
+  //   let registers = this.registers;
+  //   for (let i = 0; i < numCycles; i ++)
+  //   {
+  //     if (!this.halt)
+  //     {
+  //       if (this.checkInterrupt)
+  //       {
+  //         this.startIRQ();
+  //         this.checkInterrupt = false;
+  //       }
+
+  //       var pipelinecopy0 = pipeline[0];
+  //       var pipelinecopy1 = pipeline[1];
+  //       var pipelinecopy2 = pipeline[2];
+
+  //       pipeline[0] = this.fetch();
+
+  //       pipeline[1] = pipelinecopy0;
+  //       pipeline[2] = this.decode(pipelinecopy0);   
+
+  //       this.execute(pipelinecopy1, pipelinecopy2);
+  //       registers[15][0] += this.insize; //increment pc
+  //     }
+  //   }
+  // }
   if (!this.halt)
   {
     if (this.checkInterrupt)

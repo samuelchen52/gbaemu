@@ -16,37 +16,25 @@
 		<link href="./style.css" rel="stylesheet">
 	</head>
 	<body>
-		<div class = "container-fluid mt-5">
+		<div class = "container">
 			<div class = "row">
-				<div class = "col-3">
+				<div class = "col-4">
 	    		<div> enter bios file: </div>
 	    		<input type="file" id="biosInput">
 	    		<div> enter gba file: </div>
 	    		<input type="file" id="romInput">
-	    		<div> load demo: </div>
-	    		<input type = "button" id = "demo" value="demo">
-	    		<div class = "mt-2">Controls:</div>
-	    		<p class = "m-0">L - mapped to K key </p>
-					<p class = "m-0">R - mapped to L key </p>
-					<p class = "m-0">A - mapped to A key </p>
-					<p class = "m-0">B - mapped to S key </p>
-					<p class = "m-0">D-pad - mapped to arrow keys</p>
-					<p class = "m-0">Select - mapped to / key </p>
-					<p class = "m-0">Start - mapped to Enter key </p>
-	    		<div class = "d-none">
-		    		<input type="text" placeholder="type instruction in hex here to test opcode" id ="decode">
-		    		<button id = "runbutton"> click to run one instruction</button>
-		    		<input type="text" placeholder="type mem addr" id ="addr">
-		    		<button id = "fetch"> click to fetch</button>
-	    		</div>
-				</div>
-				<div class = "col-4">
-					<canvas id = "backingScreen" width = 240 height = 160 class = "d-none" >
+	    		<div class="d-none"> load demo: </div>
+	    		<input class="d-none" type = "button" id = "demo" value="demo">
+	    		<canvas id = "backingScreen" width = 240 height = 160 class = "border" >
 	    		</canvas>
-	    		<canvas id = "visibleScreen" width = 720 height = 480 class = "border border-dark" >
+	    		<canvas id = "visibleScreen" width = 480 height = 320 class = "border d-none" >
 	    		</canvas>
+	    		<input type="text" placeholder="type instruction in hex here to test opcode" id ="decode">
+	    		<button id = "runbutton"> click to run one instruction</button>
+	    		<input type="text" placeholder="type mem addr" id ="addr">
+	    		<button id = "fetch"> click to fetch</button>
 				</div>
-	    	<div class ="col-8 d-none">
+	    	<div class ="col-8">
 	    		<table>
 					  <tr>
 					    <th>Registers</th>
