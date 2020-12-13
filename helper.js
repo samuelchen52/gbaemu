@@ -150,18 +150,7 @@ const THUMBopcodes = [
 "LONG BRANCH 1 [THUMB]",
 "LONG BRANCH 2 [THUMB]"
 ]
-var rgbstr = [ 'rgb(' , 0 , ', ' , 0 , ', ' , 0 , ')'];
 
-//returns rgb string represented by 16bit num
-//xbbbbbgggggrrrrr
-function rgb(num)
-{
-	rgbstr[5] = ((num & 31744) >>> 10) * 8;
-	rgbstr[3] = ((num & 992) >>> 5) * 8;
-	rgbstr[1] = (num & 31) * 8;
-
-	return rgbstr.join('');
-}
 
 //gets the bytes of a 32 or 16 bit number
 function getBytes (instr, state)
@@ -478,6 +467,8 @@ function download(strData, strFileName, strMimeType) {
     }, 333);
     return true;
 }
+
+window.help = "0xB0 to 0xE0, DMA (12bytes ea)\n" + "0x100 to 0x110 timers(4bytes ea)\n" + "0x200 to 0x204 IE and IF(2byte ea)";
 
 let sigs = instructionVal([
 	// 'cccc 0000 110S nnnn dddd ssss stt0 mmmm |SBC subtract with carry',

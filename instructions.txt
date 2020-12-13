@@ -374,6 +374,7 @@ ________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 instructions here are grouped up by their first four bits (after the condition bits), and further sorted
 
+	 xxxx 7654 3210 xxxx xxxx xxxx 7654 xxxx
 
 [ 'cccc 0000 000S nnnn dddd ssss stt0 mmmm |AND and' ]
 [ 'cccc 0000 001S nnnn dddd ssss stt0 mmmm |EOR exclusive or' ]
@@ -552,6 +553,101 @@ ARM opcode map -
 
 79 - SMULL / SMLAL (MULTIPLY AND MULTIPLY ACCUMULATE [5]) (skipped over this instruction somehow, so its all the way here at the bottom) 
 
+ARM LUT (bits 4-7 + bits 20-27, total size of table is 2 ^ 12 === 4096)
+																															
+const armtable = 
+[
+'0000 10as 1001 |MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG',
+'0000 00as 1001 |MULTIPLY AND MULTIPLY-ACCUMULATE',
+'0000 u000 1011 |p=0 i=0 STRH',
+'0000 u001 1011 |p=0 i=0 LDRH',
+'0000 u100 1011 |p=0 i=1 STRH',
+'0000 u101 1011 |p=0 i=1 LDRH',
+'0000 u001 1101 |p=0 i=0 LDRSB',
+'0000 u101 1101 |p=0 i=1 LDRSB',
+'0000 u001 1111 |p=0 i=0 LDRSH',
+'0000 u101 1111 |p=0 i=1 LDRSH',
+'0000 000S 0tt1 |AND and',
+'0000 001S 0tt1 |EOR exclusive or',
+'0000 010S 0tt1 |SUB subtract',
+'0000 011S 0tt1 |RSB reverse subtract',
+'0000 100S 0tt1 |ADD addition',
+'0000 101S 0tt1 |ADC add with carry',
+'0000 110S 0tt1 |SBC subtract with carry',
+'0000 111S 0tt1 |RSC reverse subtract with carry',
+'0000 000S stt0 |AND and',
+'0000 001S stt0 |EOR exclusive or',
+'0000 010S stt0 |SUB subtract',
+'0000 011S stt0 |RSB reverse subtract',
+'0000 100S stt0 |ADD addition',
+'0000 101S stt0 |ADC add with carry',
+'0000 110S stt0 |SBC subtract with carry',
+'0000 111S stt0 |RSC reverse subtract with carry',
+
+'0001 0001 0tt1 |TST test bits (dddd is either all 0s or 1s)',
+'0001 0011 0tt1 |TEQ test bitwise equality (dddd is either all 0s or 1s)',
+'0001 0010 0001 |BRANCH AND EXCHANGE',
+'0001 0101 0tt1 |CMP compare (dddd is either all 0s or 1s)',
+'0001 0111 0tt1 |CMN compare negative (dddd is either all 0s or 1s)',
+'0001 100S 0tt1 |ORR or',
+'0001 101S 0tt1 |MOV move register or constant',
+'0001 110S 0tt1 |BIC bit clear',
+'0001 111S 0tt1 |MVN move negative register',
+'0001 0b00 1001 |SWP',
+'0001 u0w0 1011 |p=1 i=0 STRH',
+'0001 u0w1 1011 |p=1 i=0 LDRH',
+'0001 u1w0 1011 |p=1 i=1 STRH',
+'0001 u1w1 1011 |p=1 i=1 LDRH',
+'0001 u0w1 1101 |p=1 i=0 LDRSB',
+'0001 u1w1 1101 |p=1 i=1 LDRSB',
+'0001 u0w1 1111 |p=1 i=0 LDRSH',
+'0001 u1w1 1111 |p=1 i=1 LDRSH',
+'0001 0p00 0000 |MRS',
+'0001 0p10 0000 |MSR register',
+'0001 0001 stt0 |TST test bits (dddd is either all 0s or 1s)',
+'0001 0011 stt0 |TEQ test bitwise equality (dddd is either all 0s or 1s)',
+'0001 0101 stt0 |CMP compare (dddd is either all 0s or 1s)',
+'0001 0111 stt0 |CMN compare negative (dddd is either all 0s or 1s)',
+'0001 100S stt0 |ORR or',
+'0001 101S stt0 |MOV move register or constant',
+'0001 110S stt0 |BIC bit clear',
+'0001 111S stt0 |MVN move negative register',
+
+
+'0010 000S mmmm |AND and',
+'0010 001S mmmm |EOR exclusive or',
+'0010 010S mmmm |SUB subtract',
+'0010 011S mmmm |RSB reverse subtract',
+'0010 100S mmmm |ADD addition',
+'0010 101S mmmm |ADC add with carry',
+'0010 110S mmmm |SBC subtract with carry',
+'0010 111S mmmm |RSC reverse subtract with carry',
+
+'0011 0001 mmmm |TST test bits (dddd is either all 0s or 1s)',
+'0011 0p10 mmmm |MSR imm',
+'0011 0011 mmmm |TEQ test bitwise equality (dddd is either all 0s or 1s)',
+'0011 0101 mmmm |CMP compare (dddd is either all 0s or 1s)',
+'0011 0111 mmmm |CMN compare negative (dddd is either all 0s or 1s)',
+'0011 100S mmmm |ORR or',
+'0011 101S mmmm |MOV move register or constant',
+'0011 110S mmmm |BIC bit clear',
+'0011 111S mmmm |MVN move negative register',
+
+'010p ubwl oooo |LDR / STR i = 0',
+'011p ubwl stt0 |LDR / STR i = 1', //0101 0111 0111 0010 0100 0110 0111 0010
+
+'100p uswl rrrr |LDM, STM',
+'101L oooo oooo |BRANCH / BRANCH AND LINK',
+'110p unwo mmmm |LDC / STC',
+'1110 oooo iii0 |CDP',
+'1110 oooa iii1 |MRC / MCR',
+'1111 xxxx xxxx |SOFTWARE INTERRUPT',
+
+'0000 11as 1001 |SIGNED MULTIPLY LONG AND MULTIPLY-ACCUMULATE LONG',
+];
+
+
+
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________________________________________________________________________________
 __________________________________________________________________________________THUMB_PARSING___________________________________________________________
@@ -727,8 +823,98 @@ THUMB opcode map -
 59 - LONG BRANCH 1 (THUMB.19)
 60 - LONG BRANCH 2 (THUMB.19)
 
+THUMB LUT (bits 6 - 15, total size of table is 2 ^ 10 === 1024)
+
+const thumbtable = 
+[
+'0000 0fff ffss sddd - LSL IMM5',
+'0000 1fff ffss sddd - LSR IMM5', 
+'0001 0fff ffss sddd - ASR IMM5',
+
+'0001 100n nnss sddd - ADD REGISTER',
+'0001 101n nnss sddd - SUBTRACT REGISTER',
+'0001 110n nnss sddd - ADD IMM3',
+'0001 111n nnss sddd - SUB IMM3',
+
+'0010 0ddd nnnn nnnn - MOV IMM8',
+'0010 1ddd nnnn nnnn - CMP IMM8',
+'0011 0ddd nnnn nnnn - ADD IMM8',
+'0011 1ddd nnnn nnnn - SUB IMM8',
+
+'0100 0000 00ss sddd - AND',
+'0100 0000 01ss sddd - XOR',
+'0100 0000 10ss sddd - LSL',
+'0100 0000 11ss sddd - LSR',
+'0100 0001 00ss sddd - ASR',
+'0100 0001 01ss sddd - ADC',
+'0100 0001 10ss sddd - SBC',
+'0100 0001 11ss sddd - ROTATE RIGHT',
+'0100 0010 00ss sddd - TST',
+'0100 0010 01ss sddd - NEG',
+'0100 0010 10ss sddd - CMP',
+'0100 0010 11ss sddd - NEGCMP',
+'0100 0011 00ss sddd - OR',
+'0100 0011 01ss sddd - MUL',
+'0100 0011 10ss sddd - BIT CLEAR',
+'0100 0011 11ss sddd - NOT',
+
+'0100 0100 xxss sddd - ADD hi register',
+'0100 0101 xxss sddd - CMP hi register',
+'0100 0110 xxss sddd - MOV hi register',
+'0100 0111 0sss s000 - BX only uses rs',
+
+'0100 1ddd nnnn nnnn - LDR IMM (PC)',
+
+'0101 000s ssbb bddd - STR REG OFFSET',
+'0101 001s ssbb bddd - STRH REG OFFSET',
+
+'0101 010s ssbb bddd - STRB REG OFFSET',
+'0101 011s ssbb bddd - LDSB REG OFFSET',
+
+'0101 100s ssbb bddd - LDR REG OFFSET',
+'0101 101s ssbb bddd - LDRH REG OFFSET',
+
+'0101 110s ssbb bddd - LDRB REG OFFSET',
+'0101 111s ssbb bddd - LDSH REG OFFSET',
+
+'0110 0sss ssbb bddd - STR IMM OFFSET',
+'0110 1sss ssbb bddd - LDR IMM OFFSET ',
+'0111 0sss ssbb bddd - STRB IMM OFFSET',
+'0111 1sss ssbb bddd - LDRB IMM OFFSET',
+
+'1000 0sss ssbb bddd - STRH IMM OFFSET',
+'1000 1sss ssbb bddd - LDRH IMM OFFSET',
 
 
+'1001 0ddd nnnn nnnn - STR IMM OFFSET(SP)',
+'1001 1ddd nnnn nnnn - LDR IMM OFFSET(SP)',
+
+
+'1010 0ddd nnnn nnnn - ADD RD PC IMM',
+'1010 1ddd nnnn nnnn - ADD RD SP IMM',
+
+
+'1011 0000 0nnn nnnn - ADD SP IMM',
+'1011 0000 1nnn nnnn - ADD SP -IMM',
+
+
+'1011 010p rrrr rrrr - PUSH',
+'1011 110p rrrr rrrr - POP',
+
+
+'1100 0bbb rrrr rrrr - STMIA',
+'1100 1bbb rrrr rrrr - LDMIA',
+
+'1101 oooo ssss ssss - CONDITIONAL BRANCH',
+'1101 1111 nnnn nnnn - SW INTR',
+
+
+'1110 0sss ssss ssss - UNCONDITIONAL BRANCH',
+
+
+'1111 0nnn nnnn nnnn - LONG BRANCH 1',
+'1111 1nnn nnnn nnnn - LONG BRANCH 2',
+];
 
 
 

@@ -12,8 +12,8 @@
 	//bit 4 - right  -mapped to right arrow key 
 	//bit 3 - start  -mapped to enter key
 	//bit 2 - select -mapped to / key
-	//bit 1 - B      -mapped to a key
-	//bit 0 - A      -mapped to s key
+	//bit 1 - B      -mapped to s key
+	//bit 0 - A      -mapped to a key
 	this.keyCodeToKeyDown = new Uint16Array(255);
 	this.keyCodeToKeyUp = new Uint16Array(255);
 

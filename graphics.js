@@ -11,11 +11,6 @@ const layer = function (scanlineArr, windowIndex, prio, display, isObj, sortVal,
 
 const graphics = function(mmu, cpu, setFrameComplete) {
 
-  this.mmu = mmu;
-  this.registers = cpu.registers;
-  this.setFrameComplete = setFrameComplete;
-  this.cpu = cpu;
-
   //debugging stuff
 	this.registersDOM = $(".register");
 	this.cpsrDOM = $(".statusregister"); //N, Z, C, V, Q, I, F, T, Mode, all
@@ -38,39 +33,19 @@ const graphics = function(mmu, cpu, setFrameComplete) {
       [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,4], //modeENUMS["UND"]
     ];
 
-  this.displayENUMS = {
-    //DISPSTAT
-    VBLANKSET : 1,
-    HBLANKSET : 2, 
-    VCOUNTERSET : 4,
-    VBLANKCLEAR : ~1,
-    HBLANKCLEAR : ~2,
-    VCOUNTERCLEAR : ~4,
-    VBLANKIRQENABLE : 8,
-    HBLANKIRQENABLE : 16,
-    VCOUNTIRQENABLE : 32,
-    VCOUNTSETTING : 0xFF00, //1111111100000000
-
-    //DISPCNT
-    MODE : 7,
-    DISPLAYFRAME : 16,
-    OBJMAPPINGMODE : 64,
-    FORCEDBLANK : 128,
-    BG0DISPLAY : 256,
-    BG1DISPLAY : 512,
-    BG2DISPLAY : 1024,
-    BG3DISPLAY : 2048, 
-    OBJDISPLAY : 4096,
-    WIN0DISPLAY : 8192,
-    WIN1DISPLAY : 16384,
-    WINOBJDISPLAY : 32768
-  };
-
+  this.mmu = mmu;
+  this.registers = cpu.registers;
+  this.setFrameComplete = setFrameComplete;
+  this.cpu = cpu;
 
 
   //canvas buffer
-	this.context = document.getElementById("screen").getContext("2d");
-	this.imageData = this.context.createImageData(240, 160);
+  this.screen = document.getElementById("backingScreen");
+  this.actualScreen = document.getElementById("visibleScreen");
+
+	this.backingContext = document.getElementById("backingScreen").getContext("2d");
+  this.visibleContext = document.getElementById("visibleScreen").getContext("2d");
+	this.imageData = this.backingContext.createImageData(240, 160);
   this.imageDataArr = new Uint32Array(this.imageData.data.buffer); //new Uint32Array(this.imageData.data.buffer);
 
   //dummy transparent pixel buffer
@@ -255,6 +230,34 @@ graphics.prototype.modeToLayerDisplay = [
   [0, 0, 1, 0, 1, 1, 1, 1],
   [0, 0, 1, 0, 1, 1, 1, 1]
 ];
+
+graphics.prototype.displayENUMS = {
+  //DISPSTAT
+  VBLANKSET : 1,
+  HBLANKSET : 2, 
+  VCOUNTERSET : 4,
+  VBLANKCLEAR : ~1,
+  HBLANKCLEAR : ~2,
+  VCOUNTERCLEAR : ~4,
+  VBLANKIRQENABLE : 8,
+  HBLANKIRQENABLE : 16,
+  VCOUNTIRQENABLE : 32,
+  VCOUNTSETTING : 0xFF00, //1111111100000000
+
+  //DISPCNT
+  MODE : 7,
+  DISPLAYFRAME : 16,
+  OBJMAPPINGMODE : 64,
+  FORCEDBLANK : 128,
+  BG0DISPLAY : 256,
+  BG1DISPLAY : 512,
+  BG2DISPLAY : 1024,
+  BG3DISPLAY : 2048, 
+  OBJDISPLAY : 4096,
+  WIN0DISPLAY : 8192,
+  WIN1DISPLAY : 16384,
+  WINOBJDISPLAY : 32768
+};
 
 graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
   this.mode = this.updateLayersMode(this.mode, newDISPCNTVal & this.displayENUMS["MODE"]);
@@ -848,7 +851,8 @@ graphics.prototype.update = function(numCycles) {
 
 
 graphics.prototype.finishDraw = function () {
-  this.context.putImageData(this.imageData, 0, 0);
+  this.backingContext.putImageData(this.imageData, 0, 0);
+  this.visibleContext.drawImage(this.screen, 0, 0, this.screen.width, this.screen.height, 0, 0, this.actualScreen.width, this.actualScreen.height);
   this.setFrameComplete();
 }
 
@@ -895,23 +899,38 @@ graphics.prototype.updateRegisters = function(mode) {
 
 // let mode = 1;
 
+// const obj = function () {
+//   this.x = [5];
+//   this.y = [6];
+//   this.z = [10];
+
+//   this.calculateClosure = ((x, y, z) => {
+//     return function ()
+//     {
+//       x[0] ++;
+//       return x[0] * y[0] / z[0];
+//     }
+//   })(this.x, this.y, this.z);
+// };
+
+// obj.prototype.calculate = function () {
+//   this.x[0] ++;
+//   return this.x[0] * this.y[0]  / this.z[0];
+// }
+
+// let newobj = new obj();
+
 // let timenow = (new Date).getTime();
 // for (let i = 0; i < 1000000000; i++)
 // {
-//   let fn = (mode === 1) ? fn1 : (mode === 2 ? fn2 : (mode === 3 ? fn3 : fn4));
-//   fn();
+//   newobj.calculate();
 // }
 // console.log((new Date).getTime() - timenow);
 
 // mode = 3;
 // timenow = (new Date).getTime();
-// for (let i = 0; i < 1000000000;)
+// for (let i = 0; i < 1000000000; i++)
 // {
-//   let fn = (mode === 1) ? fn1 : (mode === 2 ? fn2 : (mode === 3 ? fn3 : fn4));
-//   for (let p = 0; p < 30; p ++)
-//   {
-//     fn();
-//     i ++;
-//   }
+//   newobj.calculateClosure();
 // }
 // console.log((new Date).getTime() - timenow);

@@ -271,21 +271,17 @@ ioRegIF.prototype = Object.create(ioReg.prototype);
 ioRegIF.constructor = ioRegIF;
 
 ioRegIF.prototype.write8 = function (memAddr, val) {
-	//console.log("oldval: " + val);
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
 	this.triggerCallbacks();
 }
 
 ioRegIF.prototype.write16 = function (memAddr, val) {
-	//console.log("oldval: " + val);
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
 	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
 	this.triggerCallbacks();
-	//console.log("new val: " + (this.ioRegionMemory[memAddr] + (this.ioRegionMemory[memAddr + 1] << 8)) );
 }
 
 ioRegIF.prototype.write32 = function (memAddr, val) {
-	//console.log("oldval: " + val);
 	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] ^ (val & 0xFF)) & this.ioRegionMemory[memAddr];
 	this.ioRegionMemory[(memAddr + 1)] = (this.ioRegionMemory[memAddr + 1] ^ ((val & 0xFF00) >>> 8)) & this.ioRegionMemory[memAddr + 1];
 	this.triggerCallbacks();
