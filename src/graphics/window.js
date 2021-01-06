@@ -42,11 +42,11 @@ const windowController = function(WIN0H, WIN1H, WIN0V, WIN1V, WININ0, WININ1, WI
 	this.winInScanlineBuffer = [];
 	for (let i = 0; i < 160; i ++)
 	{
-		this.win0ScanlineBuffer.push(new Uint8Array(240));
-		this.win1ScanlineBuffer.push(new Uint8Array(240));
-		this.winInScanlineBuffer.push(new Uint8Array(240));
+		this.win0ScanlineBuffer.push(new Uint8Array(240).fill(2));
+		this.win1ScanlineBuffer.push(new Uint8Array(240).fill(2));
+		this.winInScanlineBuffer.push(new Uint8Array(240).fill(2));
 	}
-	this.objScanlineBuffer = new Uint8Array(240); 
+	this.objScanlineBuffer = new Uint8Array(240).fill(2); 
 
 	this.sprites = sprites;
 
