@@ -642,7 +642,7 @@ graphics.prototype.blendMode0 = function(color) {
 };
 
 //alpha blending
-graphics.prototype.blendMode1 = function(color, eva, evb, firstTargetMatch, secondTarget, scanlineArrs, windowIndices, isObj, layerIndex, pixelNum, numActiveLayers, backdrop) {
+graphics.prototype.blendMode1 = function(color, eva, evb, evy, firstTargetMatch, secondTarget, scanlineArrs, windowIndices, isObj, layerIndex, pixelNum, numActiveLayers, backdrop) {
   if (firstTargetMatch)
   {
     let secondColor = backdrop;
@@ -674,16 +674,16 @@ graphics.prototype.blendMode1 = function(color, eva, evb, firstTargetMatch, seco
 };
 
 //brightness increase
-graphics.prototype.blendMode2 = function(color, eva, evb, firstTargetMatch) { 
+graphics.prototype.blendMode2 = function(color, eva, evb, evy, firstTargetMatch) { 
   if (firstTargetMatch)
   {
     let r = (color & 31);
     let g = (color & 992) >>> 5;
     let b = (color & 31744) >>> 10;
 
-    r += ((31 - r) * eva) >>> 4;
-    g += ((31 - g) * eva) >>> 4;  
-    b += ((31 - b) * eva) >>> 4;  
+    r += ((31 - r) * evy) >>> 4;
+    g += ((31 - g) * evy) >>> 4;  
+    b += ((31 - b) * evy) >>> 4;  
     
     return (b << 10) + (g << 5) + r;
   }
@@ -691,16 +691,16 @@ graphics.prototype.blendMode2 = function(color, eva, evb, firstTargetMatch) {
 };
 
 //brightness decrease
-graphics.prototype.blendMode3 = function(color, eva, evb, firstTargetMatch) { 
+graphics.prototype.blendMode3 = function(color, eva, evb, evy, firstTargetMatch) { 
   if (firstTargetMatch)
   {
     let r = (color & 31);
     let g = (color & 992) >>> 5;
     let b = (color & 31744) >>> 10;
 
-    r -= (r * eva) >>> 4;
-    g -= (g * eva) >>> 4;  
-    b -= (b * eva) >>> 4;  
+    r -= (r * evy) >>> 4;
+    g -= (g * evy) >>> 4;  
+    b -= (b * evy) >>> 4;  
     
     return (b << 10) + (g << 5) + r;
   }
@@ -715,8 +715,9 @@ graphics.prototype.mergeLayers = function (imageDataArr, imageDataIndex, backdro
   let blendMode = this.blendMode;
   let firstTarget = this.firstTarget;
   let secondTarget = this.secondTarget;
-  let eva = (blendMode === 1) ? this.eva : this.evy;
+  let eva = this.eva;
   let evb = this.evb;
+  let evy = this.evy;
   let blend = (blendMode === 0) ? this.blendMode0 : (blendMode === 1 ? this.blendMode1 : (blendMode === 2 ? this.blendMode2 : this.blendMode3));
   let blendAlpha = this.blendMode1;
 
@@ -741,11 +742,11 @@ graphics.prototype.mergeLayers = function (imageDataArr, imageDataIndex, backdro
 
     if (isObj && (color & 0x8000)) //semi trans obj
     {
-      imageDataArr[i + imageDataIndex] = convertColor[blendAlpha(color, eva, evb, true, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
+      imageDataArr[i + imageDataIndex] = convertColor[blendAlpha(color, eva, evb, evy, true, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
     }
     else
     {
-      imageDataArr[i + imageDataIndex] = convertColor[blend(color, eva, evb, firstTarget[windowIndex], secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
+      imageDataArr[i + imageDataIndex] = convertColor[blend(color, eva, evb, evy, firstTarget[windowIndex], secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
     }
   }
 }
@@ -758,8 +759,9 @@ graphics.prototype.mergeLayersWindow = function (enableScanline, windowCNT, imag
   let blendMode = this.blendMode;
   let firstTarget = this.firstTarget;
   let secondTarget = this.secondTarget;
-  let eva = (blendMode === 1) ? this.eva : this.evy;
+  let eva = this.eva;
   let evb = this.evb;
+  let evy = this.evy;
   let blend = (blendMode === 0) ? this.blendMode0 : (blendMode === 1 ? this.blendMode1 : (blendMode === 2 ? this.blendMode2 : this.blendMode3));
   let blendAlpha = this.blendMode1;
 
@@ -785,11 +787,11 @@ graphics.prototype.mergeLayersWindow = function (enableScanline, windowCNT, imag
 
     if (isObj && (color & 0x8000)) //semi trans obj
     {
-      imageDataArr[i + imageDataIndex] = convertColor[blendAlpha(color, eva, evb, blendEnable, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
+      imageDataArr[i + imageDataIndex] = convertColor[blendAlpha(color, eva, evb, evy, blendEnable, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
     }
     else
     {
-      imageDataArr[i + imageDataIndex] = convertColor[blend(color, eva, evb, firstTarget[windowIndex] && blendEnable, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
+      imageDataArr[i + imageDataIndex] = convertColor[blend(color, eva, evb, evy, firstTarget[windowIndex] && blendEnable, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
     }
   }
 }
