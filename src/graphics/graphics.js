@@ -156,9 +156,9 @@ const graphics = function(mmu, cpu, setFrameComplete) {
     let lb = Math.pow(((i & 31744) >>> 10) / 31.0, lcdGamma);
     let lg = Math.pow(((i & 992) >>> 5) / 31.0, lcdGamma);
     let lr = Math.pow((i & 31) / 31.0, lcdGamma);
-    let r = Math.pow((  0 * lb +  50 * lg + 220 * lr) / 255, 1 / outGamma) * (0xffff / 280);
-    let g = Math.pow(( 30 * lb + 230 * lg +  10 * lr) / 255, 1 / outGamma) * (0xffff / 280);
-    let b = Math.pow((220 * lb +  10 * lg +  10 * lr) / 255, 1 / outGamma) * (0xffff / 280);
+    let r = Math.round(Math.pow((  0 * lb +  50 * lg + 220 * lr) / 255, 1 / outGamma) * (0xffff / 280));
+    let g = Math.round(Math.pow(( 30 * lb + 230 * lg +  10 * lr) / 255, 1 / outGamma) * (0xffff / 280));
+    let b = Math.round(Math.pow((220 * lb +  10 * lg +  10 * lr) / 255, 1 / outGamma) * (0xffff / 280));
 
     this.convertColor[i] = 0xFF000000 + (b << 16) + (g << 8) + r;
     this.convertColor[i + 32768] = this.convertColor[i]; //account for 15th bit being set sometimes in colors (e.g. BIOS backdrop)
