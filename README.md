@@ -33,3 +33,5 @@ So far, only the timers and graphics are in a (near) complete state. There is st
 [GBATEK](https://problemkaputt.de/gbatek.htm) - an extremely detailed reference sheet for all things GBA
 
 [No$gba](https://problemkaputt.de/gba.htm) / [mGBA](https://mgba.io/downloads.html) - established GBA emulators that were immensely helpful for debugging 
+
+[Near / Talarubi](https://byuu.net/video/color-emulation/) - color correction

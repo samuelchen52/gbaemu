@@ -151,7 +151,16 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   //when the color 0x8000 is being used, as opposed to 0x0000 i.e. some game wants to use the color black, but instead of writing all zeroes, its setting the 15th bit for some reason
   for (let i = 0; i < 32768; i ++)
   {
-    this.convertColor[i] = 0xFF000000 + ((i & 31744) << 9) + ((i & 992) << 6) + ((i & 31) << 3);
+    //credit to https://byuu.net/video/color-emulation/ for the color correction code (modified) below
+    let lcdGamma = 4.0, outGamma = 2.2;
+    let lb = Math.pow(((i & 31744) >>> 10) / 31.0, lcdGamma);
+    let lg = Math.pow(((i & 992) >>> 5) / 31.0, lcdGamma);
+    let lr = Math.pow((i & 31) / 31.0, lcdGamma);
+    let r = Math.pow((  0 * lb +  50 * lg + 220 * lr) / 255, 1 / outGamma) * (0xffff / 280);
+    let g = Math.pow(( 30 * lb + 230 * lg +  10 * lr) / 255, 1 / outGamma) * (0xffff / 280);
+    let b = Math.pow((220 * lb +  10 * lg +  10 * lr) / 255, 1 / outGamma) * (0xffff / 280);
+
+    this.convertColor[i] = 0xFF000000 + (b << 16) + (g << 8) + r;
     this.convertColor[i + 32768] = this.convertColor[i]; //account for 15th bit being set sometimes in colors (e.g. BIOS backdrop)
   }  
 
