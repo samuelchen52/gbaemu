@@ -83,7 +83,12 @@ timer.prototype.update = function (numCycles) {
 		this.counter += (numCycles + this.leftoverCycles) >>> this.freqPow;
 		this.leftoverCycles = (numCycles + this.leftoverCycles) & (this.freq - 1);
 	
-		if (this.counter === 0x10000)
+		//counter normally shouldnt go above 0x10000
+		//only happens when timer is set to increment at a high cycle count (so it returns a high amount of cycles before the next timer interrupt)
+		//then is set to increment at a low cycle count when CPU is running (in which case the timer is updated with too many cycles i.e. timer should have already gone off)
+		//if this happens, we'll just have the timer go off (late)
+		//to fix, have to have an actual scheduler
+		if (this.counter >= 0x10000)
 		{
 			this.counter = this.reload;
 			if (this.nextTimer.cascade && this.nextTimer.enabled)
@@ -97,13 +102,9 @@ timer.prototype.update = function (numCycles) {
 		    this.cpu.checkInterrupt = true;
 			}
 		}
-		if (this.counter > 0x10000)
-		{
-			throw Error("error with scheduling?");
-		}
 		return (0x10000 - this.counter) << this.freqPow;
 	}
-	return 0xFFFFFFFF; //return some arbitrarily large number for the scheduler
+	return Number.MAX_SAFE_INTEGER; //return some arbitrarily large number for the scheduler
 };
 
 timer.prototype.increment = function () {
