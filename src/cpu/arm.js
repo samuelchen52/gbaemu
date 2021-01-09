@@ -1,16 +1,11 @@
-const arm = function(mmu, registers, changeState, setCPSR, resetPipeline, startSWI, registerIndices) {
-	
+const arm = function(cpu, mmu, registerIndices) {
+	this.cpu = cpu;
 	this.mmu = mmu;
-	this.registers = registers;
-	this.changeState = changeState;
-	this.setCPSR = setCPSR;
-	this.resetPipeline = resetPipeline;
-	this.startSWI = startSWI;
+	this.registers = cpu.registers;
 	this.registerIndices = registerIndices;
 
 	this.shiftCarryFlag = undefined;
 	this.initFnTable();
-
 	this.initLUT();
 };
 
@@ -192,22 +187,19 @@ arm.prototype.SPSRtoCPSR = function (mode) {
 	else //set CPSR to SPSR and update CPU state and mode
 	{
 		let SPSR = this.registers[17][this.registerIndices[mode][17]];
-		this.changeState(bitSlice(SPSR, 5, 5) ? "THUMB" : "ARM");
-		this.setCPSR(SPSR);
+		this.cpu.changeState(bitSlice(SPSR, 5, 5) ? "THUMB" : "ARM");
+		this.cpu.setCPSR(SPSR);
 	}
 };
 
 //CPSR nzcv xxxx xxxx xxxx xxxx xxxx xxxx xxxx 
 arm.prototype.setNZCV = function (nflag, zflag, cflag, vflag) { 
-  let newNZCV = 0;
-
-  newNZCV = nflag ? 1 : 0;
-  newNZCV = zflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
-  newNZCV = cflag === undefined ? ((newNZCV << 1) + bitSlice(this.registers[16][0], 29, 29)) : (cflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
-  newNZCV = vflag === undefined ? ((newNZCV << 1) + bitSlice(this.registers[16][0], 28, 28)) : (vflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
+	//if cflag / vflag not provided, keep the current flag value
+	cflag = (cflag === undefined) ? (this.registers[16][0] & 0x20000000) : (cflag ? 0x20000000 : 0);
+	vflag = (vflag === undefined) ? (this.registers[16][0] & 0x10000000) : (vflag ? 0x10000000 : 0);
 
   this.registers[16][0] &= 0x00FFFFFF; //set first byte to zero
-  this.registers[16][0] += (newNZCV << 28); //add new flags to CPSR
+  this.registers[16][0] = this.registers[16][0] | (nflag ? 0x80000000 : 0) | (zflag ? 0x40000000 : 0) | cflag | vflag; //add new flags to CPSR
 };
 
 //ARM[5]-----------------------------------------------------------------------------------------------------
@@ -281,7 +273,7 @@ arm.prototype.executeOpcode3 = function (instr, mode) { //3 - LDRH p=0 i=0 Load 
 
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (rn !== rd)
@@ -314,7 +306,7 @@ arm.prototype.executeOpcode5 = function (instr, mode) { //5 - LDRH p=0 i=1 Load 
 
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (rn !== rd)
@@ -334,7 +326,7 @@ arm.prototype.executeOpcode6 = function (instr, mode) { //6 - LDRSB p=0 i=0 Load
 	this.registers[rd][this.registerIndices[mode][rd]] = byte;
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (rn !== rd)
@@ -354,7 +346,7 @@ arm.prototype.executeOpcode7 = function (instr, mode) { //7 - LDRSB p=0 i=1 Load
 	this.registers[rd][this.registerIndices[mode][rd]] = byte;
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	
 	if (rn !== rd)
@@ -386,7 +378,7 @@ arm.prototype.executeOpcode8 = function (instr, mode) { //8 - LDRSH p=0 i=0 Load
 
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (rn !== rd)
@@ -418,7 +410,7 @@ arm.prototype.executeOpcode9 = function (instr, mode) { //9 - LDRSH p=0 i=1 Load
 
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (rn !== rd)
@@ -452,7 +444,7 @@ arm.prototype.executeOpcode10 = function (instr, mode) { //10 - AND 0tt1 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -484,7 +476,7 @@ arm.prototype.executeOpcode11 = function (instr, mode) { //11 - EOR 0tt1 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -518,7 +510,7 @@ arm.prototype.executeOpcode12 = function (instr, mode) { //12 - SUB 0tt1 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -552,7 +544,7 @@ arm.prototype.executeOpcode13 = function (instr, mode) { //13 - RSB 0tt1 Rd = Op
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -586,7 +578,7 @@ arm.prototype.executeOpcode14 = function (instr, mode) { //14 - ADD 0tt1 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -621,7 +613,7 @@ arm.prototype.executeOpcode15 = function (instr, mode) { //15 - ADC 0tt1 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -656,7 +648,7 @@ arm.prototype.executeOpcode16 = function (instr, mode) { //16 - SBC 0tt1 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -691,7 +683,7 @@ arm.prototype.executeOpcode17 = function (instr, mode) { //17 - RSC 0tt1 Rd = Op
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -722,7 +714,7 @@ arm.prototype.executeOpcode18 = function (instr, mode) { //18 - AND stt0 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -748,7 +740,7 @@ arm.prototype.executeOpcode19 = function (instr, mode) { //19 - EOR stt0 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -776,7 +768,7 @@ arm.prototype.executeOpcode20 = function (instr, mode) { //20 - SUB stt0 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -804,7 +796,7 @@ arm.prototype.executeOpcode21 = function (instr, mode) { //21 - RSB stt0 Rd = Op
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -833,7 +825,7 @@ arm.prototype.executeOpcode22 = function (instr, mode) { //22 - ADD stt0 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -863,7 +855,7 @@ arm.prototype.executeOpcode23 = function (instr, mode) { //23 - ADC stt0 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -892,7 +884,7 @@ arm.prototype.executeOpcode24 = function (instr, mode) { //24 - SBC stt0 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -921,7 +913,7 @@ arm.prototype.executeOpcode25 = function (instr, mode) { //25 - RSC stt0 Rd = Op
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -964,13 +956,13 @@ arm.prototype.executeOpcode28 = function (instr, mode) { //28 - BX PC=Rn T=Rn[0]
 	if (this.registers[rn][this.registerIndices[mode][rn]] & 1)
 	{
 		this.registers[15][0] = this.registers[rn][this.registerIndices[mode][rn]]; //clear bit 0
-		this.changeState("THUMB");
+		this.cpu.changeState("THUMB");
 	}
 	else
 	{
 		this.registers[15][0] = this.registers[rn][this.registerIndices[mode][rn]]; //clear bottom two bits
 	}
-	this.resetPipeline();
+	this.cpu.resetPipeline();
 };
 
 arm.prototype.executeOpcode29 = function (instr, mode) { //29 - CMP 0tt1 Void = Rn-Op2
@@ -1035,7 +1027,7 @@ arm.prototype.executeOpcode31 = function (instr, mode) { //31 - ORR 0tt1 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -1066,7 +1058,7 @@ arm.prototype.executeOpcode32 = function (instr, mode) { //32 - MOV 0tt1 Rd = Op
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -1098,7 +1090,7 @@ arm.prototype.executeOpcode33 = function (instr, mode) { //33 - BIC 0tt1 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -1129,7 +1121,7 @@ arm.prototype.executeOpcode34 = function (instr, mode) { //34 - MVN 0tt1 Rd = NO
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -1188,7 +1180,7 @@ arm.prototype.executeOpcode37 = function (instr, mode) { //37 - LDRH p=1 i=0 Loa
 
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (w && (rn !== rd))
@@ -1229,7 +1221,7 @@ arm.prototype.executeOpcode39 = function (instr, mode) { //39 - LDRH p=1 i=1 Loa
 	// console.log("addr: " + (this.registers[rn][this.registerIndices[mode][rn]] + offset * (u ? 1 : -1)).toString(16));
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (w && (rn !== rd))
@@ -1250,7 +1242,7 @@ arm.prototype.executeOpcode40 = function (instr, mode) { //40 - LDRSB p=1 i=0 Lo
 	this.registers[rd][this.registerIndices[mode][rd]] = byte;
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (w && (rn !== rd))
@@ -1271,7 +1263,7 @@ arm.prototype.executeOpcode41 = function (instr, mode) { //41 - LDRSB p=1 i=1 Lo
 	this.registers[rd][this.registerIndices[mode][rd]] = byte;
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	
 	if (w && (rn !== rd))
@@ -1304,7 +1296,7 @@ arm.prototype.executeOpcode42 = function (instr, mode) { //42 - LDRSH p=1 i=0 Lo
 
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (w && (rn !== rd))
@@ -1337,7 +1329,7 @@ arm.prototype.executeOpcode43 = function (instr, mode) { //43 - LDRSH p=1 i=1 Lo
 
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 
 	if (w && (rn !== rd))
@@ -1403,7 +1395,7 @@ arm.prototype.executeOpcode45 = function (instr, mode) { //45 - MSR register Psr
 	}
 	else //set CPSR
 	{
-		this.setCPSR(psr);
+		this.cpu.setCPSR(psr);
 	}
 
 };
@@ -1487,7 +1479,7 @@ arm.prototype.executeOpcode50 = function (instr, mode) { //50 - ORR stt0 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1512,7 +1504,7 @@ arm.prototype.executeOpcode51 = function (instr, mode) { //51 - MOV stt0 Rd = Op
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1538,7 +1530,7 @@ arm.prototype.executeOpcode52 = function (instr, mode) { //52 - BIC stt0 Rd = Rn
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1563,7 +1555,7 @@ arm.prototype.executeOpcode53 = function (instr, mode) { //53 - MVN stt0 Rd = NO
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1588,7 +1580,7 @@ arm.prototype.executeOpcode54 = function (instr, mode) { //54 - AND imm Rd = Rn 
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1612,7 +1604,7 @@ arm.prototype.executeOpcode55 = function (instr, mode) { //55 - EOR imm Rd = Rn 
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1637,7 +1629,7 @@ arm.prototype.executeOpcode56 = function (instr, mode) { //56 - SUB imm Rd = Rn-
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1658,7 +1650,7 @@ arm.prototype.executeOpcode57 = function (instr, mode) { //57 - RSB imm Rd = Op2
 	this.registers[rd][this.registerIndices[mode][rd]] = result;
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 		if (s) //set CPSR to SPSR_current_mode
 		{
 			this.SPSRtoCPSR(mode);			
@@ -1688,7 +1680,7 @@ arm.prototype.executeOpcode58 = function (instr, mode) { //58 - ADD imm Rd = Rn+
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1715,7 +1707,7 @@ arm.prototype.executeOpcode59 = function (instr, mode) { //59 - ADC imm Rd = Rn+
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1741,7 +1733,7 @@ arm.prototype.executeOpcode60 = function (instr, mode) { //60 - SBC imm Rd = Rn-
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1767,7 +1759,7 @@ arm.prototype.executeOpcode61 = function (instr, mode) { //61 - RSC imm Rd = Op2
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1834,7 +1826,7 @@ arm.prototype.executeOpcode63 = function (instr, mode) { //63 - MSR imm Psr[fiel
 	}
 	else //set CPSR
 	{
-		this.setCPSR(psr);
+		this.cpu.setCPSR(psr);
 	}
 };
 
@@ -1892,7 +1884,7 @@ arm.prototype.executeOpcode67 = function (instr, mode) { //67 - ORR imm Rd = Rn 
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1915,7 +1907,7 @@ arm.prototype.executeOpcode68 = function (instr, mode) { //68 - MOV imm  Rd = Op
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1939,7 +1931,7 @@ arm.prototype.executeOpcode69 = function (instr, mode) { //69 - BIC imm Rd = Rn 
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -1962,7 +1954,7 @@ arm.prototype.executeOpcode70 = function (instr, mode) { //70 - MVN imm Rd = NOT
 		{
 			this.SPSRtoCPSR(mode);
 		}
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -2022,7 +2014,7 @@ arm.prototype.executeOpcode71 = function (instr, mode) { //71 - LDR / STR i=0
 
 		if (rd === 15)
 		{
-			this.resetPipeline();
+			this.cpu.resetPipeline();
 		}
 	}
 	else //STR
@@ -2094,7 +2086,7 @@ arm.prototype.executeOpcode72 = function (instr, mode) { //72 - LDR / STR i=1
 
 		if (rd === 15)
 		{
-			this.resetPipeline();
+			this.cpu.resetPipeline();
 		}
 	}
 	else //STR
@@ -2162,7 +2154,7 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 		if (l)
 		{
 			this.registers[15][0] = this.mmu.read32(addr & 0xFFFFFFFC);
-			this.resetPipeline();
+			this.cpu.resetPipeline();
 		}
 		else
 		{
@@ -2222,7 +2214,7 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 
 		if (rlist & 32768) //if r15 loaded
 		{
-			this.resetPipeline();
+			this.cpu.resetPipeline();
 		}
 	}
 	else //STM
@@ -2305,7 +2297,7 @@ arm.prototype.executeOpcode74 = function (instr, mode) { //74 - B / BL
 	}
 	
 	this.registers[15][this.registerIndices[mode][15]] += (signedOffset << 2);
-	this.resetPipeline();
+	this.cpu.resetPipeline();
 };
 
 //ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2327,7 +2319,7 @@ arm.prototype.executeOpcode77 = function (instr, mode) { //77 - MRC / MCR
 
 //ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
 arm.prototype.executeOpcode78 = function (instr, mode) { //78 - SWI
-	this.startSWI(bitSlice(instr, 0, 23));
+	this.cpu.startSWI(bitSlice(instr, 0, 23));
 };
 
 //ARM[5]-----------------------------------------------------------------------------------------------------

@@ -1,12 +1,13 @@
-const objectLayer = function(vramMem, paletteRamMem16, oamMem, graphics) {
+const objectLayer = function(graphics, mmu) {
   this.sprites = [];
   this.OBJAffines = [];
-  this.PBGs = [new Uint16Array(248), new Uint16Array(248), new Uint16Array(248), new Uint16Array(248)];
+  this.PBGs = [new Uint16Array(248), new Uint16Array(248), new Uint16Array(248), new Uint16Array(248)]; //'phantom' backgrounds, one for each object priority (0 - 3)
   this.spritesPerPBG = [128, 0, 0, 0];
 
   this.mappingMode = 0; //0 - 2d, 1 - 1d
 
   //initialize all OBJ Affine Parameter objects
+  let oamMem = mmu.getMemoryRegion("OAM");
   let OBJAffineIORegs = oamMem.getOBJAffineIORegs();
   for (let i = 0; i < 128; i += 4)
   {
@@ -16,7 +17,7 @@ const objectLayer = function(vramMem, paletteRamMem16, oamMem, graphics) {
   //initialize all sprites
   for (let i = 0; i < 128; i ++)
   {
-  	this.sprites.push(new sprite(vramMem, paletteRamMem16, this.OBJAffines, oamMem.getIOReg("OBJ" + i + "ATTR0"), oamMem.getIOReg("OBJ" + i + "ATTR1"), oamMem.getIOReg("OBJ" + i + "ATTR2"), this, i) );
+  	this.sprites.push(new sprite(i, mmu, this, this.OBJAffines, oamMem.getIOReg("OBJ" + i + "ATTR0"), oamMem.getIOReg("OBJ" + i + "ATTR1"), oamMem.getIOReg("OBJ" + i + "ATTR2")) );
   }
 
   this.graphics = graphics;
@@ -45,19 +46,22 @@ objectLayer.prototype.renderScanline = function (scanline) {
 	}
 };
 
+//updates the number of sprites in a 'phantom' bg
 objectLayer.prototype.updateSpritesPerPBG = function (oldPrio, newPrio) {
   if (oldPrio !== newPrio)
   {
     this.spritesPerPBG[oldPrio] --;
     this.spritesPerPBG[newPrio] ++;
 
+    //'turn off' an object layer, since there are no more sprites with oldPrio
     if (this.spritesPerPBG[oldPrio] === 0)
     {
-      this.graphics.updateObjLayerDisplay(this.graphics.objLayerNumToLayerIndex[oldPrio], 0);
+      this.graphics.updateObjLayerDisplay(oldPrio, 0);
     }
+    //'turn on' an object layer, since a sprite just got changed to a prio that no other sprite has
     if (this.spritesPerPBG[newPrio] === 1)
     {
-      this.graphics.updateObjLayerDisplay(this.graphics.objLayerNumToLayerIndex[newPrio], 1);
+      this.graphics.updateObjLayerDisplay(newPrio, 1);
     }
   }
 

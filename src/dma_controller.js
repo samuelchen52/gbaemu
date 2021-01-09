@@ -6,8 +6,7 @@ const DMAController = function(mmu, cpu, graphics) {
 	this.DMAChannel2 = new DMAChannel12(mmu, cpu, ioregion.getIOReg("DMA2SAD"), ioregion.getIOReg("DMA2DAD"), ioregion.getIOReg("DMA2CNTL"), ioregion.getIOReg("DMA2CNTH"), 0xFFFFFFF, 0x7FFFFFF, 0x3FFF, 4);
 	this.DMAChannel3 = new DMAChannel3(mmu, cpu, ioregion.getIOReg("DMA3SAD"), ioregion.getIOReg("DMA3DAD"), ioregion.getIOReg("DMA3CNTL"), ioregion.getIOReg("DMA3CNTH"), 0xFFFFFFF, 0xFFFFFFF, 0xFFFF, 8);
 
-	graphics.vblankCallback = this.triggerVblankDMA.bind(this);
-	graphics.hblankCallback = this.triggerHblankDMA.bind(this);
+	graphics.addCallbacks(this.triggerHblankDMA.bind(this), this.triggerVblankDMA.bind(this));
 	window.dma = this;
 };
 
@@ -215,8 +214,7 @@ DMAChannel.prototype.startTransfer = function (shouldStart) {
 		if (this.irqEnable)
 		{	
 			this.ioRegionMem[this.ifByte2] |= this.interruptFlag;
-	    this.cpu.halt = false;
-	    this.cpu.checkInterrupt = true;
+	    this.cpu.awake();
 		}
 	}
 };

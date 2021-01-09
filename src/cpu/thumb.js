@@ -1,16 +1,12 @@
-const thumb = function(mmu, registers, changeState, setCPSR, resetPipeline, startSWI, registerIndices) {
-	
+const thumb = function(cpu, mmu, registerIndices) {
+	this.cpu = cpu;
 	this.mmu = mmu;
-	this.registers = registers;
-	this.changeState = changeState;
-	this.setCPSR = setCPSR;
-	this.resetPipeline = resetPipeline;
-	this.startSWI = startSWI;
+	this.registers = cpu.registers;
 	this.registerIndices = registerIndices;
+
 
 	this.shiftCarryFlag = undefined;
 	this.initFnTable();
-
 	this.initLUT();
 };
 
@@ -91,15 +87,12 @@ thumb.prototype.RORRegByReg = function (register, shiftamt) {
 
 //CPSR nzcv xxxx xxxx xxxx xxxx xxxx xxxx xxxx 
 thumb.prototype.setNZCV = function (nflag, zflag, cflag, vflag) { 
-  let newNZCV = 0;
-
-  newNZCV = nflag ? 1 : 0;
-  newNZCV = zflag ? ((newNZCV << 1) + 1) : newNZCV << 1;
-  newNZCV = cflag === undefined ? ((newNZCV << 1) + bitSlice(this.registers[16][0], 29, 29)) : (cflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
-  newNZCV = vflag === undefined ? ((newNZCV << 1) + bitSlice(this.registers[16][0], 28, 28)) : (vflag ? ((newNZCV << 1) + 1) : newNZCV << 1);
+	//if cflag / vflag not provided, keep the current flag value
+	cflag = (cflag === undefined) ? (this.registers[16][0] & 0x20000000) : (cflag ? 0x20000000 : 0);
+	vflag = (vflag === undefined) ? (this.registers[16][0] & 0x10000000) : (vflag ? 0x10000000 : 0);
 
   this.registers[16][0] &= 0x00FFFFFF; //set first byte to zero
-  this.registers[16][0] += (newNZCV << 28); //add new flags to CPSR
+  this.registers[16][0] = this.registers[16][0] | (nflag ? 0x80000000 : 0) | (zflag ? 0x40000000 : 0) | cflag | vflag; //add new flags to CPSR
 };
 
 //THUMB.1------------------------------------------------------------------------------------------------------
@@ -407,7 +400,7 @@ thumb.prototype.executeOpcode27 = function (instr, mode) { //27 - ADD check need
 	this.registers[rd][this.registerIndices[mode][rd]] += this.registers[rs][this.registerIndices[mode][rs]];
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -428,7 +421,7 @@ thumb.prototype.executeOpcode29 = function (instr, mode) { //29 - MOV check need
 	this.registers[rd][this.registerIndices[mode][rd]] = this.registers[rs][this.registerIndices[mode][rs]];
 	if (rd === 15)
 	{
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -444,10 +437,10 @@ thumb.prototype.executeOpcode30 = function (instr, mode) { //30 - BX check neede
 	this.registers[15][this.registerIndices[mode][15]] = this.registers[rs][this.registerIndices[mode][rs]];
 	if (bitSlice(this.registers[rs][this.registerIndices[mode][rs]], 0, 0) === 0) //if bit 0 of rs is 0, switch to arm state
 	{
-		this.changeState("ARM");
+		this.cpu.changeState("ARM");
 	}
 
-	this.resetPipeline();
+	this.cpu.resetPipeline();
 };
 
 //THUMB.6------------------------------------------------------------------------------------------------------
@@ -691,7 +684,7 @@ thumb.prototype.executeOpcode53 = function (instr, mode) { //53 - POP load from 
 		//console.log("popping register 15 from mem addr 0x" + this.registers[13][this.registerIndices[mode][13]].toString(16));
 		this.registers[15][this.registerIndices[mode][15]] = this.mmu.read32(this.registers[13][this.registerIndices[mode][13]] & 0xFFFFFFFC);
 		this.registers[13][this.registerIndices[mode][13]] += 4;
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
@@ -737,7 +730,7 @@ thumb.prototype.executeOpcode55 = function (instr, mode) { //55 - LDMIA load fro
 	{
 		this.registers[15][0] = this.mmu.read32(addr & 0xFFFFFFFC);
 		this.registers[rb][this.registerIndices[mode][rb]] += 0x40;
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 	else
 	{
@@ -802,13 +795,13 @@ thumb.prototype.executeOpcode56 = function (instr, mode) { //56 - CONDITIONAL BR
 	if (execute)
 	{
 		this.registers[15][0] += offset;
-		this.resetPipeline();
+		this.cpu.resetPipeline();
 	}
 };
 
 //THUMB.17------------------------------------------------------------------------------------------------------
 thumb.prototype.executeOpcode57 = function (instr, mode) { //57 - SWI
-	this.startSWI(bitSlice(instr, 0, 7));
+	this.cpu.startSWI(bitSlice(instr, 0, 7));
 };
 
 //THUMB.18------------------------------------------------------------------------------------------------------
@@ -816,7 +809,7 @@ thumb.prototype.executeOpcode58 = function (instr, mode) { //58 - UNCONDITIONAL 
 	//offset is signed
 	let offset =  bitSlice(instr, 10, 10) ? (((~(bitSlice(instr, 0, 10) - 1)) & 0x7FF) * -1) << 1 : bitSlice(instr, 0, 9) << 1;
 	this.registers[15][0] += offset;
-	this.resetPipeline();
+	this.cpu.resetPipeline();
 };
 
 //THUMB.19------------------------------------------------------------------------------------------------------
@@ -845,7 +838,7 @@ thumb.prototype.executeOpcode60 = function (instr, mode) { //60 - LONG BRANCH 2
 	let temp = this.registers[14][this.registerIndices[mode][14]];
 	this.registers[14][this.registerIndices[mode][14]] = (this.registers[15][this.registerIndices[mode][15]] - 2) | 1;
 	this.registers[15][0] = (temp + offset);
-	this.resetPipeline();
+	this.cpu.resetPipeline();
 };
 
 thumb.prototype.decode = function (instr) {

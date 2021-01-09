@@ -80,7 +80,8 @@ const cpu = function (pc, mmu) {
   	this.mode = this.modeENUMS["SYSTEM"]; //starting mode is SYSTEM
     this.halt = false;
 
-    this.registerIndices = [
+    //for register banking
+    let = registerIndices = [
     //                     1 1 1 1 1 1
     //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
       [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"]
@@ -119,28 +120,28 @@ const cpu = function (pc, mmu) {
     //set default sp values
     this.registers[13][0] = 0x03007F00; //USER/SYSTEM
     this.registers[13][4] = 0x03007FA0; //IRQ
-    this.registers[13][2] = 0x03007FE0; //SVC
+    this.registers[13][2] = 0x03007FE0; 
 
     //cpu pipeline (pipeline[0] holds instruction to be decoded, pipeline[1] and pipeline[2] hold the opcode and the instruction itself to be executed)
     this.pipeline = new Uint32Array(3);
 
     //ARM and THUMB 
-    this.THUMB = new thumb(this.mmu, this.registers, this.changeState.bind(this), this.setCPSR.bind(this), this.resetPipeline.bind(this), this.startSWI.bind(this), this.registerIndices);
-    this.ARM = new arm(this.mmu, this.registers, this.changeState.bind(this), this.setCPSR.bind(this), this.resetPipeline.bind(this), this.startSWI.bind(this), this.registerIndices);
+    this.THUMB = new thumb(this, mmu, registerIndices);
+    this.ARM = new arm(this, mmu, registerIndices);
 
     //interrupt stuff
-    this.ioregion = this.mmu.getMemoryRegion("IOREGISTERS");
-    this.ioregionMem16 = new Uint16Array(this.ioregion.memory.buffer); //0x4000000
+    let ioregion = this.mmu.getMemoryRegion("IOREGISTERS");
+    this.ioregionMem16 = new Uint16Array(ioregion.memory.buffer); //0x4000000
 
     this.interruptEnable = 0;
     this.masterInterruptEnable = 0;
     this.checkInterrupt = false;
 
-    this.ioregion.getIOReg("IME").addCallback((newIMEVal) => {this.updateIME(newIMEVal)});
-    this.ioregion.getIOReg("IE").addCallback((newIEVal) => {this.updateIE(newIEVal)});
-    this.ioregion.getIOReg("HALTCNT").addCallback((newHALTCNTVal) => {this.updateHALTCNT(newHALTCNTVal)});
+    ioregion.getIOReg("IME").addCallback((newIMEVal) => {this.updateIME(newIMEVal)});
+    ioregion.getIOReg("IE").addCallback((newIEVal) => {this.updateIE(newIEVal)});
+    ioregion.getIOReg("HALTCNT").addCallback((newHALTCNTVal) => {this.updateHALTCNT(newHALTCNTVal)});
 
-    this.if = this.ioregion.getIOReg("IF");
+    this.if = ioregion.getIOReg("IF");
     this.ifVal = this.if.regIndex >>> 1;
 
 
@@ -196,7 +197,7 @@ cpu.prototype.startSWI = function (swiNum) {
   this.registers[15][0] = 0x8; //set pc to swi exception vector
 
   this.resetPipeline();
-}
+};
 
 cpu.prototype.startIRQ = function () {
   //console.log(this.interruptCause);
@@ -220,7 +221,12 @@ cpu.prototype.startIRQ = function () {
 
     this.initPipeline();
   }
-}
+};
+
+cpu.prototype.awake = function () {
+  this.halt = false;
+  this.checkInterrupt = true;
+};
 
 //setter functions for internal state-------------------------------------------------------------------
 cpu.prototype.changeState = function (newState) {
@@ -392,7 +398,7 @@ cpu.prototype.resetPipeline = function (){
 //   }
 // }
 
-cpu.prototype.run = function(numCycles) {
+cpu.prototype.run = function(numCycles, pipeline = this.pipeline) {
   // if (!this.halt)
   // {
   //   let pipeline = this.pipeline;
@@ -429,16 +435,16 @@ cpu.prototype.run = function(numCycles) {
       this.checkInterrupt = false;
     }
 
-    var pipelinecopy0 = this.pipeline[0];
-    var pipelinecopy1 = this.pipeline[1];
-    var pipelinecopy2 = this.pipeline[2];
+    let pipelinecopy0 = pipeline[0];
+    let pipelinecopy1 = pipeline[1];
+    let pipelinecopy2 = pipeline[2];
 
-    this.pipeline[0] = this.fetch();
+    pipeline[0] = this.fetch();
 
-    this.pipeline[1] = pipelinecopy0;
-    this.pipeline[2] = this.decode(pipelinecopy0);   
+    pipeline[1] = pipelinecopy0;
+    pipeline[2] = this.decode(pipelinecopy0);   
 
     this.execute(pipelinecopy1, pipelinecopy2);
     this.registers[15][0] += this.insize; //increment pc
   }
-}
+};

@@ -32,8 +32,8 @@ const start = function (biosBuffer, romBuffer) {
 
 	//hardware
 	const MMU = new mmu();
-	const CPU = new cpu(0, MMU);
-	const GRAPHICS = new graphics(MMU, CPU, function(){frameNotComplete = false;});
+	const CPU = new cpu(0x8000000, MMU);
+	const GRAPHICS = new graphics(MMU, CPU, document.getElementById("backingScreen"), document.getElementById("visibleScreen"), function(){frameNotComplete = false;});
 	const TIMERCONTROLLER = new timerController(MMU, CPU);
 	const KEYPAD = new keypad(MMU);
 	const DMACONTROLLER = new DMAController(MMU, CPU, GRAPHICS);
@@ -166,12 +166,9 @@ const start = function (biosBuffer, romBuffer) {
 			// GRAPHICS.update(1);
 			// TIMERCONTROLLER.update(1)			
 
-			if (!CPU.halt)
-			{
-				for (var i = 0; i < cyclesToRun; i ++)
-				{	
-					CPU.run();
-				}
+			for (let i = 0; i < cyclesToRun && !CPU.halt; i ++)	
+			{	
+				CPU.run();
 			}
 			cyclesToRun = Math.min(GRAPHICS.update(cyclesToRun), TIMERCONTROLLER.update(cyclesToRun));
 		}

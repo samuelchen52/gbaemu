@@ -12,7 +12,7 @@ const timerController = function(mmu, cpu) {
 	this.timer1 = new timer(ioregion.getIOReg("TM1CNTL"), ioregion.getIOReg("TM1CNTH"), this.timer2, cpu, ioregion.memory, ifByte1, 16);
 	this.timer0 = new timer(ioregion.getIOReg("TM0CNTL"), ioregion.getIOReg("TM0CNTH"), this.timer1, cpu, ioregion.memory, ifByte1, 8);
 	window.timer = this;
-}
+};
 
 timerController.prototype.update = function (numCycles) {
 	return Math.min(this.timer0.update(numCycles), this.timer1.update(numCycles), this.timer2.update(numCycles), this.timer3.update(numCycles));
@@ -98,8 +98,7 @@ timer.prototype.update = function (numCycles) {
 			if (this.irqEnable)
 			{
 				this.ioregionMem[this.ifByte1] |= this.interruptFlag;
-		    this.cpu.halt = false;
-		    this.cpu.checkInterrupt = true;
+		    this.cpu.awake();
 			}
 		}
 		return (0x10000 - this.counter) << this.freqPow;
@@ -119,8 +118,7 @@ timer.prototype.increment = function () {
 		if (this.irqEnable)
 		{
 			this.ioregionMem[this.ifByte1] |= this.interruptFlag;
-	    this.cpu.halt = false;
-	    this.cpu.checkInterrupt = true;
+	    this.cpu.awake();
 		}
 	}
 };

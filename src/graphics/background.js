@@ -1,6 +1,6 @@
-const background = function(bgcnt, bghofs, bgvofs, bgx, bgy, bgpa, bgpb, bgpc, bgpd, vramMem, paletteRamMem, graphics, bgNum) {
-
+const background = function(bgNum, graphics, mmu, bgcnt, bghofs, bgvofs, bgx, bgy, bgpa, bgpb, bgpc, bgpd, vramMem, paletteRamMem) {
 	this.bgNum = bgNum;
+  this.graphics = graphics;
 
 	this.prio = 0;
 	this.CBB = 0;
@@ -39,13 +39,12 @@ const background = function(bgcnt, bghofs, bgvofs, bgx, bgy, bgpa, bgpb, bgpc, b
     bgpd.addCallback((newBGPDVal) => {this.updateBGPD(newBGPDVal)});
   }
 
-  this.vramMem8 = vramMem;
-	this.vramMem16 = new Uint16Array(vramMem.buffer);
-	this.paletteRamMem16 = new Uint16Array(paletteRamMem.buffer);
+  this.vramMem8 = mmu.getMemoryRegion("VRAM").memory;
+	this.vramMem16 = new Uint16Array(this.vramMem8.buffer);
+	this.paletteRamMem16 = new Uint16Array(mmu.getMemoryRegion("PALETTERAM").memory.buffer);
   this.scanlineArr = new Uint16Array(248); //extra 8 for misaligned tiles
   this.seArr = new Uint16Array(31);
 
-  this.graphics = graphics;
   //indexed by bg size
   this.getScreenEntries = [
 	  this.getScreenEntriesSize0,
@@ -53,7 +52,7 @@ const background = function(bgcnt, bghofs, bgvofs, bgx, bgy, bgpa, bgpb, bgpc, b
 	  this.getScreenEntriesSize0,
 	  this.getScreenEntriesSize3
   ];
-}
+};
 
 background.prototype.backgroundENUMS = {
     BGPRIO : 3,
@@ -68,10 +67,8 @@ background.prototype.backgroundENUMS = {
     VOFFSET : 511,
 };
 
-background.prototype.transparentScanline = new Uint16Array(248).fill(0x8000);
-
 background.prototype.updateBGCNT = function (newBGCNTVal) {
-  this.prio = this.graphics.updateBGPriority(this.graphics.bgNumToLayerIndex[this.bgNum], this.prio, newBGCNTVal & this.backgroundENUMS["BGPRIO"]);
+  this.prio = this.graphics.updateBGPriority(this.bgNum, this.prio, newBGCNTVal & this.backgroundENUMS["BGPRIO"]);
 
   this.CBB = (newBGCNTVal & this.backgroundENUMS["CBB"]) >>> 2;
   this.mosaic = newBGCNTVal & this.backgroundENUMS["MOSAIC"];
@@ -81,43 +78,43 @@ background.prototype.updateBGCNT = function (newBGCNTVal) {
   this.screenSize = (newBGCNTVal & this.backgroundENUMS["SCREENSIZE"]) >>> 14;
 
   this.screenSizeAffine = 128 << this.screenSize;
-}
+};
 
 background.prototype.updateBGHOFS = function (newBGHOFSVal) {
   this.hOffset = newBGHOFSVal & this.backgroundENUMS["HOFFSET"];
   //console.log(this.hOffset);
-}
+};
 
 background.prototype.updateBGVOFS = function (newBGVOFSVal) {
   this.vOffset = newBGVOFSVal & this.backgroundENUMS["VOFFSET"];
   //console.log(this.vOffset);
-}
+};
 
 background.prototype.updateBGX = function (newBGXVal) {
   this.refX = newBGXVal & 0x8000000 ? -1 * (~(newBGXVal - 1) & 0xFFFFFFF) : newBGXVal & 0xFFFFFFF;
   this.internalRefX = this.refX;
-}
+};
 
 background.prototype.updateBGY = function (newBGYVal) {
   this.refY = newBGYVal & 0x8000000 ? -1 * (~(newBGYVal - 1) & 0xFFFFFFF) : newBGYVal & 0xFFFFFFF;
   this.internalRefY = this.refY;
-}
+};
 
 background.prototype.updateBGPA = function (newBGPAVal) {
   this.bgpa = newBGPAVal & 32768 ? -1 * (~(newBGPAVal - 1) & 0xFFFF) : newBGPAVal;
-}
+};
 
 background.prototype.updateBGPB = function (newBGPBVal) {
   this.bgpb = newBGPBVal & 32768 ? -1 * (~(newBGPBVal - 1) & 0xFFFF) : newBGPBVal;
-}
+};
 
 background.prototype.updateBGPC = function (newBGPCVal) {
   this.bgpc = newBGPCVal & 32768 ? -1 * (~(newBGPCVal - 1) & 0xFFFF) : newBGPCVal;
-}
+};
 
 background.prototype.updateBGPD = function (newBGPDVal) {
   this.bgpd = newBGPDVal & 32768 ? -1 * (~(newBGPDVal - 1) & 0xFFFF) : newBGPDVal;
-}
+};
 
 //tiles (screen entries) are 16 bits
 //0-9 tile index
@@ -149,7 +146,7 @@ background.prototype.renderScanlineMode0 = function (scanline) {
   }
 
   return scanlineArr; 
-}
+};
 
 
 
@@ -168,7 +165,7 @@ background.prototype.getScreenEntriesSize0 = function (scanline, hOffset, vOffse
 		seArr[i] = vramMem16[seIndex + hOffset];
 		hOffset = (hOffset + 1) % 32;
 	}
-}
+};
 
 background.prototype.getScreenEntriesSize1 = function (scanline, hOffset, vOffset, sbb, vramMem16, seArr) {
 	hOffset = (hOffset >>> 3) % 64;
@@ -180,7 +177,7 @@ background.prototype.getScreenEntriesSize1 = function (scanline, hOffset, vOffse
 		seArr[i] = vramMem16[seIndex + (hOffset % 32) + ((hOffset & 32) * 32)];
 		hOffset = (hOffset + 1) % 64;
 	}
-}
+};
 
 background.prototype.getScreenEntriesSize3 = function (scanline, hOffset, vOffset, sbb, vramMem16, seArr) {
 	hOffset = (hOffset >>> 3) % 64;
@@ -192,7 +189,7 @@ background.prototype.getScreenEntriesSize3 = function (scanline, hOffset, vOffse
 		seArr[i] = vramMem16[seIndex + (hOffset % 32) + ((hOffset & 32) * 32)];
 		hOffset = (hOffset + 1) % 64;
 	}
-}
+};
 
 background.prototype.writeTileToScanlineBPP4 = function (tileAddr, tileLine, scanlineArrIndex, vramMem8, paletteRamMem16, scanlineArr, hflip, vflip, startPixel, palBankIndex) {
   tileAddr += 4 * (vflip ? (7 - tileLine) : tileLine);
@@ -215,7 +212,7 @@ background.prototype.writeTileToScanlineBPP4 = function (tileAddr, tileLine, sca
       scanlineArrIndex ++;
     }
   }
-}
+};
 
 background.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, scanlineArrIndex, vramMem8, paletteRamMem16, scanlineArr, hflip, vflip, startPixel) {
   tileAddr += 8 * (vflip ? (7 - tileLine) : tileLine);
@@ -237,7 +234,7 @@ background.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, sca
       scanlineArrIndex ++;
     }
   }
-}
+};
 
 //mode 0 will render text background, mode 2 will render affine
 // background.prototype.renderScanlineMode1 = function(scanline) { 
@@ -359,7 +356,7 @@ background.prototype.renderScanlineMode5 = function (scanline, page) {
   }
 
   return scanlineArr;
-}
+};
 
 background.prototype.copyRefPoint = function () {
   this.internalRefX = this.refX;

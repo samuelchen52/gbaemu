@@ -1,5 +1,10 @@
-//wrapper object for scanline arr to make sorting easier
+//"layers" are just wrapper objects for the scanline buffers written to by the backgrounds / object layer 
 const layer = function (scanlineArr, windowIndex, prio, display, isObj, sortVal, layerNum) {
+  //sortval used for sorting layers, updated whenever priority is changed
+  //the lower the sortval, the higher the priority
+  //if two layers share the same sortval, layerNum is used as a tiebreaker
+  //if a layers display is false, layer is has no priority, and will not be pushed to the screen
+  //order of layers and each layers isobj, windowindex, and scanline arrs used for the final screen
   this.scanlineArr = scanlineArr;
   this.windowIndex = windowIndex;
   this.prio = prio;
@@ -9,9 +14,10 @@ const layer = function (scanlineArr, windowIndex, prio, display, isObj, sortVal,
   this.layerNum = layerNum;
 };
 
-const graphics = function(mmu, cpu, setFrameComplete) {
+const graphics = function(mmu, cpu, backingCanvasElement, visibleCanvasElement, setFrameComplete) {
 
-  //debugging stuff
+  //debugging stuff////////////////////////////////////////////
+  this.registers = cpu.registers;
 	this.registersDOM = $(".register");
 	this.cpsrDOM = $(".statusregister"); //N, Z, C, V, Q, I, F, T, Mode, all
 	this.valToMode = []; //modes indexed by their value in the CPSR
@@ -31,42 +37,34 @@ const graphics = function(mmu, cpu, setFrameComplete) {
       [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,0,2], //modeENUMS["ABT"]
       [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,0,0,3], //modeENUMS["IRQ"]
       [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,4], //modeENUMS["UND"]
-    ];
+  ];
+  //////////////////////////////////////////////////////////
 
-  this.mmu = mmu;
-  this.registers = cpu.registers;
-  this.setFrameComplete = setFrameComplete;
   this.cpu = cpu;
+  this.setFrameComplete = setFrameComplete;
 
+  //canvas stuff
+  this.backingCanvasElement = backingCanvasElement;
+  this.visibleCanvasElement = visibleCanvasElement;
 
-  //canvas buffer
-  this.screen = document.getElementById("backingScreen");
-  this.actualScreen = document.getElementById("visibleScreen");
-
-	this.backingContext = document.getElementById("backingScreen").getContext("2d");
-  this.visibleContext = document.getElementById("visibleScreen").getContext("2d");
+	this.backingContext = this.backingCanvasElement.getContext("2d");
+  this.visibleContext = this.visibleCanvasElement.getContext("2d");
 	this.imageData = this.backingContext.createImageData(240, 160);
-  this.imageDataArr = new Uint32Array(this.imageData.data.buffer); //new Uint32Array(this.imageData.data.buffer);
-
-  //dummy transparent pixel buffer
-  this.transparentScanline = new Uint16Array(240).fill(0x8000);
+  this.imageDataArr = new Uint32Array(this.imageData.data.buffer);
 
   //graphics related memory
-  this.ioregion = this.mmu.getMemoryRegion("IOREGISTERS");
-  this.ioregionMem = this.ioregion.memory; //0x4000000
-  this.paletteRamMem = this.mmu.getMemoryRegion("PALETTERAM").memory; //0x5000000
+  let ioregion = mmu.getMemoryRegion("IOREGISTERS");
+  this.ioregionMem = ioregion.memory; //0x4000000
+  this.paletteRamMem = mmu.getMemoryRegion("PALETTERAM").memory; //0x5000000
   this.paletteRamMem16 = new Uint16Array(this.paletteRamMem.buffer);
-  this.vramMem = this.mmu.getMemoryRegion("VRAM").memory; //0x6000000
-  this.oamRegion = this.mmu.getMemoryRegion("OAM"); //0x7000000
+  this.vramMem = mmu.getMemoryRegion("VRAM").memory; //0x6000000
+  this.oamRegion = mmu.getMemoryRegion("OAM"); //0x7000000
 
   //state variables
-  this.pixel = 0; //current pixel we are drawing on current scanline
+  this.pixel = 0; //current pixel we are "drawing" on current scanline
   this.scanline = 0; //current scanline we are drawing on
-
   this.hblank = false;
   this.vblank = false;
-
-
 
   //graphics hardware configuration
   this.mode = 0;
@@ -82,28 +80,6 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   this.winOBJDisplay = 0;
   this.windowEnabled = 0;
 
-  //interrupt enables
-  this.hblankIRQEnable = false;
-  this.vblankIRQEnable = false;
-  this.vCountIRQEnable = false;
-  this.vCountSetting = 0; //number for vcount match
-
-
-  //graphics hardware ioregs
-  this.dispcnt = this.ioregion.getIOReg("DISPCNT");
-  this.dispcnt.addCallback((newDISPCNTVal) => {this.updateDISPCNT(newDISPCNTVal)});
-
-  this.dispstat = this.ioregion.getIOReg("DISPSTAT");
-  this.dispstat.addCallback((newDISPSTATVal) => {this.updateDISPSTAT(newDISPSTATVal)});
-  this.dispstatByte1 = this.dispstat.regIndex;
-  this.dispstatByte2 = this.dispstat.regIndex + 1;
-
-  this.vcount = this.ioregion.getIOReg("VCOUNT");
-  this.vcountByte1 = this.vcount.regIndex;
-
-  this.if = this.ioregion.getIOReg("IF");
-  this.ifByte1 = this.if.regIndex;
-
   //blending stuff
   this.blendMode = 0;
   this.firstTarget = [0, 0, 0, 0, 0, 0]; //bg0-3, obj, bd
@@ -112,26 +88,44 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   this.evb = 0;
   this.evy = 0;
 
-  this.ioregion.getIOReg("BLDCNT").addCallback((newBLDCNTVal) => {this.updateBLDCNT(newBLDCNTVal)});
-  this.ioregion.getIOReg("BLDALPHA").addCallback((newBLDALPHAVal) => {this.updateBLDALPHA(newBLDALPHAVal)});
-  this.ioregion.getIOReg("BLDY").addCallback((newBLDYVal) => {this.updateBLDY(newBLDYVal)});
+  //interrupt enables
+  this.hblankIRQEnable = false;
+  this.vblankIRQEnable = false;
+  this.vCountIRQEnable = false;
+  this.vCountSetting = 0; //number for vcount match
+
+  //set up mmio
+  ioregion.getIOReg("DISPCNT").addCallback((newDISPCNTVal) => {this.updateDISPCNT(newDISPCNTVal)});
+  ioregion.getIOReg("DISPSTAT").addCallback((newDISPSTATVal) => {this.updateDISPSTAT(newDISPSTATVal)});
+  ioregion.getIOReg("BLDCNT").addCallback((newBLDCNTVal) => {this.updateBLDCNT(newBLDCNTVal)});
+  ioregion.getIOReg("BLDALPHA").addCallback((newBLDALPHAVal) => {this.updateBLDALPHA(newBLDALPHAVal)});
+  ioregion.getIOReg("BLDY").addCallback((newBLDYVal) => {this.updateBLDY(newBLDYVal)});
+
+  //offsets into IO memory for dispstat, vcount, and if IO regs
+  //byte 1 refers to LSB of ioreg
+  this.dispstatByte1 = ioregion.getIOReg("DISPSTAT").regIndex;
+  this.dispstatByte2 = ioregion.getIOReg("DISPSTAT").regIndex + 1;
+  this.vcountByte1 = ioregion.getIOReg("VCOUNT").regIndex;
+  this.ifByte1 = ioregion.getIOReg("IF").regIndex;
 
   //backgrounds
-  this.bg0 = new background(this.ioregion.getIOReg("BG0CNT"), this.ioregion.getIOReg("BG0HOFS"), this.ioregion.getIOReg("BG0VOFS"), null, null, null, null, null, null, this.vramMem, this.paletteRamMem, this, 0);
-  this.bg1 = new background(this.ioregion.getIOReg("BG1CNT"), this.ioregion.getIOReg("BG1HOFS"), this.ioregion.getIOReg("BG1VOFS"), null, null, null, null, null, null, this.vramMem, this.paletteRamMem, this, 1);
-  this.bg2 = new background(this.ioregion.getIOReg("BG2CNT"), this.ioregion.getIOReg("BG2HOFS"), this.ioregion.getIOReg("BG2VOFS"), this.ioregion.getIOReg("BG2X"), this.ioregion.getIOReg("BG2Y"),
-    this.ioregion.getIOReg("BG2PA"), this.ioregion.getIOReg("BG2PB"), this.ioregion.getIOReg("BG2PC"), this.ioregion.getIOReg("BG2PD"), this.vramMem, this.paletteRamMem, this, 2);
-  this.bg3 = new background(this.ioregion.getIOReg("BG3CNT"), this.ioregion.getIOReg("BG3HOFS"), this.ioregion.getIOReg("BG3VOFS"), this.ioregion.getIOReg("BG3X"), this.ioregion.getIOReg("BG3Y"),
-    this.ioregion.getIOReg("BG3PA"), this.ioregion.getIOReg("BG3PB"), this.ioregion.getIOReg("BG3PC"), this.ioregion.getIOReg("BG3PD"), this.vramMem, this.paletteRamMem, this, 3);
-  this.objectLayer = new objectLayer(this.vramMem, this.paletteRamMem16, this.oamRegion, this);
+  this.bg0 = new background(0, this, mmu, ioregion.getIOReg("BG0CNT"), ioregion.getIOReg("BG0HOFS"), ioregion.getIOReg("BG0VOFS"));
+  this.bg1 = new background(1, this, mmu, ioregion.getIOReg("BG1CNT"), ioregion.getIOReg("BG1HOFS"), ioregion.getIOReg("BG1VOFS"));
+  this.bg2 = new background(2, this, mmu, ioregion.getIOReg("BG2CNT"), ioregion.getIOReg("BG2HOFS"), ioregion.getIOReg("BG2VOFS"), ioregion.getIOReg("BG2X"),
+             ioregion.getIOReg("BG2Y"), ioregion.getIOReg("BG2PA"), ioregion.getIOReg("BG2PB"), ioregion.getIOReg("BG2PC"), ioregion.getIOReg("BG2PD"));
+  this.bg3 = new background(3, this, mmu, ioregion.getIOReg("BG3CNT"), ioregion.getIOReg("BG3HOFS"), ioregion.getIOReg("BG3VOFS"), ioregion.getIOReg("BG3X"),
+             ioregion.getIOReg("BG3Y"), ioregion.getIOReg("BG3PA"), ioregion.getIOReg("BG3PB"), ioregion.getIOReg("BG3PC"), ioregion.getIOReg("BG3PD"));
+
+  //object (sprite) layer
+  this.objectLayer = new objectLayer(this, mmu);
 
   //window
-  this.windowController = new windowController(this.ioregion.getIOReg("WIN0H"), this.ioregion.getIOReg("WIN1H"), this.ioregion.getIOReg("WIN0V"), this.ioregion.getIOReg("WIN1V"),
-    this.ioregion.getIOReg("WININ0"), this.ioregion.getIOReg("WININ1"), this.ioregion.getIOReg("WINOUT"), this.ioregion.getIOReg("WINOBJ"), this.objectLayer.sprites);
+  this.windowController = new windowController(ioregion.getIOReg("WIN0H"), ioregion.getIOReg("WIN1H"), ioregion.getIOReg("WIN0V"), ioregion.getIOReg("WIN1V"), ioregion.getIOReg("WININ0"),
+                                               ioregion.getIOReg("WININ1"), ioregion.getIOReg("WINOUT"), ioregion.getIOReg("WINOBJ"), this.objectLayer.sprites);
 
-  //DMA callback
-  this.hblankCallback = null;
-  this.vblankCallback = null;
+  //DMA callbacks (called after hblank / vblank is set)
+  this.hblankCallback;
+  this.vblankCallback;
 
   //renderScanline functions indexed by mode
   this.renderScanline = [
@@ -152,75 +146,39 @@ const graphics = function(mmu, cpu, setFrameComplete) {
   for (let i = 0; i < 32768; i ++)
   {
     //credit to https://byuu.net/video/color-emulation/ for the color correction code (modified) below
-    let lcdGamma = 4.0, outGamma = 2.2;
-    let lb = Math.pow(((i & 31744) >>> 10) / 31.0, lcdGamma);
-    let lg = Math.pow(((i & 992) >>> 5) / 31.0, lcdGamma);
-    let lr = Math.pow((i & 31) / 31.0, lcdGamma);
-    let r = Math.round(Math.pow((  0 * lb +  50 * lg + 220 * lr) / 255, 1 / outGamma) * (0xffff / 280));
-    let g = Math.round(Math.pow(( 30 * lb + 230 * lg +  10 * lr) / 255, 1 / outGamma) * (0xffff / 280));
-    let b = Math.round(Math.pow((220 * lb +  10 * lg +  10 * lr) / 255, 1 / outGamma) * (0xffff / 280));
+    let lb = Math.pow(((i & 31744) >>> 10) / 31.0, 4.0);
+    let lg = Math.pow(((i & 992) >>> 5) / 31.0, 4.0);
+    let lr = Math.pow((i & 31) / 31.0, 4.0);
+    let r = Math.round(Math.pow((  0 * lb +  50 * lg + 220 * lr) / 255, 1 / 2.2) * (0xffff / 280));
+    let g = Math.round(Math.pow(( 30 * lb + 230 * lg +  10 * lr) / 255, 1 / 2.2) * (0xffff / 280));
+    let b = Math.round(Math.pow((220 * lb +  10 * lg +  10 * lr) / 255, 1 / 2.2) * (0xffff / 280));
 
     this.convertColor[i] = 0xFF000000 + (b << 16) + (g << 8) + r;
     this.convertColor[i + 32768] = this.convertColor[i]; //account for 15th bit being set sometimes in colors (e.g. BIOS backdrop)
   }  
 
-  //stuff for sorting and merging
+  //layers array, to make sorting based on layer priority, blending, and windowing easier
+  //graphics.prototype.bgNumToLayerIndex = [0, 1, 2, 3];
+  //graphics.prototype.objLayerNumToLayerIndex = [4, 5, 6, 7];
   this.layers = [
-    new layer(this.bg0.scanlineArr, 0, 0, 0, false, 20, 1),
-    new layer(this.bg1.scanlineArr, 1, 0, 0, false, 20, 2),
-    new layer(this.bg2.scanlineArr, 2, 0, 0, false, 20, 3),
-    new layer(this.bg3.scanlineArr, 3, 0, 0, false, 20, 4),
-    new layer(this.objectLayer.PBGs[0], 4, 0, 1, true, 20, 0),
-    new layer(this.objectLayer.PBGs[1], 4, 1, 0, true, 20, 0),
-    new layer(this.objectLayer.PBGs[2], 4, 2, 0, true, 20, 0),
-    new layer(this.objectLayer.PBGs[3], 4, 3, 0, true, 20, 0)
+    new layer(this.bg0.scanlineArr, 0, 0, 0, false, 20, 1), //background 0
+    new layer(this.bg1.scanlineArr, 1, 0, 0, false, 20, 2), //background 1
+    new layer(this.bg2.scanlineArr, 2, 0, 0, false, 20, 3), //background 2
+    new layer(this.bg3.scanlineArr, 3, 0, 0, false, 20, 4), //background 3
+    new layer(this.objectLayer.PBGs[0], 4, 0, 1, true, 20, 0), //object layer 0
+    new layer(this.objectLayer.PBGs[1], 4, 1, 0, true, 20, 0), //object layer 1
+    new layer(this.objectLayer.PBGs[2], 4, 2, 0, true, 20, 0), //object layer 2
+    new layer(this.objectLayer.PBGs[3], 4, 3, 0, true, 20, 0) //object layer 3
   ];
 
-  this.sortedLayers = [
-    this.layers[0],
-    this.layers[1],
-    this.layers[2],
-    this.layers[3],
-    this.layers[4],
-    this.layers[5],
-    this.layers[6],
-    this.layers[7]
-  ];
-
-  this.sortedScanlineArrs = [
-    this.layers[0].scanlineArr,
-    this.layers[1].scanlineArr,
-    this.layers[2].scanlineArr,
-    this.layers[3].scanlineArr,
-    this.layers[4].scanlineArr,
-    this.layers[5].scanlineArr,
-    this.layers[6].scanlineArr,
-    this.layers[7].scanlineArr
-  ];
-
-  this.sortedWindowIndices = [
-    this.layers[0].windowIndex,
-    this.layers[1].windowIndex,
-    this.layers[2].windowIndex,
-    this.layers[3].windowIndex,
-    this.layers[4].windowIndex,
-    this.layers[5].windowIndex,
-    this.layers[6].windowIndex,
-    this.layers[7].windowIndex
-  ];
-
-  this.sortedIsObj = [
-    this.layers[0].isObj,
-    this.layers[1].isObj,
-    this.layers[2].isObj,
-    this.layers[3].isObj,
-    this.layers[4].isObj,
-    this.layers[5].isObj,
-    this.layers[6].isObj,
-    this.layers[7].isObj
-  ];
-
-  this.numActiveLayers = 0;
+  //the actual array used for sorting
+  this.sortedLayers = [...this.layers];
+  //so i dont have to do property lookup three times for each pixel in each layer
+  //after sorting above array, will copy over properties to these arrays
+  this.sortedScanlineArrs = new Array(this.sortedLayers.length);
+  this.sortedWindowIndices = new Array(this.sortedLayers.length);
+  this.sortedIsObj = new Array(this.sortedLayers.length);
+  this.numActiveLayers = 0; //number of layers used for the final screen (when doing the blending and collapsing and whatnot)
 
   window.graphics = this;
 };
@@ -282,14 +240,14 @@ graphics.prototype.updateDISPCNT = function (newDISPCNTVal) {
 
   this.windowEnabled = this.windowController.setDisplay( (newDISPCNTVal & (this.displayENUMS["WIN0DISPLAY"] + this.displayENUMS["WIN1DISPLAY"] + this.displayENUMS["WINOBJDISPLAY"])) >>> 13 );
   this.objectLayer.setMappingMode(this.objMappingMode);
-}
+};
 
 graphics.prototype.updateDISPSTAT= function (newDISPSTATVal) {
   this.vblankIRQEnable = newDISPSTATVal & this.displayENUMS["VBLANKIRQENABLE"];
   this.hblankIRQEnable = newDISPSTATVal & this.displayENUMS["HBLANKIRQENABLE"];
   this.vCountIRQEnable = newDISPSTATVal & this.displayENUMS["VCOUNTIRQENABLE"];
   this.vCountSetting = (newDISPSTATVal & this.displayENUMS["VCOUNTSETTING"]) >>> 8;
-}
+};
 
 graphics.prototype.updateBLDCNT = function (newBLDCNTVal) {
   this.blendMode = (newBLDCNTVal & 192) >>> 6
@@ -307,7 +265,7 @@ graphics.prototype.updateBLDCNT = function (newBLDCNTVal) {
   this.secondTarget[3] = newBLDCNTVal & 2048;
   this.secondTarget[4] = newBLDCNTVal & 4096;
   this.secondTarget[5] = newBLDCNTVal & 8192;
-}
+};
 
 graphics.prototype.updateBLDALPHA = function (newBLDALPHAVal) {
   this.eva = newBLDALPHAVal & 31;
@@ -315,12 +273,17 @@ graphics.prototype.updateBLDALPHA = function (newBLDALPHAVal) {
 
   this.evb = (newBLDALPHAVal & 7936) >>> 8;
   this.evb = this.evb > 16 ? 16 : this.evb;
-}
+};
 
 graphics.prototype.updateBLDY = function (newBLDYVal) {
   this.evy = newBLDYVal & 31;
   this.evy = this.evy > 16 ? 16 : this.evy;
-}
+};
+
+graphics.prototype.addCallbacks = function (hblankCallback, vblankCallback) {
+  this.hblankCallback = hblankCallback;
+  this.vblankCallback = vblankCallback;
+};
 
 graphics.prototype.setHblank = function () {
   this.hblank = true;
@@ -329,8 +292,7 @@ graphics.prototype.setHblank = function () {
   if (this.hblankIRQEnable) //if hblank irq enabled, throw interrupt
   {
     this.ioregionMem[this.ifByte1] |= 2;
-    this.cpu.halt = false;
-    this.cpu.checkInterrupt = true;
+    this.cpu.awake();
   }
 
   //DMA
@@ -344,8 +306,7 @@ graphics.prototype.setVblank = function () {
   if (this.vblankIRQEnable) //if vblank irq enabled, throw interrupt
   {
     this.ioregionMem[this.ifByte1] |= 1;
-    this.cpu.halt = false;
-    this.cpu.checkInterrupt = true;
+    this.cpu.awake();
   }
 
   //copy over ref point to internal ref registers (happens every vblank)
@@ -365,8 +326,7 @@ graphics.prototype.setVCount = function (scanline) {
     if (this.vCountIRQEnable) //if vcount irq enabled, throw interrupt
     {
      this.ioregionMem[this.ifByte1] |= 4;
-     this.cpu.halt = false;
-     this.cpu.checkInterrupt = true;
+     this.cpu.awake();
     }
   }
   else
@@ -376,6 +336,8 @@ graphics.prototype.setVCount = function (scanline) {
   this.ioregionMem[this.vcountByte1] = scanline;
 };
 
+//when mode updated, recalculates number of active layers (if layer is part of mode and is on)
+//then sorts all active layers
 graphics.prototype.updateLayersMode = function (oldMode, newMode) {
   if (oldMode !== newMode)
   {
@@ -405,26 +367,31 @@ graphics.prototype.updateLayersMode = function (oldMode, newMode) {
         }
       }
     }
-    this.sortActiveLayers(layers.length);
+    this.sortLayers(layers.length);
   }
   return newMode;
 };
 
-graphics.prototype.updateBGPriority = function (layerIndex, oldPrio, newPrio) {
+//resorts backing layers when a backgrounds priority is changed
+//number of active layers used for final screen remains unchanged
+//called by background, bg priority is managed by background
+graphics.prototype.updateBGPriority = function (bgNum, oldPrio, newPrio) {
   if (oldPrio !== newPrio)
   {
+    let layerIndex = this.bgNumToLayerIndex[bgNum];
     let layer = this.layers[layerIndex];
     layer.prio = newPrio;
     if (this.modeToLayerDisplay[this.mode][layerIndex] && layer.display)
     {
       layer.sortVal = layer.layerNum + (layer.prio * 5);
-      this.sortActiveLayers(this.numActiveLayers);
+      this.sortLayers(this.numActiveLayers);
     }
   }
   return newPrio;
 };
 
-//master bg display
+//resorts backing layers when a backgrounds display is changed (turned on or off)
+//number of active layers used for final screen either incremented or decremented since 
 graphics.prototype.updateBGDisplay = function (layerIndex, oldDisplay, newDisplay) {
   if (oldDisplay !== newDisplay)
   {
@@ -434,13 +401,16 @@ graphics.prototype.updateBGDisplay = function (layerIndex, oldDisplay, newDispla
     {
       layer.sortVal = newDisplay ? (layer.layerNum + (layer.prio * 5)) : 20;
       this.numActiveLayers += newDisplay ? 1 : -1;
-      this.sortActiveLayers(newDisplay ? this.layers.length : (this.numActiveLayers + 1));
+      this.sortLayers(newDisplay ? this.layers.length : (this.numActiveLayers + 1));
     }
   }
   return newDisplay;
 };
 
-//master obj display
+//object layer split into four layers
+//whereas with regular backgrounds whose display dictates if a layer is displayed or not
+//when object layer display is turned off (turns )
+//when object layer display is turned on
 graphics.prototype.updateObjDisplay = function (oldDisplay, newDisplay) {
   if (oldDisplay !== newDisplay)
   {
@@ -474,24 +444,29 @@ graphics.prototype.updateObjDisplay = function (oldDisplay, newDisplay) {
       this.numActiveLayers += layers[objLayer2Index].display ? -1 : 0;
       this.numActiveLayers += layers[objLayer3Index].display ? -1 : 0;
     }
-    this.sortActiveLayers(layers.length);
+    this.sortLayers(layers.length);
   }
   return newDisplay;
 };
 
-graphics.prototype.updateObjLayerDisplay = function (layerIndex, newDisplay) {
-  let layer = this.layers[layerIndex];
+//'turns on' or 'turns off' and object layer (each one corresponding to a sprite priority)
+//is called by the object layer, as object layer manages sprite priorities
+graphics.prototype.updateObjLayerDisplay = function (objLayerNum, newDisplay) {
+  let layer = this.layers[this.objLayerNumToLayerIndex[objLayerNum]];
   layer.display = newDisplay;
 
   if (this.objDisplay)
   {
     layer.sortVal = newDisplay ? ((layer.prio * 5) + layer.layerNum) : 20;
     this.numActiveLayers += newDisplay ? 1 : -1;
-    this.sortActiveLayers(newDisplay ? this.layers.length : (this.numActiveLayers + 1));
+    this.sortLayers(newDisplay ? this.layers.length : (this.numActiveLayers + 1));
   }
 };
 
-graphics.prototype.sortActiveLayers = function (maxIndex) {
+//sorts all layers in layer array up to maxIndex 
+//(sorts only active layers when priority is changed, else, if layer removed or if mode change, sorts all layers)
+//uses selection sort
+graphics.prototype.sortLayers = function (maxIndex) {
   let layers = this.sortedLayers;
   let curMax = layers[0].sortVal;
   let curMaxIndex = 0;
@@ -716,7 +691,10 @@ graphics.prototype.blendMode3 = function(color, eva, evb, evy, firstTargetMatch)
   return color;
 };
 
+//take top pixel (non-transparent pixel in uppermost layer)
+//if blending enabled, take top two and blend if criteria met
 graphics.prototype.mergeLayers = function (imageDataArr, imageDataIndex, backdrop, convertColor) {
+  //attributes of each layer in sorted layers
   let scanlineArrs = this.sortedScanlineArrs;
   let windowIndices = this.sortedWindowIndices;
   let isObjArr = this.sortedIsObj;
@@ -758,9 +736,12 @@ graphics.prototype.mergeLayers = function (imageDataArr, imageDataIndex, backdro
       imageDataArr[i + imageDataIndex] = convertColor[blend(color, eva, evb, evy, firstTarget[windowIndex], secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
     }
   }
-}
+};
 
+//like above, but only takes top pixel if enabled in window
+//also, only blends if blending is enabled in window
 graphics.prototype.mergeLayersWindow = function (enableScanline, windowCNT, imageDataArr, imageDataIndex, backdrop, convertColor) {
+  //attributes of each layer in sorted layers
   let scanlineArrs = this.sortedScanlineArrs;
   let windowIndices = this.sortedWindowIndices;
   let isObjArr = this.sortedIsObj;
@@ -803,7 +784,7 @@ graphics.prototype.mergeLayersWindow = function (enableScanline, windowCNT, imag
       imageDataArr[i + imageDataIndex] = convertColor[blend(color, eva, evb, evy, firstTarget[windowIndex] && blendEnable, secondTarget, scanlineArrs, windowIndices, isObjArr, p, i, numActiveLayers, backdrop)];
     }
   }
-}
+};
 
 graphics.prototype.update = function(numCycles) {
   if (this.vblank)
@@ -863,9 +844,9 @@ graphics.prototype.update = function(numCycles) {
 
 graphics.prototype.finishDraw = function () {
   this.backingContext.putImageData(this.imageData, 0, 0);
-  this.visibleContext.drawImage(this.screen, 0, 0, this.screen.width, this.screen.height, 0, 0, this.actualScreen.width, this.actualScreen.height);
+  this.visibleContext.drawImage(this.backingCanvasElement, 0, 0, this.backingCanvasElement.width, this.backingCanvasElement.height, 0, 0, this.visibleCanvasElement.width, this.visibleCanvasElement.height);
   this.setFrameComplete();
-}
+};
 
 //debugging
 graphics.prototype.updateRegisters = function(mode) {
