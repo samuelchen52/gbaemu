@@ -386,7 +386,7 @@ cpu.prototype.run = function(numCycles) {
   let pipeline = this.pipeline;
   let registers = this.registers;
 
-  for (let i = 0; ((i) < numCycles) && !this.halt; i++) 
+  for (let i = 0; ((i + mmu.numCycles) < numCycles) && !this.halt;) 
   { 
     if (this.checkInterrupt)
     {
