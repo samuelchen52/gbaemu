@@ -1,21 +1,3 @@
-//three stage pipeline, fetch -> decode -> execute
-//pc is 2 instructions ahead of the instruction being executed
-
-//processor modes
-//user(default), system(priveleged user), IRQ(interrupt request), 
-//FIQ(fast interrput request): this mode goes unused by default,
-//SVC (supervisor mode): entered when a software interrupt call is executed (when calling the BIOS via SWI instructions)
-//ABT (abort mode) : entered after data or instruction prefetch abort
-//UND (undefined mode): entered when an undefined instruction is executed  
-
-//from PSI in emudev discord
-// #define CARRY_ADD(a, b)  ((0xFFFFFFFF-a) < b)
-// #define CARRY_SUB(a, b)  (a >= b)
-
-// #define ADD_OVERFLOW(a, b, result) ((!(((a) ^ (b)) & 0x80000000)) && (((a) ^ (result)) & 0x80000000))
-// #define SUB_OVERFLOW(a, b, result) (((a) ^ (b)) & 0x80000000) && (((a) ^ (result)) & 0x80000000)
-
-
 //37 registers: 31 general registers (Rxx) and 6 status registers (xPSR)
 //some registers are banked upon entering interrupt handler routines
 //registers are 32 bits (4 bytes)
@@ -35,33 +17,9 @@
 //R8_fiq-R14_fiq, R13_svc-R14_svc, R13_abt-R14_abt, R13_irq-R14_irq, R13_und-R14_und
 //rest are partially shared
 
-//   General Internal Memory
-//   00000000-00003FFF   BIOS - System ROM         (16 KBytes)
-//   00004000-01FFFFFF   Not used
-//   02000000-0203FFFF   WRAM - On-board Work RAM  (256 KBytes) 2 Wait
-//   02040000-02FFFFFF   Not used
-//   03000000-03007FFF   WRAM - On-chip Work RAM   (32 KBytes)
-//   03008000-03FFFFFF   Not used
-//   04000000-040003FE   I/O Registers
-//   04000400-04FFFFFF   Not used
-// Internal Display Memory
-//   05000000-050003FF   BG/OBJ Palette RAM        (1 Kbyte)
-//   05000400-05FFFFFF   Not used
-//   06000000-06017FFF   VRAM - Video RAM          (96 KBytes)
-//   06018000-06FFFFFF   Not used
-//   07000000-070003FF   OAM - OBJ Attributes      (1 Kbyte)
-//   07000400-07FFFFFF   Not used
-// External Memory (Game Pak)
-//   08000000-09FFFFFF   Game Pak ROM/FlashROM (max 32MB) - Wait State 0
-//   0A000000-0BFFFFFF   Game Pak ROM/FlashROM (max 32MB) - Wait State 1
-//   0C000000-0DFFFFFF   Game Pak ROM/FlashROM (max 32MB) - Wait State 2
-//   0E000000-0E00FFFF   Game Pak SRAM    (max 64 KBytes) - 8bit Bus width
-//   0E010000-0FFFFFFF   Not used
-// Unused Memory Area
-//   10000000-FFFFFFFF   Not used (upper 4bits of address bus unused)
-
 const cpu = function (pc, mmu) {
 
+    window.irq = 0;
     this.mmu = mmu;
 
   	this.stateENUMS = {ARM : 0, THUMB : 1};
@@ -80,20 +38,24 @@ const cpu = function (pc, mmu) {
   	this.mode = this.modeENUMS["SYSTEM"]; //starting mode is SYSTEM
     this.halt = false;
 
-    //for register banking
-    let = registerIndices = [
-    //                     1 1 1 1 1 1
-    //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"]
-      [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0], //modeENUMS["FIQ"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,1], //modeENUMS["SVC"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,0,2], //modeENUMS["ABT"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,0,0,3], //modeENUMS["IRQ"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,4], //modeENUMS["UND"]
-    ];
+    this.r8 = new Uint32Array(1);
+    this.r9 = new Uint32Array(1);
+    this.r10 = new Uint32Array(1);
+    this.r11 = new Uint32Array(1);
+    this.r12 = new Uint32Array(1);
 
-  	this.registers = [
-  		new Uint32Array(1), //R0         ^       ^
+    this.r8_FIQ = new Uint32Array(1);
+    this.r9_FIQ = new Uint32Array(1);
+    this.r10_FIQ = new Uint32Array(1);
+    this.r11_FIQ = new Uint32Array(1);
+    this.r12_FIQ = new Uint32Array(1);
+
+    this.r13 = [new Uint32Array(1), new Uint32Array(1), new Uint32Array(1), new Uint32Array(1), new Uint32Array(1), new Uint32Array(1)];
+    this.r14 = [new Uint32Array(1), new Uint32Array(1), new Uint32Array(1), new Uint32Array(1), new Uint32Array(1), new Uint32Array(1)];
+    this.SPSR = [[null], new Uint32Array(1), new Uint32Array(1), new Uint32Array(1), new Uint32Array(1), new Uint32Array(1)]; //no SPSR for USER mode
+
+    this.registers = [
+      new Uint32Array(1), //R0         ^       ^
       new Uint32Array(1), //R1         |       |
       new Uint32Array(1), //R2         |       |
       new Uint32Array(1), //R3         |       |
@@ -101,37 +63,37 @@ const cpu = function (pc, mmu) {
       new Uint32Array(1), //R5         |       |
       new Uint32Array(1), //R6         |       |     
       new Uint32Array(1), //R7 shared (LO) registers R0 - R7 (in both ARM and THUMB state) 
-  		new Uint32Array(2), //R8 		     ^			 ^
-  		new Uint32Array(2), //R9   		   |			 |
-  		new Uint32Array(2), //R10  		   |			 |
-  		new Uint32Array(2), //R11  		   |			 |
-  		new Uint32Array(2), //R12, shared among all modes except FIQ mode, unavailable in THUMB STATE
-  		new Uint32Array(6), //R13, every mode has banked registers for this register (stack pointer in the THUMB state)
-  		new Uint32Array(6), //R14, every mode has banked registers for this register  (link register)
-  		new Uint32Array(1), //R15, shared (program counter)
-  		new Uint32Array(1), //CPSR, shared (current program status register)
-  		new Uint32Array(5) //SPSR, every mode has banked registers for this register (saved process status register) besides USER/SYSTEM
-  	];
+      this.r8, //R8         ^       ^
+      this.r9, //R9         |       |
+      this.r10, //R10        |       |
+      this.r11, //R11        |       |
+      this.r12, //R12, shared among all modes except FIQ mode, unavailable in THUMB STATE
+      this.r13[0], //R13, every mode has banked registers for this register (stack pointer in the THUMB state)
+      this.r14[0], //R14, every mode has banked registers for this register  (link register)
+      new Uint32Array(1), //R15, shared (program counter)
+      new Uint32Array(1), //CPSR, shared (current program status register)
+      this.SPSR[0] //SPSR, every mode has banked registers for this register (saved process status register) besides USER/SYSTEM
+    ];
   	
-    //set up registers
+    //set pc, mode bits in CPSR, sp
   	this.registers[15][0] = pc; //set initial pc
     this.registers[16][0] += 31; //set SYSTEM mode, set ARM state, set I and F bit?
-
-    //set default sp values
-    this.registers[13][0] = 0x03007F00; //USER/SYSTEM
-    this.registers[13][4] = 0x03007FA0; //IRQ
-    this.registers[13][2] = 0x03007FE0; 
+    this.r13[0][0] = 0x03007F00; //USER/SYSTEM stack pointer
+    this.r13[4][0] = 0x03007FA0; //IRQ stack pointer
+    this.r13[2][0] = 0x03007FE0; //SVC stack pointer
 
     //cpu pipeline (pipeline[0] holds instruction to be decoded, pipeline[1] and pipeline[2] hold the opcode and the instruction itself to be executed)
     this.pipeline = new Uint32Array(3);
 
     //ARM and THUMB 
-    this.THUMB = new thumb(this, mmu, registerIndices);
-    this.ARM = new arm(this, mmu, registerIndices);
+    this.THUMB = new thumb(this, mmu);
+    this.ARM = new arm(this, mmu);
 
     //interrupt stuff
     let ioregion = this.mmu.getMemoryRegion("IOREGISTERS");
-    this.ioregionMem16 = new Uint16Array(ioregion.memory.buffer); //0x4000000
+    let IF = ioregion.getIOReg("IF"); //vcountByte1
+    this.ioregionMem16 = new Uint16Array(ioregion.memory.buffer);
+    this.ifVal = IF.regIndex >>> 1;
 
     this.interruptEnable = 0;
     this.masterInterruptEnable = 0;
@@ -140,11 +102,6 @@ const cpu = function (pc, mmu) {
     ioregion.getIOReg("IME").addCallback((newIMEVal) => {this.updateIME(newIMEVal)});
     ioregion.getIOReg("IE").addCallback((newIEVal) => {this.updateIE(newIEVal)});
     ioregion.getIOReg("HALTCNT").addCallback((newHALTCNTVal) => {this.updateHALTCNT(newHALTCNTVal)});
-
-    this.if = ioregion.getIOReg("IF");
-    this.ifVal = this.if.regIndex >>> 1;
-
-
 
     //debugging stuff
     window.cpu = this;
@@ -187,13 +144,12 @@ cpu.prototype.updateHALTCNT = function (newHALTCNTVal) {
 //interrupt handling functions -------------------------------------------------------------------
 cpu.prototype.startSWI = function (swiNum) {
   //console.log("swi 0x" + swiNum + " at: " + (this.registers[15][0] - this.insize * 2).toString(16));
-  this.registers[14][2] = this.registers[15][0] - (this.state ? 2 : 4); //set r14_svc to return address (PC is two instructions ahead of swi instruction that called this, so minus one instruction size to get to next instruction)
-  this.registers[17][1] = this.registers[16][0]; //save CPSR in SPSR_svc
+  this.r14[2][0] = this.registers[15][0] - (this.state ? 2 : 4); //set r14_svc to return address (PC is two instructions ahead of swi instruction that called this, so minus one instruction size to get to next instruction)
+  this.SPSR[2][0] = this.registers[16][0]; //save CPSR in SPSR_svc
   this.registers[16][0] &= 0xFFFFFF00;
   this.registers[16][0] += 147; //128 (i bit) + 19 (svc mode)
-  this.mode = 2; //set internal mode to svc
-  this.state = 0; //set internal state to arm
-  this.insize = 4;
+  this.changeMode(this.modeENUMS["SVC"]);
+  this.changeState(this.stateENUMS["ARM"]);
   this.registers[15][0] = 0x8; //set pc to swi exception vector
 
   this.resetPipeline();
@@ -210,13 +166,12 @@ cpu.prototype.startIRQ = function () {
     // }
     //throw Error();
     // console.log("[-----------------------INTERRUPT-------------------------------]");
-    this.registers[14][4] = this.registers[15][0] - (this.state ? 0 : 4); //set r14_irq to return address (PC is two instructions ahead of current instruction and bios returns by subs r15, r14, -4, so minus one instruction size in arm)
-    this.registers[17][3] = this.registers[16][0]; //save CPSR in SPSR_irq
+    this.r14[4][0] = this.registers[15][0] - (this.state ? 0 : 4); //set r14_irq to return address (PC is two instructions ahead of current instruction and bios returns by subs r15, r14, -4, so minus one instruction size in arm)
+    this.SPSR[4][0] = this.registers[16][0]; //save CPSR in SPSR_irq
     this.registers[16][0] &= 0xFFFFFF00;
     this.registers[16][0] += 146; //128 (i bit) + 18 (irq mode)
-    this.mode = 4; //set internal mode to irq
-    this.state = 0; //set internal state to arm
-    this.insize = 4;
+    this.changeMode(this.modeENUMS["IRQ"]);
+    this.changeState(this.stateENUMS["ARM"]);
     this.registers[15][0] = 0x18; //set pc to irq exception vector
 
     this.initPipeline();
@@ -230,7 +185,7 @@ cpu.prototype.awake = function () {
 
 //setter functions for internal state-------------------------------------------------------------------
 cpu.prototype.changeState = function (newState) {
-  if (this.stateENUMS[newState] === undefined) 
+  if (newState === undefined) 
   {
     throw Error("undefined state!"); 
   }
@@ -242,24 +197,59 @@ cpu.prototype.changeState = function (newState) {
     this.registers[16][0] &= 0xFFFFFFDF; //clear t bit in CPSR
 
     //if thumb, set to thumb
-    if (this.stateENUMS[newState])
+    if (newState === this.stateENUMS["THUMB"])
     {
       this.insize = 2;
       this.registers[16][0] += 32; //set t bit in CPSR
     }
 
-    this.state = this.stateENUMS[newState]; //set internal state
+    this.state = newState; //set internal state
+  }
+};
+
+//handles changing of mode (register switching)
+cpu.prototype.changeMode = function (newMode) {
+  if (newMode === undefined)
+  {
+    throw Error("invalid mode!");
+  }
+
+  if (newMode !== this.mode)
+  {
+    if (this.mode === this.modeENUMS["FIQ"]) //switch out FIQ registers
+    {
+      console.log("WHAT");
+      this.registers[8] = this.r8;
+      this.registers[9] = this.r9;
+      this.registers[10] = this.r10;
+      this.registers[11] = this.r11;
+      this.registers[12] = this.r12;
+    }
+    else if (newMode === this.modeENUMS["FIQ"]) //switch in FIQ registers
+    {
+      console.log("WHAT");
+      this.registers[8] = this.r8_FIQ;
+      this.registers[9] = this.r9_FIQ;
+      this.registers[10] = this.r10_FIQ;
+      this.registers[11] = this.r11_FIQ;
+      this.registers[12] = this.r12_FIQ;
+    }
+
+    //console.log(this.registers);
+    //switch in r13, r14, SPSR for new mode
+    this.registers[13] = this.r13[newMode];
+    this.registers[14] = this.r14[newMode];
+    this.registers[17] = this.SPSR[newMode];
+    //console.log(this.registers);
+
+    this.mode = newMode;
   }
 };
 
 cpu.prototype.setCPSR = function (newCPSR) {
   this.registers[16][0] = newCPSR;
-  this.mode = this.modeENUMS[this.valToMode[newCPSR & 31]];
+  this.changeMode(this.modeENUMS[this.valToMode[newCPSR & 31]]);
 
-  if (this.mode === undefined)
-  {
-    throw Error("changing mode to undefined value");
-  }
   if (this.state !== ((newCPSR & 32) >>> 5))
   {
     throw Error("changing t bit manually!");
@@ -296,11 +286,11 @@ cpu.prototype.decode = function (instr) {
 cpu.prototype.execute = function (instr, opcode) {
   if (this.state === this.stateENUMS["ARM"])
   {
-    this.ARM.execute(instr, opcode, this.mode);
+    this.ARM.execute(instr, opcode);
   }
   else //state === stateEnums["THUMB"]
   {
-    this.THUMB.execute(instr, opcode, this.mode);
+    this.THUMB.execute(instr, opcode);
   }
 };
 
@@ -355,15 +345,8 @@ cpu.prototype.resetPipeline = function (){
 //     // {
 //     //   console.log("[--------------------------RETURN-------------------------------]");
 //     // }
-//     if (!this.state)
-//     {
-//       ARMcount[pipelinecopy2] = 1;
-//     }
-//     else
-//     {
-//       THUMBcount[pipelinecopy2] = 1;
-//     }
 //     this.execute(pipelinecopy1, pipelinecopy2);
+//     console.log(this.registers);
 //   }
 //   catch (err)
 //   {
@@ -398,37 +381,13 @@ cpu.prototype.resetPipeline = function (){
 //   }
 // }
 
-cpu.prototype.run = function(numCycles, pipeline = this.pipeline) {
-  // if (!this.halt)
-  // {
-  //   let pipeline = this.pipeline;
-  //   let registers = this.registers;
-  //   for (let i = 0; i < numCycles; i ++)
-  //   {
-  //     if (!this.halt)
-  //     {
-  //       if (this.checkInterrupt)
-  //       {
-  //         this.startIRQ();
-  //         this.checkInterrupt = false;
-  //       }
+cpu.prototype.run = function(numCycles) {
+  let mmu = this.mmu;
+  let pipeline = this.pipeline;
+  let registers = this.registers;
 
-  //       var pipelinecopy0 = pipeline[0];
-  //       var pipelinecopy1 = pipeline[1];
-  //       var pipelinecopy2 = pipeline[2];
-
-  //       pipeline[0] = this.fetch();
-
-  //       pipeline[1] = pipelinecopy0;
-  //       pipeline[2] = this.decode(pipelinecopy0);   
-
-  //       this.execute(pipelinecopy1, pipelinecopy2);
-  //       registers[15][0] += this.insize; //increment pc
-  //     }
-  //   }
-  // }
-  if (!this.halt)
-  {
+  for (let i = 0; ((i) < numCycles) && !this.halt; i++) 
+  { 
     if (this.checkInterrupt)
     {
       this.startIRQ();
@@ -445,6 +404,36 @@ cpu.prototype.run = function(numCycles, pipeline = this.pipeline) {
     pipeline[2] = this.decode(pipelinecopy0);   
 
     this.execute(pipelinecopy1, pipelinecopy2);
-    this.registers[15][0] += this.insize; //increment pc
+    registers[15][0] += this.insize; //increment pc
+    // if (typeof this.registers[17] === "number")
+    // {
+    //   console.log("[" + 1 +  "] executing opcode: " + (this.state ? THUMBopcodes[pipelinecopy2] : ARMopcodes[pipelinecopy2]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
+    //   throw Error();
+    // }
   }
+  mmu.numCycles = 0;
+
+
+  // if (!this.halt)
+  // {
+  //   if (this.checkInterrupt)
+  //   {
+  //     this.startIRQ();
+  //     this.checkInterrupt = false;
+  //   }
+
+  //   let pipeline = this.pipeline
+  //   let pipelinecopy0 = pipeline[0];
+  //   let pipelinecopy1 = pipeline[1];
+  //   let pipelinecopy2 = pipeline[2];
+
+  //   pipeline[0] = this.fetch();
+
+  //   pipeline[1] = pipelinecopy0;
+  //   pipeline[2] = this.decode(pipelinecopy0);   
+
+  //   this.execute(pipelinecopy1, pipelinecopy2);
+  //   this.registers[15][0] += this.insize; //increment pc
+  //   return 0;
+  // }
 };

@@ -1,8 +1,8 @@
-const arm = function(cpu, mmu, registerIndices) {
+const arm = function(cpu, mmu) {
 	this.cpu = cpu;
 	this.mmu = mmu;
 	this.registers = cpu.registers;
-	this.registerIndices = registerIndices;
+	this.userRegisters = [...cpu.registers];
 
 	this.shiftCarryFlag = undefined;
 	this.initFnTable();
@@ -178,16 +178,16 @@ arm.prototype.checkCondition = function (condition)
 };
 
 //restore CPSR
-arm.prototype.SPSRtoCPSR = function (mode) {
-	if (mode === 0) //SPSR does not exist
+arm.prototype.SPSRtoCPSR = function () {
+	let SPSR = this.registers[17][0];
+	if (SPSR === null) //SPSR does not exist
 	{
 		console.log("transferring user/system SPSR?");
 		throw Error();
 	}
 	else //set CPSR to SPSR and update CPU state and mode
 	{
-		let SPSR = this.registers[17][this.registerIndices[mode][17]];
-		this.cpu.changeState(bitSlice(SPSR, 5, 5) ? "THUMB" : "ARM");
+		this.cpu.changeState(bitSlice(SPSR, 5, 5) ? this.cpu.stateENUMS["THUMB"] : this.cpu.stateENUMS["ARM"]);
 		this.cpu.setCPSR(SPSR);
 	}
 };
@@ -203,36 +203,38 @@ arm.prototype.setNZCV = function (nflag, zflag, cflag, vflag) {
 };
 
 //ARM[5]-----------------------------------------------------------------------------------------------------
-arm.prototype.executeOpcode0 = function (instr, mode) { //0 - UMULL / UMLAL RdHiLo=Rm*Rs / RdHiLo=Rm*Rs+RdHiLo
+arm.prototype.executeOpcode0 = function (instr) { //0 - UMULL / UMLAL RdHiLo=Rm*Rs / RdHiLo=Rm*Rs+RdHiLo
 	let rdhi = bitSlice(instr, 16, 19);
 	let rdlo = bitSlice(instr, 12, 15);
 	let rs = bitSlice(instr, 8, 11);
 	let rm = bitSlice(instr, 0, 3);
+	let accumulate = bitSlice(instr, 21, 21);
 
-	let result = BigInt(this.registers[rm][this.registerIndices[mode][rm]]) * BigInt(this.registers[rs][this.registerIndices[mode][rs]]);
-	if (bitSlice(instr, 21, 21)) //accumulate bit
+	let result = BigInt(this.registers[rm][0]) * BigInt(this.registers[rs][0]);
+	if (accumulate) //accumulate bit
 	{
-		result += (BigInt(this.registers[rdhi][this.registerIndices[mode][rdhi]]) << 32n) + BigInt(this.registers[rdlo][this.registerIndices[mode][rdlo]]);
+		result += (BigInt(this.registers[rdhi][0]) << 32n) + BigInt(this.registers[rdlo][0]);
 	}
 
 	if (bitSlice(instr, 20, 20))
 	{
 		this.setNZCV((result & 0x8000000000000000n) != 0, result == 0);
 	}
-	this.registers[rdhi][this.registerIndices[mode][rdhi]] = Number(result >> 32n);
-	this.registers[rdlo][this.registerIndices[mode][rdlo]] = Number(result & 0xFFFFFFFFn);
+	this.registers[rdhi][0] = Number(result >> 32n);
+	this.registers[rdlo][0] = Number(result & 0xFFFFFFFFn);
 };
 
-arm.prototype.executeOpcode1 = function (instr, mode) { //1 - MUL / MLA Rd=Rm*Rs Rd=Rm*Rs+Rn
+arm.prototype.executeOpcode1 = function (instr) { //1 - MUL / MLA Rd=Rm*Rs Rd=Rm*Rs+Rn
 	let rd = bitSlice(instr, 16, 19);
 	let rn = bitSlice(instr, 12, 15);
 	let rs = bitSlice(instr, 8, 11);
 	let rm = bitSlice(instr, 0, 3);
+	let accumulate = bitSlice(instr, 21, 21);
 
-	let result = BigInt(this.registers[rm][this.registerIndices[mode][rm]]) * BigInt(this.registers[rs][this.registerIndices[mode][rs]]);
-	if (bitSlice(instr, 21, 21)) //accumulate bit
+	let result = BigInt(this.registers[rm][0]) * BigInt(this.registers[rs][0]);
+	if (accumulate)
 	{
-		result += BigInt(this.registers[rn][this.registerIndices[mode][rn]]);
+		result += BigInt(this.registers[rn][0]);
 	}
 	result = Number(result & 0xFFFFFFFFn);
 
@@ -240,7 +242,10 @@ arm.prototype.executeOpcode1 = function (instr, mode) { //1 - MUL / MLA Rd=Rm*Rs
 	{
 		this.setNZCV(bitSlice(result, 31, 31), result === 0, true);
 	}
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+
+	this.registers[rd][0] = result;
+
+	//That is m=1 for Bit 31-8, m=2 for Bit 31-16, m=3 for Bit 31-24, and m=4 otherwise.
 };
 
 
@@ -249,27 +254,27 @@ arm.prototype.executeOpcode1 = function (instr, mode) { //1 - MUL / MLA Rd=Rm*Rs
 //i = 0 -> register offset
 //i = 1 -> imm offset
 //writeback -> write address into base
-arm.prototype.executeOpcode2 = function (instr, mode) { //2 - STRH p=0 i=0 [a]=Rd
+arm.prototype.executeOpcode2 = function (instr) { //2 - STRH p=0 i=0 [a]=Rd
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let rm = bitSlice(instr, 0, 3); //offset
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-	this.mmu.write16(this.registers[rn][this.registerIndices[mode][rn]] & 0xFFFFFFFE, this.registers[rd][this.registerIndices[mode][rd]] + (rd === 15 ? 4 : 0));
+	this.mmu.write16(this.registers[rn][0] & 0xFFFFFFFE, this.registers[rd][0] + (rd === 15 ? 4 : 0));
 
-	this.registers[rn][this.registerIndices[mode][rn]] += this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1);
+	this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 };
 
-arm.prototype.executeOpcode3 = function (instr, mode) { //3 - LDRH p=0 i=0 Load Unsigned halfword
+arm.prototype.executeOpcode3 = function (instr) { //3 - LDRH p=0 i=0 Load Unsigned halfword
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let rm = bitSlice(instr, 0, 3); //offset
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-	let addr = this.registers[rn][this.registerIndices[mode][rn]];
+	let addr = this.registers[rn][0];
 	let data = rotateRight(this.mmu.read16(addr & 0xFFFFFFFE), (addr & 1) << 3);
 
-	this.registers[rd][this.registerIndices[mode][rd]] = data;
+	this.registers[rd][0] = data;
 
 	if (rd === 15)
 	{
@@ -278,31 +283,31 @@ arm.prototype.executeOpcode3 = function (instr, mode) { //3 - LDRH p=0 i=0 Load 
 
 	if (rn !== rd)
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1);
+		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode4 = function (instr, mode) { //4 - STRH p=0 i=1 [a]=Rd
+arm.prototype.executeOpcode4 = function (instr) { //4 - STRH p=0 i=1 [a]=Rd
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-	this.mmu.write16(this.registers[rn][this.registerIndices[mode][rn]] & 0xFFFFFFFE, this.registers[rd][this.registerIndices[mode][rd]] + (rd === 15 ? 4 : 0));
+	this.mmu.write16(this.registers[rn][0] & 0xFFFFFFFE, this.registers[rd][0] + (rd === 15 ? 4 : 0));
 
-	this.registers[rn][this.registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+	this.registers[rn][0] += offset * (u ? 1 : -1);
 };
 
-arm.prototype.executeOpcode5 = function (instr, mode) { //5 - LDRH p=0 i=1 Load Unsigned halfword
+arm.prototype.executeOpcode5 = function (instr) { //5 - LDRH p=0 i=1 Load Unsigned halfword
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-	let addr = this.registers[rn][this.registerIndices[mode][rn]];
+	let addr = this.registers[rn][0];
 	let data = rotateRight(this.mmu.read16(addr & 0xFFFFFFFE), (addr & 1) << 3);
 
-	this.registers[rd][this.registerIndices[mode][rd]] = data;
+	this.registers[rd][0] = data;
 
 	if (rd === 15)
 	{
@@ -311,19 +316,19 @@ arm.prototype.executeOpcode5 = function (instr, mode) { //5 - LDRH p=0 i=1 Load 
 
 	if (rn !== rd)
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode6 = function (instr, mode) { //6 - LDRSB p=0 i=0 Load Signed Byte
+arm.prototype.executeOpcode6 = function (instr) { //6 - LDRSB p=0 i=0 Load Signed Byte
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let rm = bitSlice(instr, 0, 3); //offset
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-	let byte = this.mmu.read8(this.registers[rn][this.registerIndices[mode][rn]]);
+	let byte = this.mmu.read8(this.registers[rn][0]);
 	byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
-	this.registers[rd][this.registerIndices[mode][rd]] = byte;
+	this.registers[rd][0] = byte;
 	if (rd === 15)
 	{
 		this.cpu.resetPipeline();
@@ -331,19 +336,19 @@ arm.prototype.executeOpcode6 = function (instr, mode) { //6 - LDRSB p=0 i=0 Load
 
 	if (rn !== rd)
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1);
+		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode7 = function (instr, mode) { //7 - LDRSB p=0 i=1 Load Signed Byte
+arm.prototype.executeOpcode7 = function (instr) { //7 - LDRSB p=0 i=1 Load Signed Byte
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-	let byte = this.mmu.read8(this.registers[rn][this.registerIndices[mode][rn]]);
+	let byte = this.mmu.read8(this.registers[rn][0]);
 	byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
-	this.registers[rd][this.registerIndices[mode][rd]] = byte;
+	this.registers[rd][0] = byte;
 	if (rd === 15)
 	{
 		this.cpu.resetPipeline();
@@ -351,29 +356,29 @@ arm.prototype.executeOpcode7 = function (instr, mode) { //7 - LDRSB p=0 i=1 Load
 	
 	if (rn !== rd)
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode8 = function (instr, mode) { //8 - LDRSH p=0 i=0 Load Signed halfword
+arm.prototype.executeOpcode8 = function (instr) { //8 - LDRSH p=0 i=0 Load Signed halfword
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let rm = bitSlice(instr, 0, 3); //offset
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-	let addr = this.registers[rn][this.registerIndices[mode][rn]];
+	let addr = this.registers[rn][0];
 
 	if (addr & 1)
 	{
 		let byte = this.mmu.read8(addr);
 		byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
-		this.registers[rd][this.registerIndices[mode][rd]] = byte;
+		this.registers[rd][0] = byte;
 	}
 	else
 	{
 		let halfword = this.mmu.read16(addr);
 		halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
-		this.registers[rd][this.registerIndices[mode][rd]] = halfword;
+		this.registers[rd][0] = halfword;
 	}
 
 	if (rd === 15)
@@ -383,29 +388,29 @@ arm.prototype.executeOpcode8 = function (instr, mode) { //8 - LDRSH p=0 i=0 Load
 
 	if (rn !== rd)
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1);
+		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode9 = function (instr, mode) { //9 - LDRSH p=0 i=1 Load Signed halfword
+arm.prototype.executeOpcode9 = function (instr) { //9 - LDRSH p=0 i=1 Load Signed halfword
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 
-	let addr = this.registers[rn][this.registerIndices[mode][rn]];
+	let addr = this.registers[rn][0];
 
 	if (addr & 1)
 	{
 		let byte = this.mmu.read8(addr);
 		byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
-		this.registers[rd][this.registerIndices[mode][rd]] = byte;
+		this.registers[rd][0] = byte;
 	}
 	else
 	{
 		let halfword = this.mmu.read16(addr);
 		halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
-		this.registers[rd][this.registerIndices[mode][rd]] = halfword;
+		this.registers[rd][0] = halfword;
 	}
 
 	if (rd === 15)
@@ -415,12 +420,12 @@ arm.prototype.executeOpcode9 = function (instr, mode) { //9 - LDRSH p=0 i=1 Load
 
 	if (rn !== rd)
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
 };
 
 //ARM[4]------------------------second operand register, shifted by register (opcodes 0 - 7)-----------------
-arm.prototype.executeOpcode10 = function (instr, mode) { //10 - AND 0tt1 Rd = Rn AND Op2
+arm.prototype.executeOpcode10 = function (instr) { //10 - AND 0tt1 Rd = Rn AND Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -430,8 +435,8 @@ arm.prototype.executeOpcode10 = function (instr, mode) { //10 - AND 0tt1 Rd = Rn
 
 	this.registers[15][0] += 4;
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] & this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] & this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -442,7 +447,7 @@ arm.prototype.executeOpcode10 = function (instr, mode) { //10 - AND 0tt1 Rd = Rn
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -452,7 +457,7 @@ arm.prototype.executeOpcode10 = function (instr, mode) { //10 - AND 0tt1 Rd = Rn
 	}
 };
 
-arm.prototype.executeOpcode11 = function (instr, mode) { //11 - EOR 0tt1 Rd = Rn XOR Op2
+arm.prototype.executeOpcode11 = function (instr) { //11 - EOR 0tt1 Rd = Rn XOR Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -462,8 +467,8 @@ arm.prototype.executeOpcode11 = function (instr, mode) { //11 - EOR 0tt1 Rd = Rn
 
 	this.registers[15][0] += 4;
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] ^ this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] ^ this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -474,7 +479,7 @@ arm.prototype.executeOpcode11 = function (instr, mode) { //11 - EOR 0tt1 Rd = Rn
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -484,7 +489,7 @@ arm.prototype.executeOpcode11 = function (instr, mode) { //11 - EOR 0tt1 Rd = Rn
 	}
 };
 
-arm.prototype.executeOpcode12 = function (instr, mode) { //12 - SUB 0tt1 Rd = Rn-Op2
+arm.prototype.executeOpcode12 = function (instr) { //12 - SUB 0tt1 Rd = Rn-Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -494,21 +499,21 @@ arm.prototype.executeOpcode12 = function (instr, mode) { //12 - SUB 0tt1 Rd = Rn
 
 	this.registers[15][0] += 4;
 
-	let secondOperand = this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	let result = (this.registers[rn][this.registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
+	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][this.registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
 	}
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -518,7 +523,7 @@ arm.prototype.executeOpcode12 = function (instr, mode) { //12 - SUB 0tt1 Rd = Rn
 	}
 };
 
-arm.prototype.executeOpcode13 = function (instr, mode) { //13 - RSB 0tt1 Rd = Op2-Rn
+arm.prototype.executeOpcode13 = function (instr) { //13 - RSB 0tt1 Rd = Op2-Rn
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -528,21 +533,21 @@ arm.prototype.executeOpcode13 = function (instr, mode) { //13 - RSB 0tt1 Rd = Op
 
 	this.registers[15][0] += 4;
 
-	let secondOperand = this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	let result = (secondOperand - this.registers[rn][this.registerIndices[mode][rn]]) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	let result = (secondOperand - this.registers[rn][0]) & 0xFFFFFFFF;
+	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][this.registerIndices[mode][rn]] <= secondOperand, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= secondOperand, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -552,7 +557,7 @@ arm.prototype.executeOpcode13 = function (instr, mode) { //13 - RSB 0tt1 Rd = Op
 	}
 };
 
-arm.prototype.executeOpcode14 = function (instr, mode) { //14 - ADD 0tt1 Rd = Rn+Op2
+arm.prototype.executeOpcode14 = function (instr) { //14 - ADD 0tt1 Rd = Rn+Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -562,56 +567,21 @@ arm.prototype.executeOpcode14 = function (instr, mode) { //14 - ADD 0tt1 Rd = Rn
 
 	this.registers[15][0] += 4;
 
-	let secondOperand = this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	let result = this.registers[rn][this.registerIndices[mode][rn]] + secondOperand;
-		let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
-
-	if (s)
-	{
-		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
-	}
-
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
-	if (rd === 15)
-	{
-		if (s) //set CPSR to SPSR_current_mode
-		{
-			this.SPSRtoCPSR(mode);
-		}
-		this.cpu.resetPipeline();
-	}
-	else
-	{
-		this.registers[15][0] -= 4;
-	}
-};
-
-arm.prototype.executeOpcode15 = function (instr, mode) { //15 - ADC 0tt1 Rd = Rn+Op2+Cy
-	let rn = bitSlice(instr, 16, 19);
-	let rd = bitSlice(instr, 12, 15);
-	let rm = bitSlice(instr, 0, 3); //second operand
-	let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
-	let st = bitSlice(instr, 5, 6); //shift type
-	let s = bitSlice(instr, 20, 20);
-	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
-
-	this.registers[15][0] += 4;
-
-	let secondOperand = this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	let result = this.registers[rn][this.registerIndices[mode][rn]] + secondOperand + carryFlag;
-		let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	let result = this.registers[rn][0] + secondOperand;
+		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
 		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -621,7 +591,7 @@ arm.prototype.executeOpcode15 = function (instr, mode) { //15 - ADC 0tt1 Rd = Rn
 	}
 };
 
-arm.prototype.executeOpcode16 = function (instr, mode) { //16 - SBC 0tt1 Rd = Rn-Op2+Cy-1
+arm.prototype.executeOpcode15 = function (instr) { //15 - ADC 0tt1 Rd = Rn+Op2+Cy
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -632,21 +602,21 @@ arm.prototype.executeOpcode16 = function (instr, mode) { //16 - SBC 0tt1 Rd = Rn
 
 	this.registers[15][0] += 4;
 
-	let secondOperand = this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	let result = (this.registers[rn][this.registerIndices[mode][rn]] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	let result = this.registers[rn][0] + secondOperand + carryFlag;
+		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= this.registers[rn][this.registerIndices[mode][rn]] + carryFlag, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -656,7 +626,7 @@ arm.prototype.executeOpcode16 = function (instr, mode) { //16 - SBC 0tt1 Rd = Rn
 	}
 };
 
-arm.prototype.executeOpcode17 = function (instr, mode) { //17 - RSC 0tt1 Rd = Op2-Rn+Cy-1
+arm.prototype.executeOpcode16 = function (instr) { //16 - SBC 0tt1 Rd = Rn-Op2+Cy-1
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -667,21 +637,56 @@ arm.prototype.executeOpcode17 = function (instr, mode) { //17 - RSC 0tt1 Rd = Op
 
 	this.registers[15][0] += 4;
 
-	let secondOperand = this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	let result = (secondOperand - this.registers[rn][this.registerIndices[mode][rn]]  + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][this.registerIndices[mode][rn]] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	let result = (this.registers[rn][0] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
+	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][this.registerIndices[mode][rn]] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= this.registers[rn][0] + carryFlag, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
+		}
+		this.cpu.resetPipeline();
+	}
+	else
+	{
+		this.registers[15][0] -= 4;
+	}
+};
+
+arm.prototype.executeOpcode17 = function (instr) { //17 - RSC 0tt1 Rd = Op2-Rn+Cy-1
+	let rn = bitSlice(instr, 16, 19);
+	let rd = bitSlice(instr, 12, 15);
+	let rm = bitSlice(instr, 0, 3); //second operand
+	let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
+	let st = bitSlice(instr, 5, 6); //shift type
+	let s = bitSlice(instr, 20, 20);
+	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
+
+	this.registers[15][0] += 4;
+
+	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	let result = (secondOperand - this.registers[rn][0]  + carryFlag - 1) & 0xFFFFFFFF;
+	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+	if (s)
+	{
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][0] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
+	}
+
+	this.registers[rd][0] = result;
+	if (rd === 15)
+	{
+		if (s) //set CPSR to SPSR_current_mode
+		{
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -692,7 +697,7 @@ arm.prototype.executeOpcode17 = function (instr, mode) { //17 - RSC 0tt1 Rd = Op
 };
 
 //ARM[4]------------------------second operand register, shifted by IMM (opcodes 0 - 7)-----------------
-arm.prototype.executeOpcode18 = function (instr, mode) { //18 - AND stt0 Rd = Rn AND Op2
+arm.prototype.executeOpcode18 = function (instr) { //18 - AND stt0 Rd = Rn AND Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -700,8 +705,8 @@ arm.prototype.executeOpcode18 = function (instr, mode) { //18 - AND stt0 Rd = Rn
 	let st = bitSlice(instr, 5, 6); //shift type
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] & this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] & this.shiftRegByImm(this.registers[rm][0], imm, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -712,13 +717,13 @@ arm.prototype.executeOpcode18 = function (instr, mode) { //18 - AND stt0 Rd = Rn
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode19 = function (instr, mode) { //19 - EOR stt0 Rd = Rn XOR Op2
+arm.prototype.executeOpcode19 = function (instr) { //19 - EOR stt0 Rd = Rn XOR Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -726,8 +731,8 @@ arm.prototype.executeOpcode19 = function (instr, mode) { //19 - EOR stt0 Rd = Rn
 	let st = bitSlice(instr, 5, 6); //shift type
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] ^ this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] ^ this.shiftRegByImm(this.registers[rm][0], imm, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -738,13 +743,13 @@ arm.prototype.executeOpcode19 = function (instr, mode) { //19 - EOR stt0 Rd = Rn
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode20 = function (instr, mode) { //20 - SUB stt0 Rd = Rn-Op2
+arm.prototype.executeOpcode20 = function (instr) { //20 - SUB stt0 Rd = Rn-Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -752,27 +757,27 @@ arm.prototype.executeOpcode20 = function (instr, mode) { //20 - SUB stt0 Rd = Rn
 	let st = bitSlice(instr, 5, 6); //shift type
 	let s = bitSlice(instr, 20, 20);
 
-	let secondOperand = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	let result = (this.registers[rn][this.registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
+	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
+	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][this.registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode21 = function (instr, mode) { //21 - RSB stt0 Rd = Op2-Rn
+arm.prototype.executeOpcode21 = function (instr) { //21 - RSB stt0 Rd = Op2-Rn
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -780,27 +785,27 @@ arm.prototype.executeOpcode21 = function (instr, mode) { //21 - RSB stt0 Rd = Op
 	let st = bitSlice(instr, 5, 6); //shift type
 	let s = bitSlice(instr, 20, 20);
 
-	let secondOperand = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	let result = (secondOperand - this.registers[rn][this.registerIndices[mode][rn]]) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
+	let result = (secondOperand - this.registers[rn][0]) & 0xFFFFFFFF;
+	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][this.registerIndices[mode][rn]] <= secondOperand, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= secondOperand, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode22 = function (instr, mode) { //22 - ADD stt0 Rd = Rn+Op2
+arm.prototype.executeOpcode22 = function (instr) { //22 - ADD stt0 Rd = Rn+Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -808,39 +813,9 @@ arm.prototype.executeOpcode22 = function (instr, mode) { //22 - ADD stt0 Rd = Rn
 	let st = bitSlice(instr, 5, 6); //shift type
 	let s = bitSlice(instr, 20, 20);
 
-	let secondOperand = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	let result = this.registers[rn][this.registerIndices[mode][rn]] + secondOperand;
-		let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
-
-
-	if (s)
-	{
-		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
-	}
-
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
-	if (rd === 15)
-	{
-		if (s) //set CPSR to SPSR_current_mode
-		{
-			this.SPSRtoCPSR(mode);
-		}
-		this.cpu.resetPipeline();
-	}
-};
-
-arm.prototype.executeOpcode23 = function (instr, mode) { //23 - ADC stt0 Rd = Rn+Op2+Cy
-	let rn = bitSlice(instr, 16, 19);
-	let rd = bitSlice(instr, 12, 15);
-	let rm = bitSlice(instr, 0, 3); //second operand
-	let imm = bitSlice(instr, 7, 11); //shift amt (imm)
-	let st = bitSlice(instr, 5, 6); //shift type
-	let s = bitSlice(instr, 20, 20);
-	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
-
-	let secondOperand = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	let result = this.registers[rn][this.registerIndices[mode][rn]] + secondOperand + carryFlag;
-		let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
+	let result = this.registers[rn][0] + secondOperand;
+		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 
 	if (s)
@@ -848,18 +823,18 @@ arm.prototype.executeOpcode23 = function (instr, mode) { //23 - ADC stt0 Rd = Rn
 		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode24 = function (instr, mode) { //24 - SBC stt0 Rd = Rn-Op2+Cy-1
+arm.prototype.executeOpcode23 = function (instr) { //23 - ADC stt0 Rd = Rn+Op2+Cy
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -868,27 +843,28 @@ arm.prototype.executeOpcode24 = function (instr, mode) { //24 - SBC stt0 Rd = Rn
 	let s = bitSlice(instr, 20, 20);
 	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
 
-	let secondOperand = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	let result = (this.registers[rn][this.registerIndices[mode][rn]] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
+	let result = this.registers[rn][0] + secondOperand + carryFlag;
+		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= this.registers[rn][this.registerIndices[mode][rn]] + carryFlag , (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode25 = function (instr, mode) { //25 - RSC stt0 Rd = Op2-Rn+Cy-1
+arm.prototype.executeOpcode24 = function (instr) { //24 - SBC stt0 Rd = Rn-Op2+Cy-1
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -897,28 +873,57 @@ arm.prototype.executeOpcode25 = function (instr, mode) { //25 - RSC stt0 Rd = Op
 	let s = bitSlice(instr, 20, 20);
 	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
 
-	let secondOperand = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	let result = (secondOperand - this.registers[rn][this.registerIndices[mode][rn]]  + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][this.registerIndices[mode][rn]] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
+	let result = (this.registers[rn][0] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
+	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][this.registerIndices[mode][rn]] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= this.registers[rn][0] + carryFlag , (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
+		}
+		this.cpu.resetPipeline();
+	}
+};
+
+arm.prototype.executeOpcode25 = function (instr) { //25 - RSC stt0 Rd = Op2-Rn+Cy-1
+	let rn = bitSlice(instr, 16, 19);
+	let rd = bitSlice(instr, 12, 15);
+	let rm = bitSlice(instr, 0, 3); //second operand
+	let imm = bitSlice(instr, 7, 11); //shift amt (imm)
+	let st = bitSlice(instr, 5, 6); //shift type
+	let s = bitSlice(instr, 20, 20);
+	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
+
+	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
+	let result = (secondOperand - this.registers[rn][0]  + carryFlag - 1) & 0xFFFFFFFF;
+	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+	if (s)
+	{
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][0] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
+	}
+
+	this.registers[rd][0] = result;
+	if (rd === 15)
+	{
+		if (s) //set CPSR to SPSR_current_mode
+		{
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
 //ARM[4]-----------second operand register, shifted by register (opcodes 8 - 15)---------- & ARM[2]----------------------------------------
-arm.prototype.executeOpcode26 = function (instr, mode) { //26 - TST 0tt1 Void = Rn AND Op2
+arm.prototype.executeOpcode26 = function (instr) { //26 - TST 0tt1 Void = Rn AND Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -927,14 +932,14 @@ arm.prototype.executeOpcode26 = function (instr, mode) { //26 - TST 0tt1 Void = 
 
 	this.registers[15][0] += 4;
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] & this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
+	let result = this.registers[rn][0] & this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 
 	this.registers[15][0] -= 4;
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 };
 
-arm.prototype.executeOpcode27 = function (instr, mode) { //27 - TEQ 0tt1 Void = Rn XOR Op2
+arm.prototype.executeOpcode27 = function (instr) { //27 - TEQ 0tt1 Void = Rn XOR Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -943,29 +948,29 @@ arm.prototype.executeOpcode27 = function (instr, mode) { //27 - TEQ 0tt1 Void = 
 
 	this.registers[15][0] += 4;
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] ^ this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
+	let result = this.registers[rn][0] ^ this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 
 	this.registers[15][0] -= 4;
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 };
 
-arm.prototype.executeOpcode28 = function (instr, mode) { //28 - BX PC=Rn T=Rn[0]
+arm.prototype.executeOpcode28 = function (instr) { //28 - BX PC=Rn T=Rn[0]
 	let rn = bitSlice(instr, 0, 3);
 
-	if (this.registers[rn][this.registerIndices[mode][rn]] & 1)
+	if (this.registers[rn][0] & 1)
 	{
-		this.registers[15][0] = this.registers[rn][this.registerIndices[mode][rn]]; //clear bit 0
-		this.cpu.changeState("THUMB");
+		this.registers[15][0] = this.registers[rn][0]; //clear bit 0
+		this.cpu.changeState(this.cpu.stateENUMS["THUMB"]);
 	}
 	else
 	{
-		this.registers[15][0] = this.registers[rn][this.registerIndices[mode][rn]]; //clear bottom two bits
+		this.registers[15][0] = this.registers[rn][0]; //clear bottom two bits
 	}
 	this.cpu.resetPipeline();
 };
 
-arm.prototype.executeOpcode29 = function (instr, mode) { //29 - CMP 0tt1 Void = Rn-Op2
+arm.prototype.executeOpcode29 = function (instr) { //29 - CMP 0tt1 Void = Rn-Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -974,17 +979,17 @@ arm.prototype.executeOpcode29 = function (instr, mode) { //29 - CMP 0tt1 Void = 
 
 	this.registers[15][0] += 4;
 
-	let secondOperand = this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	let result = (this.registers[rn][this.registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
+	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
 
-	let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	this.registers[15][0] -= 4;
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][this.registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
 };
 
-arm.prototype.executeOpcode30 = function (instr, mode) { //30 - CMN 0tt1 Void = Rn+Op2
+arm.prototype.executeOpcode30 = function (instr) { //30 - CMN 0tt1 Void = Rn+Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -993,17 +998,17 @@ arm.prototype.executeOpcode30 = function (instr, mode) { //30 - CMN 0tt1 Void = 
 
 	this.registers[15][0] += 4;
 
-	let secondOperand = this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	let result = this.registers[rn][this.registerIndices[mode][rn]] + secondOperand;
+	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	let result = this.registers[rn][0] + secondOperand;
 
-		let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 		this.registers[15][0] -= 4;
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, (vflag === 0) || (vflag === 3));
 };
 
-arm.prototype.executeOpcode31 = function (instr, mode) { //31 - ORR 0tt1 Rd = Rn OR Op2
+arm.prototype.executeOpcode31 = function (instr) { //31 - ORR 0tt1 Rd = Rn OR Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -1013,8 +1018,8 @@ arm.prototype.executeOpcode31 = function (instr, mode) { //31 - ORR 0tt1 Rd = Rn
 
 	this.registers[15][0] += 4;
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] | this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] | this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1025,7 +1030,7 @@ arm.prototype.executeOpcode31 = function (instr, mode) { //31 - ORR 0tt1 Rd = Rn
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -1035,7 +1040,7 @@ arm.prototype.executeOpcode31 = function (instr, mode) { //31 - ORR 0tt1 Rd = Rn
 	}
 };
 
-arm.prototype.executeOpcode32 = function (instr, mode) { //32 - MOV 0tt1 Rd = Op2
+arm.prototype.executeOpcode32 = function (instr) { //32 - MOV 0tt1 Rd = Op2
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
 	let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
@@ -1044,8 +1049,8 @@ arm.prototype.executeOpcode32 = function (instr, mode) { //32 - MOV 0tt1 Rd = Op
 
 	this.registers[15][0] += 4;
 
-	let result = this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1056,7 +1061,7 @@ arm.prototype.executeOpcode32 = function (instr, mode) { //32 - MOV 0tt1 Rd = Op
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -1066,7 +1071,7 @@ arm.prototype.executeOpcode32 = function (instr, mode) { //32 - MOV 0tt1 Rd = Op
 	}
 };
 
-arm.prototype.executeOpcode33 = function (instr, mode) { //33 - BIC 0tt1 Rd = Rn AND NOT Op2
+arm.prototype.executeOpcode33 = function (instr) { //33 - BIC 0tt1 Rd = Rn AND NOT Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -1076,8 +1081,8 @@ arm.prototype.executeOpcode33 = function (instr, mode) { //33 - BIC 0tt1 Rd = Rn
 
 	this.registers[15][0] += 4;
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] & ~this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] & ~this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1088,7 +1093,7 @@ arm.prototype.executeOpcode33 = function (instr, mode) { //33 - BIC 0tt1 Rd = Rn
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -1098,7 +1103,7 @@ arm.prototype.executeOpcode33 = function (instr, mode) { //33 - BIC 0tt1 Rd = Rn
 	}
 };
 
-arm.prototype.executeOpcode34 = function (instr, mode) { //34 - MVN 0tt1 Rd = NOT Op2
+arm.prototype.executeOpcode34 = function (instr) { //34 - MVN 0tt1 Rd = NOT Op2
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
 	let rs = bitSlice(instr, 8, 11); //register holding shift amount (bottom byte used)
@@ -1107,8 +1112,8 @@ arm.prototype.executeOpcode34 = function (instr, mode) { //34 - MVN 0tt1 Rd = NO
 
 	this.registers[15][0] += 4;
 
-	let result = ~this.shiftRegByReg(this.registers[rm][this.registerIndices[mode][rm]], this.registers[rs][this.registerIndices[mode][rs]] & 0xFF, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = ~this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1119,7 +1124,7 @@ arm.prototype.executeOpcode34 = function (instr, mode) { //34 - MVN 0tt1 Rd = NO
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
@@ -1130,19 +1135,19 @@ arm.prototype.executeOpcode34 = function (instr, mode) { //34 - MVN 0tt1 Rd = NO
 };
 
 //ARM[10]------------------------------------------------------------------------------------------------
-arm.prototype.executeOpcode35 = function (instr, mode) { //35 - SWP Rd=[Rn], [Rn]=Rm
+arm.prototype.executeOpcode35 = function (instr) { //35 - SWP Rd=[Rn], [Rn]=Rm
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3);
 	let b = bitSlice(instr, 22, 22) ? 1 : 4;
 	let mask = (b === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
 
-	let data = this.mmu.read(this.registers[rn][this.registerIndices[mode][rn]] & mask, b); //LDR
-	data = rotateRight(data, b === 1 ? 0 : (this.registers[rn][this.registerIndices[mode][rn]] & 3) << 3);
+	let data = this.mmu.read(this.registers[rn][0] & mask, b); //LDR
+	data = rotateRight(data, b === 1 ? 0 : (this.registers[rn][0] & 3) << 3);
 
-	this.mmu.write(this.registers[rn][this.registerIndices[mode][rn]] & mask, this.registers[rm][this.registerIndices[mode][rm]], b); //STR
+	this.mmu.write(this.registers[rn][0] & mask, this.registers[rm][0], b); //STR
 
-	this.registers[rd][this.registerIndices[mode][rd]] = data;
+	this.registers[rd][0] = data;
 };
 
 
@@ -1151,32 +1156,32 @@ arm.prototype.executeOpcode35 = function (instr, mode) { //35 - SWP Rd=[Rn], [Rn
 //i = 0 -> register offset
 //i = 1 -> imm offset
 //writeback -> write address into base
-arm.prototype.executeOpcode36 = function (instr, mode) { //36 - STRH p=1 i=0 [a]=Rd
+arm.prototype.executeOpcode36 = function (instr) { //36 - STRH p=1 i=0 [a]=Rd
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let rm = bitSlice(instr, 0, 3); //offset
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 	let w = bitSlice(instr, 21, 21); //writeback
 
-	this.mmu.write16((this.registers[rn][this.registerIndices[mode][rn]] + this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1)) & 0xFFFFFFFE, this.registers[rd][this.registerIndices[mode][rd]] + (rd === 15 ? 4 : 0));
+	this.mmu.write16((this.registers[rn][0] + this.registers[rm][0] * (u ? 1 : -1)) & 0xFFFFFFFE, this.registers[rd][0] + (rd === 15 ? 4 : 0));
 
 	if (w)
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1);
+		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode37 = function (instr, mode) { //37 - LDRH p=1 i=0 Load Unsigned halfword
+arm.prototype.executeOpcode37 = function (instr) { //37 - LDRH p=1 i=0 Load Unsigned halfword
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let rm = bitSlice(instr, 0, 3); //offset
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 	let w = bitSlice(instr, 21, 21); //writeback
 
-	let addr = this.registers[rn][this.registerIndices[mode][rn]] + (this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1));
+	let addr = this.registers[rn][0] + (this.registers[rm][0] * (u ? 1 : -1));
 	let data = rotateRight(this.mmu.read16(addr & 0xFFFFFFFE), (addr & 1) << 3);
 
-	this.registers[rd][this.registerIndices[mode][rd]] = data;
+	this.registers[rd][0] = data;
 
 	if (rd === 15)
 	{
@@ -1185,40 +1190,40 @@ arm.prototype.executeOpcode37 = function (instr, mode) { //37 - LDRH p=1 i=0 Loa
 
 	if (w && (rn !== rd))
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1);
+		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode38 = function (instr, mode) { //38 - STRH p=1 i=1 [a]=Rd
+arm.prototype.executeOpcode38 = function (instr) { //38 - STRH p=1 i=1 [a]=Rd
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 	let w = bitSlice(instr, 21, 21); //writeback
 
-	this.mmu.write16((this.registers[rn][this.registerIndices[mode][rn]] + offset * (u ? 1 : -1)) & 0xFFFFFFFE, this.registers[rd][this.registerIndices[mode][rd]] + (rd === 15 ? 4 : 0));
+	this.mmu.write16((this.registers[rn][0] + offset * (u ? 1 : -1)) & 0xFFFFFFFE, this.registers[rd][0] + (rd === 15 ? 4 : 0));
 
 	if (w)
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode39 = function (instr, mode) { //39 - LDRH p=1 i=1 Load Unsigned halfword
+arm.prototype.executeOpcode39 = function (instr) { //39 - LDRH p=1 i=1 Load Unsigned halfword
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 	let w = bitSlice(instr, 21, 21); //writeback
 
-	let addr = this.registers[rn][this.registerIndices[mode][rn]] + (offset * (u ? 1 : -1));
+	let addr = this.registers[rn][0] + (offset * (u ? 1 : -1));
 	let data = rotateRight(this.mmu.read16(addr & 0xFFFFFFFE), (addr & 1) << 3);
 
-	this.registers[rd][this.registerIndices[mode][rd]] = data;
+	this.registers[rd][0] = data;
 	// console.log("base: " + rn);
 	// console.log("offset: " + offset);
 	// console.log("dest: " + rd);
-	// console.log("addr: " + (this.registers[rn][this.registerIndices[mode][rn]] + offset * (u ? 1 : -1)).toString(16));
+	// console.log("addr: " + (this.registers[rn][0] + offset * (u ? 1 : -1)).toString(16));
 	if (rd === 15)
 	{
 		this.cpu.resetPipeline();
@@ -1226,20 +1231,20 @@ arm.prototype.executeOpcode39 = function (instr, mode) { //39 - LDRH p=1 i=1 Loa
 
 	if (w && (rn !== rd))
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode40 = function (instr, mode) { //40 - LDRSB p=1 i=0 Load Signed Byte
+arm.prototype.executeOpcode40 = function (instr) { //40 - LDRSB p=1 i=0 Load Signed Byte
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let rm = bitSlice(instr, 0, 3); //offset
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 	let w = bitSlice(instr, 21, 21); //writeback
 
-	let byte = this.mmu.read8(this.registers[rn][this.registerIndices[mode][rn]] + this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1));
+	let byte = this.mmu.read8(this.registers[rn][0] + this.registers[rm][0] * (u ? 1 : -1));
 	byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
-	this.registers[rd][this.registerIndices[mode][rd]] = byte;
+	this.registers[rd][0] = byte;
 	if (rd === 15)
 	{
 		this.cpu.resetPipeline();
@@ -1247,20 +1252,20 @@ arm.prototype.executeOpcode40 = function (instr, mode) { //40 - LDRSB p=1 i=0 Lo
 
 	if (w && (rn !== rd))
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1);
+		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode41 = function (instr, mode) { //41 - LDRSB p=1 i=1 Load Signed Byte
+arm.prototype.executeOpcode41 = function (instr) { //41 - LDRSB p=1 i=1 Load Signed Byte
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 	let w = bitSlice(instr, 21, 21); //writeback
 
-	let byte = this.mmu.read8(this.registers[rn][this.registerIndices[mode][rn]] + offset * (u ? 1 : -1));
+	let byte = this.mmu.read8(this.registers[rn][0] + offset * (u ? 1 : -1));
 	byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
-	this.registers[rd][this.registerIndices[mode][rd]] = byte;
+	this.registers[rd][0] = byte;
 	if (rd === 15)
 	{
 		this.cpu.resetPipeline();
@@ -1268,30 +1273,30 @@ arm.prototype.executeOpcode41 = function (instr, mode) { //41 - LDRSB p=1 i=1 Lo
 	
 	if (w && (rn !== rd))
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode42 = function (instr, mode) { //42 - LDRSH p=1 i=0 Load Signed halfword
+arm.prototype.executeOpcode42 = function (instr) { //42 - LDRSH p=1 i=0 Load Signed halfword
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let rm = bitSlice(instr, 0, 3); //offset
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 	let w = bitSlice(instr, 21, 21); //writeback
 
-	let addr = this.registers[rn][this.registerIndices[mode][rn]] + (this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1));
+	let addr = this.registers[rn][0] + (this.registers[rm][0] * (u ? 1 : -1));
 
 	if (addr & 1)
 	{
 		let byte = this.mmu.read8(addr);
 		byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
-		this.registers[rd][this.registerIndices[mode][rd]] = byte;
+		this.registers[rd][0] = byte;
 	}
 	else
 	{
 		let halfword = this.mmu.read16(addr);
 		halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
-		this.registers[rd][this.registerIndices[mode][rd]] = halfword;
+		this.registers[rd][0] = halfword;
 	}
 
 	if (rd === 15)
@@ -1301,30 +1306,30 @@ arm.prototype.executeOpcode42 = function (instr, mode) { //42 - LDRSH p=1 i=0 Lo
 
 	if (w && (rn !== rd))
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += this.registers[rm][this.registerIndices[mode][rm]] * (u ? 1 : -1);
+		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
 };
 
-arm.prototype.executeOpcode43 = function (instr, mode) { //43 - LDRSH p=1 i=1 Load Signed halfword
+arm.prototype.executeOpcode43 = function (instr) { //43 - LDRSH p=1 i=1 Load Signed halfword
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let offset = (bitSlice(instr, 8, 11) << 4) + bitSlice(instr, 0, 3);
 	let u = bitSlice(instr, 23, 23); //0 = subtract, 1 = add
 	let w = bitSlice(instr, 21, 21); //writeback
 
-	let addr = this.registers[rn][this.registerIndices[mode][rn]] + (offset * (u ? 1 : -1));
+	let addr = this.registers[rn][0] + (offset * (u ? 1 : -1));
 
 	if (addr & 1)
 	{
 		let byte = this.mmu.read8(addr);
 		byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
-		this.registers[rd][this.registerIndices[mode][rd]] = byte;
+		this.registers[rd][0] = byte;
 	}
 	else
 	{
 		let halfword = this.mmu.read16(addr);
 		halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
-		this.registers[rd][this.registerIndices[mode][rd]] = halfword;
+		this.registers[rd][0] = halfword;
 	}
 
 	if (rd === 15)
@@ -1334,32 +1339,32 @@ arm.prototype.executeOpcode43 = function (instr, mode) { //43 - LDRSH p=1 i=1 Lo
 
 	if (w && (rn !== rd))
 	{
-		this.registers[rn][this.registerIndices[mode][rn]] += offset * (u ? 1 : -1);
+		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
 };
 
 //ARM[6]-----------------------------------------------------------------------------------------------------
-arm.prototype.executeOpcode44 = function (instr, mode) { //44 - MRS Rd = Psr
+arm.prototype.executeOpcode44 = function (instr) { //44 - MRS Rd = Psr
 	let psrBit = bitSlice(instr, 22, 22);
 	let rd = bitSlice(instr, 12, 15);
 
-	this.registers[rd][this.registerIndices[mode][rd]] = this.registers[16 + psrBit][this.registerIndices[mode][16 + psrBit]];
-	if (this.registers[16 + psrBit][this.registerIndices[mode][16 + psrBit]] === undefined)
+	this.registers[rd][0] = this.registers[16 + psrBit][0];
+	if (this.registers[16 + psrBit][0] === null)
 	{
-		this.registers[rd][this.registerIndices[mode][rd]] = this.registers[16][0]; //read from CPSR if no SPSR
+		this.registers[rd][0] = this.registers[16][0]; //read from CPSR if no SPSR
 		console.log("trying to move PSR to rd in MRS with psr bit set when in USER/SYSTEM MODE");
 	}
 };
 
-arm.prototype.executeOpcode45 = function (instr, mode) { //45 - MSR register Psr[field] = Op
+arm.prototype.executeOpcode45 = function (instr) { //45 - MSR register Psr[field] = Op
 	let psrBit = bitSlice(instr, 22, 22);
 	let rd = bitSlice(instr, 12, 15);
 	let fsxc = bitSlice(instr, 16, 19);
 	let p = bitSlice(this.registers[16][0], 0, 4) === 16 ? 0 : 1; //privileged
 
-	let op = this.registers[bitSlice(instr, 0, 3)][this.registerIndices[mode][bitSlice(instr, 0, 3)]];
-	let psr = this.registers[16 + psrBit][this.registerIndices[mode][16 + psrBit]];
-	if (psr === undefined)
+	let op = this.registers[bitSlice(instr, 0, 3)][0];
+	let psr = this.registers[16 + psrBit][0];
+	if (psr === null)
 	{
 		psr = this.registers[16][0];  //read from CPSR if no SPSR
 		console.log("trying to change PSR in MSR with psr bit set when in USER/SYSTEM MODE");
@@ -1391,7 +1396,7 @@ arm.prototype.executeOpcode45 = function (instr, mode) { //45 - MSR register Psr
 
 	if (psrBit) //set SPSR
 	{
-		this.registers[17][this.registerIndices[mode][17]] = psr;
+		this.registers[17][0] = psr;
 	}
 	else //set CPSR
 	{
@@ -1401,63 +1406,63 @@ arm.prototype.executeOpcode45 = function (instr, mode) { //45 - MSR register Psr
 };
 
 //ARM[4]-----------second operand register, shifted by IMM(opcodes 8 - 15)----------------------------------------------------------
-arm.prototype.executeOpcode46 = function (instr, mode) { //46 - TST stt0 Void = Rn AND Op2
+arm.prototype.executeOpcode46 = function (instr) { //46 - TST stt0 Void = Rn AND Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
 	let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 	let st = bitSlice(instr, 5, 6); //shift type
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] 
-	& this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
+	let result = this.registers[rn][0] 
+	& this.shiftRegByImm(this.registers[rm][0], imm, st);
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 };
 
-arm.prototype.executeOpcode47 = function (instr, mode) { //47 - TEQ stt0 Void = Rn XOR Op2
+arm.prototype.executeOpcode47 = function (instr) { //47 - TEQ stt0 Void = Rn XOR Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
 	let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 	let st = bitSlice(instr, 5, 6); //shift type
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] 
-	^ this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
+	let result = this.registers[rn][0] 
+	^ this.shiftRegByImm(this.registers[rm][0], imm, st);
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 };
 
-arm.prototype.executeOpcode48 = function (instr, mode) { //48 - CMP stt0 Void = Rn-Op2
+arm.prototype.executeOpcode48 = function (instr) { //48 - CMP stt0 Void = Rn-Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
 	let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 	let st = bitSlice(instr, 5, 6); //shift type
 
-	let secondOperand = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	let result = (this.registers[rn][this.registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
+	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
+	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
 
-	let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][this.registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
 };
 
-arm.prototype.executeOpcode49 = function (instr, mode) { //49 - CMN stt0 Void = Rn+Op2
+arm.prototype.executeOpcode49 = function (instr) { //49 - CMN stt0 Void = Rn+Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
 	let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 	let st = bitSlice(instr, 5, 6); //shift type
 
-	let secondOperand = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	let result = this.registers[rn][this.registerIndices[mode][rn]] + secondOperand;
+	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
+	let result = this.registers[rn][0] + secondOperand;
 
-		let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
 };
 
-arm.prototype.executeOpcode50 = function (instr, mode) { //50 - ORR stt0 Rd = Rn OR Op2
+arm.prototype.executeOpcode50 = function (instr) { //50 - ORR stt0 Rd = Rn OR Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -1465,8 +1470,8 @@ arm.prototype.executeOpcode50 = function (instr, mode) { //50 - ORR stt0 Rd = Rn
 	let st = bitSlice(instr, 5, 6); //shift type
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] | this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] | this.shiftRegByImm(this.registers[rm][0], imm, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1477,21 +1482,21 @@ arm.prototype.executeOpcode50 = function (instr, mode) { //50 - ORR stt0 Rd = Rn
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode51 = function (instr, mode) { //51 - MOV stt0 Rd = Op2
+arm.prototype.executeOpcode51 = function (instr) { //51 - MOV stt0 Rd = Op2
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
 	let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 	let st = bitSlice(instr, 5, 6); //shift type
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.shiftRegByImm(this.registers[rm][0], imm, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1502,13 +1507,13 @@ arm.prototype.executeOpcode51 = function (instr, mode) { //51 - MOV stt0 Rd = Op
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode52 = function (instr, mode) { //52 - BIC stt0 Rd = Rn AND NOT Op2
+arm.prototype.executeOpcode52 = function (instr) { //52 - BIC stt0 Rd = Rn AND NOT Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
@@ -1516,8 +1521,8 @@ arm.prototype.executeOpcode52 = function (instr, mode) { //52 - BIC stt0 Rd = Rn
 	let st = bitSlice(instr, 5, 6); //shift type
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] & ~this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] & ~this.shiftRegByImm(this.registers[rm][0], imm, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1528,21 +1533,21 @@ arm.prototype.executeOpcode52 = function (instr, mode) { //52 - BIC stt0 Rd = Rn
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode53 = function (instr, mode) { //53 - MVN stt0 Rd = NOT Op2
+arm.prototype.executeOpcode53 = function (instr) { //53 - MVN stt0 Rd = NOT Op2
 	let rd = bitSlice(instr, 12, 15);
 	let rm = bitSlice(instr, 0, 3); //second operand
 	let imm = bitSlice(instr, 7, 11); //shift amt (imm)
 	let st = bitSlice(instr, 5, 6); //shift type
 	let s = bitSlice(instr, 20, 20);
 
-	let result = ~this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], imm, st);
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = ~this.shiftRegByImm(this.registers[rm][0], imm, st);
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1553,21 +1558,21 @@ arm.prototype.executeOpcode53 = function (instr, mode) { //53 - MVN stt0 Rd = NO
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
 //ARM[4]------------------------second operand IMM (opcodes 0 - 7)---------------------------------
-arm.prototype.executeOpcode54 = function (instr, mode) { //54 - AND imm Rd = Rn AND Op2
+arm.prototype.executeOpcode54 = function (instr) { //54 - AND imm Rd = Rn AND Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] & secondOperand;
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] & secondOperand;
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1578,20 +1583,20 @@ arm.prototype.executeOpcode54 = function (instr, mode) { //54 - AND imm Rd = Rn 
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode55 = function (instr, mode) { //55 - EOR imm Rd = Rn XOR Op2
+arm.prototype.executeOpcode55 = function (instr) { //55 - EOR imm Rd = Rn XOR Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] ^ secondOperand;
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] ^ secondOperand;
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1602,97 +1607,70 @@ arm.prototype.executeOpcode55 = function (instr, mode) { //55 - EOR imm Rd = Rn 
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode56 = function (instr, mode) { //56 - SUB imm Rd = Rn-Op2
+arm.prototype.executeOpcode56 = function (instr) { //56 - SUB imm Rd = Rn-Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 
-	let result = (this.registers[rn][this.registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
+	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][this.registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode57 = function (instr, mode) { //57 - RSB imm Rd = Op2-Rn
+arm.prototype.executeOpcode57 = function (instr) { //57 - RSB imm Rd = Op2-Rn
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 
-	let result = (secondOperand - this.registers[rn][this.registerIndices[mode][rn]]) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let result = (secondOperand - this.registers[rn][0]) & 0xFFFFFFFF;
+	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][this.registerIndices[mode][rn]] <= secondOperand, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= secondOperand, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		this.cpu.resetPipeline();
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);			
+			this.SPSRtoCPSR();			
 		}
 	}
 };
 
-arm.prototype.executeOpcode58 = function (instr, mode) { //58 - ADD imm Rd = Rn+Op2
+arm.prototype.executeOpcode58 = function (instr) { //58 - ADD imm Rd = Rn+Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] + secondOperand;
-		let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
-
-
-	if (s)
-	{
-		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
-	}
-
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
-	if (rd === 15)
-	{
-		if (s) //set CPSR to SPSR_current_mode
-		{
-			this.SPSRtoCPSR(mode);
-		}
-		this.cpu.resetPipeline();
-	}
-};
-
-arm.prototype.executeOpcode59 = function (instr, mode) { //59 - ADC imm Rd = Rn+Op2+Cy
-	let rn = bitSlice(instr, 16, 19);
-	let rd = bitSlice(instr, 12, 15);
-	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
-	let s = bitSlice(instr, 20, 20);
-	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
-
-	let result = this.registers[rn][this.registerIndices[mode][rn]] + secondOperand + carryFlag;
-		let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let result = this.registers[rn][0] + secondOperand;
+		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 
 	if (s)
@@ -1700,81 +1678,108 @@ arm.prototype.executeOpcode59 = function (instr, mode) { //59 - ADC imm Rd = Rn+
 		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode60 = function (instr, mode) { //60 - SBC imm Rd = Rn-Op2+Cy-1
+arm.prototype.executeOpcode59 = function (instr) { //59 - ADC imm Rd = Rn+Op2+Cy
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
 
-	let result = (this.registers[rn][this.registerIndices[mode][rn]] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let result = this.registers[rn][0] + secondOperand + carryFlag;
+		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= this.registers[rn][this.registerIndices[mode][rn]] + carryFlag , (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode61 = function (instr, mode) { //61 - RSC imm Rd = Op2-Rn+Cy-1
+arm.prototype.executeOpcode60 = function (instr) { //60 - SBC imm Rd = Rn-Op2+Cy-1
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
 
-	let result = (secondOperand - this.registers[rn][this.registerIndices[mode][rn]]  + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][this.registerIndices[mode][rn]] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let result = (this.registers[rn][0] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
+	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][this.registerIndices[mode][rn]] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= this.registers[rn][0] + carryFlag , (vflag === 0) || (vflag === 3));
 	}
 
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 	if (rd === 15)
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
+		}
+		this.cpu.resetPipeline();
+	}
+};
+
+arm.prototype.executeOpcode61 = function (instr) { //61 - RSC imm Rd = Op2-Rn+Cy-1
+	let rn = bitSlice(instr, 16, 19);
+	let rd = bitSlice(instr, 12, 15);
+	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
+	let s = bitSlice(instr, 20, 20);
+	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
+
+	let result = (secondOperand - this.registers[rn][0]  + carryFlag - 1) & 0xFFFFFFFF;
+	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+
+	if (s)
+	{
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][0] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
+	}
+
+	this.registers[rd][0] = result;
+	if (rd === 15)
+	{
+		if (s) //set CPSR to SPSR_current_mode
+		{
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
 //ARM[4]-----------second operand IMM (opcodes 8 - 15)-------------------------------------------------------- & ARM[6]----------------------------------------
-arm.prototype.executeOpcode62 = function (instr, mode) { //62 - TST imm Void = Rn AND Op2
+arm.prototype.executeOpcode62 = function (instr) { //62 - TST imm Void = Rn AND Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] & secondOperand;
+	let result = this.registers[rn][0] & secondOperand;
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 };
 
-arm.prototype.executeOpcode63 = function (instr, mode) { //63 - MSR imm Psr[field] = Op
+arm.prototype.executeOpcode63 = function (instr) { //63 - MSR imm Psr[field] = Op
 	let psrBit = bitSlice(instr, 22, 22);
 	let rd = bitSlice(instr, 12, 15);
 	let fsxc = bitSlice(instr, 16, 19);
@@ -1786,7 +1791,7 @@ arm.prototype.executeOpcode63 = function (instr, mode) { //63 - MSR imm Psr[fiel
 	}
 
 	let op = rotateRight(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1);
-	let psr = this.registers[16 + psrBit][this.registerIndices[mode][16 + psrBit]];
+	let psr = this.registers[16 + psrBit][0];
 	if (psr === undefined)
 	{
 		psr = this.registers[16][0]; //read from CPSR if no SPSR
@@ -1822,7 +1827,7 @@ arm.prototype.executeOpcode63 = function (instr, mode) { //63 - MSR imm Psr[fiel
 	
 	if (psrBit) //set SPSR
 	{
-		this.registers[17][this.registerIndices[mode][17]] = psr;
+		this.registers[17][0] = psr;
 	}
 	else //set CPSR
 	{
@@ -1830,48 +1835,48 @@ arm.prototype.executeOpcode63 = function (instr, mode) { //63 - MSR imm Psr[fiel
 	}
 };
 
-arm.prototype.executeOpcode64 = function (instr, mode) { //64 - TEQ imm Void = Rn XOR Op2
+arm.prototype.executeOpcode64 = function (instr) { //64 - TEQ imm Void = Rn XOR Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] ^ secondOperand;
+	let result = this.registers[rn][0] ^ secondOperand;
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 };
 
-arm.prototype.executeOpcode65 = function (instr, mode) { //65 - CMP imm Void = Rn-Op2
+arm.prototype.executeOpcode65 = function (instr) { //65 - CMP imm Void = Rn-Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 
-	let result = (this.registers[rn][this.registerIndices[mode][rn]] - secondOperand) & 0xFFFFFFFF;
+	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
 
-	let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][this.registerIndices[mode][rn]], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
 };
 
-arm.prototype.executeOpcode66 = function (instr, mode) { //66 - CMN imm Void = Rn+Op2
+arm.prototype.executeOpcode66 = function (instr) { //66 - CMN imm Void = Rn+Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] + secondOperand;
+	let result = this.registers[rn][0] + secondOperand;
 
-		let vflag = bitSlice(this.registers[rn][this.registerIndices[mode][rn]], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
 };
 
-arm.prototype.executeOpcode67 = function (instr, mode) { //67 - ORR imm Rd = Rn OR Op2
+arm.prototype.executeOpcode67 = function (instr) { //67 - ORR imm Rd = Rn OR Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] | secondOperand;
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] | secondOperand;
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1882,19 +1887,19 @@ arm.prototype.executeOpcode67 = function (instr, mode) { //67 - ORR imm Rd = Rn 
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode68 = function (instr, mode) { //68 - MOV imm  Rd = Op2
+arm.prototype.executeOpcode68 = function (instr) { //68 - MOV imm  Rd = Op2
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);	
 
 	let result = secondOperand;
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1905,20 +1910,20 @@ arm.prototype.executeOpcode68 = function (instr, mode) { //68 - MOV imm  Rd = Op
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode69 = function (instr, mode) { //69 - BIC imm Rd = Rn AND NOT Op2
+arm.prototype.executeOpcode69 = function (instr) { //69 - BIC imm Rd = Rn AND NOT Op2
 	let rn = bitSlice(instr, 16, 19);
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 
-	let result = this.registers[rn][this.registerIndices[mode][rn]] & ~secondOperand;
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	let result = this.registers[rn][0] & ~secondOperand;
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1929,19 +1934,19 @@ arm.prototype.executeOpcode69 = function (instr, mode) { //69 - BIC imm Rd = Rn 
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
-arm.prototype.executeOpcode70 = function (instr, mode) { //70 - MVN imm Rd = NOT Op2
+arm.prototype.executeOpcode70 = function (instr) { //70 - MVN imm Rd = NOT Op2
 	let rd = bitSlice(instr, 12, 15);
 	let secondOperand = this.shiftRegByReg(bitSlice(instr, 0, 7), bitSlice(instr, 8, 11) << 1, 3);
 	let s = bitSlice(instr, 20, 20);
 
 	let result = ~secondOperand;
-	this.registers[rd][this.registerIndices[mode][rd]] = result;
+	this.registers[rd][0] = result;
 
 	if (s)
 	{
@@ -1952,14 +1957,14 @@ arm.prototype.executeOpcode70 = function (instr, mode) { //70 - MVN imm Rd = NOT
 	{
 		if (s) //set CPSR to SPSR_current_mode
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		this.cpu.resetPipeline();
 	}
 };
 
 //ARM[7]-------------------------------------------------------------------------------------------------------------------------------------------------------
-arm.prototype.executeOpcode71 = function (instr, mode) { //71 - LDR / STR i=0
+arm.prototype.executeOpcode71 = function (instr) { //71 - LDR / STR i=0
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let offset = bitSlice(instr, 0, 11); //imm offset
@@ -1982,33 +1987,28 @@ arm.prototype.executeOpcode71 = function (instr, mode) { //71 - LDR / STR i=0
 	{
 		if (!p) //add offset after (writeback always enabled)
 		{
-			if (w) //w serves as t bit
-			{
-				console.log("HUH");
-				mode = 0; //force non-priveleged access
-			}
-			let addr = this.registers[rn][this.registerIndices[mode][rn]];
+			let addr = this.registers[rn][0];
 			//console.log("addr1: " + addr.toString(16));
 			let data = this.mmu.read(addr & mask, size);
 			data = size === 4 ? rotateRight(data, (addr & 3) << 3) : data;
-			this.registers[rd][this.registerIndices[mode][rd]] = data;
+			this.registers[rd][0] = data;
 
 			if (rd !== rn) //dont overwrite loaded value (occurs when rd === rn)
 			{
-				this.registers[rn][this.registerIndices[mode][rn]] += sign * offset;
+				this.registers[rn][0] += sign * offset;
 			}
 		}
 		else //add offset before (check if writeback enabled)
 		{
-			let addr = (this.registers[rn][this.registerIndices[mode][rn]] + (offset * sign));
+			let addr = (this.registers[rn][0] + (offset * sign));
 			//console.log("addr2: " + addr.toString(16));
 			let data = this.mmu.read(addr & mask, size);
 			data = size === 4 ? rotateRight(data, (addr & 3) << 3) : data;
-			this.registers[rd][this.registerIndices[mode][rd]] = data;
+			this.registers[rd][0] = data;
 
 			if (w && (rd !== rn)) //dont overwrite loaded value if w enabled (occurs when rd === rn)
 			{
-				this.registers[rn][this.registerIndices[mode][rn]] += sign * offset;
+				this.registers[rn][0] += sign * offset;
 			}
 		}
 
@@ -2021,31 +2021,26 @@ arm.prototype.executeOpcode71 = function (instr, mode) { //71 - LDR / STR i=0
 	{
 		if (!p) //add offset after (writeback always enabled)
 		{
-			if (w) //w serves as t bit
-			{
-				console.log("HUH");
-				mode = 0; //force non-priveleged access
-			}
-			this.mmu.write(this.registers[rn][this.registerIndices[mode][rn]] & mask, this.registers[rd][this.registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
-			this.registers[rn][this.registerIndices[mode][rn]] += sign * offset;
+			this.mmu.write(this.registers[rn][0] & mask, this.registers[rd][0] + (rd === 15 ? 4 : 0), size);
+			this.registers[rn][0] += sign * offset;
 		}
 		else //add offset before (check if writeback enabled)
 		{
-			let addr = this.registers[rn][this.registerIndices[mode][rn]] + sign * offset;
-			this.mmu.write(addr & mask, this.registers[rd][this.registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
+			let addr = this.registers[rn][0] + sign * offset;
+			this.mmu.write(addr & mask, this.registers[rd][0]  + (rd === 15 ? 4 : 0), size);
 			if (w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
 			{
-				this.registers[rn][this.registerIndices[mode][rn]] = addr;
+				this.registers[rn][0] = addr;
 			}
 		}
 	}
 };
 
-arm.prototype.executeOpcode72 = function (instr, mode) { //72 - LDR / STR i=1
+arm.prototype.executeOpcode72 = function (instr) { //72 - LDR / STR i=1
 	let rn = bitSlice(instr, 16, 19); //base
 	let rd = bitSlice(instr, 12, 15); //destination
 	let rm = bitSlice(instr, 0, 3); //offset reg
-	let offset = this.shiftRegByImm(this.registers[rm][this.registerIndices[mode][rm]], bitSlice(instr, 7, 11), bitSlice(instr, 5, 6)); //register shifted by imm as offset
+	let offset = this.shiftRegByImm(this.registers[rm][0], bitSlice(instr, 7, 11), bitSlice(instr, 5, 6)); //register shifted by imm as offset
 	let p = bitSlice(instr, 24, 24); //pre/post
 	let sign = bitSlice(instr, 23, 23) ? 1 : -1; //0 = subtract, 1 = add
 	let size = bitSlice(instr, 22, 22) ? 1 : 4; //byte / word
@@ -2056,31 +2051,26 @@ arm.prototype.executeOpcode72 = function (instr, mode) { //72 - LDR / STR i=1
 	{
 		if (!p) //add offset after (writeback always enabled)
 		{
-			if (w) //w serves as t bit
-			{
-				console.log("HUH");
-				mode = 0; //force non-priveleged access
-			}
-			let addr = this.registers[rn][this.registerIndices[mode][rn]];
+			let addr = this.registers[rn][0];
 			let data = this.mmu.read(addr & mask, size);
 			data = size === 4 ? rotateRight(data, (addr & 3) << 3) : data;
-			this.registers[rd][this.registerIndices[mode][rd]] = data;
+			this.registers[rd][0] = data;
 
 			if (rd !== rn)
 			{
-				this.registers[rn][this.registerIndices[mode][rn]] += sign * offset;
+				this.registers[rn][0] += sign * offset;
 			}
 		}
 		else //add offset before (check if writeback enabled)
 		{
-			let addr = this.registers[rn][this.registerIndices[mode][rn]] + offset * sign;
+			let addr = this.registers[rn][0] + offset * sign;
 			let data = this.mmu.read(addr & mask, size);
 			data = size === 4 ? rotateRight(data, (addr & 3) << 3) : data;
-			this.registers[rd][this.registerIndices[mode][rd]] = data;
+			this.registers[rd][0] = data;
 
 			if (w && (rd !== rn))
 			{
-				this.registers[rn][this.registerIndices[mode][rn]] += sign * offset;
+				this.registers[rn][0] += sign * offset;
 			}
 		}
 
@@ -2093,28 +2083,23 @@ arm.prototype.executeOpcode72 = function (instr, mode) { //72 - LDR / STR i=1
 	{
 		if (!p) //add offset after (writeback always enabled)
 		{
-			if (w) //w serves as t bit
-			{
-				console.log("HUH");
-				mode = 0; //force non-priveleged access
-			}
-			this.mmu.write(this.registers[rn][this.registerIndices[mode][rn]] & mask, this.registers[rd][this.registerIndices[mode][rd]] + (rd === 15 ? 4 : 0), size);
-			this.registers[rn][this.registerIndices[mode][rn]] += sign * offset;
+			this.mmu.write(this.registers[rn][0] & mask, this.registers[rd][0] + (rd === 15 ? 4 : 0), size);
+			this.registers[rn][0] += sign * offset;
 		}
 		else //add offset before (check if writeback enabled)
 		{
-			let addr = this.registers[rn][this.registerIndices[mode][rn]] + sign * offset;
-			this.mmu.write(addr & mask, this.registers[rd][this.registerIndices[mode][rd]]  + (rd === 15 ? 4 : 0), size);
+			let addr = this.registers[rn][0] + sign * offset;
+			this.mmu.write(addr & mask, this.registers[rd][0]  + (rd === 15 ? 4 : 0), size);
 			if (w) //if no writeback, revert the offset added to rn, otherwise, leave it as is
 			{
-				this.registers[rn][this.registerIndices[mode][rn]] = addr;
+				this.registers[rn][0] = addr;
 			}
 		}
 	}
 };
 
 //ARM[9]-------------------------------------------------------------------------------------------------------------------------------------------------------
-arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM 
+arm.prototype.executeOpcode73 = function (instr) { //73 - LDM / STM 
 	let p = bitSlice(instr, 24, 24);
 	let incramt = bitSlice(instr, 23, 23) ? 4 : -4;
 	let s = bitSlice(instr, 22, 22);
@@ -2122,10 +2107,11 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 	let rn = bitSlice(instr, 16, 19); //base address
 	let rlist = bitSlice(instr, 0, 15); //register list, each bit corresponds to register (by position)
 	let l = bitSlice(instr, 20, 20);
+	let registers = this.registers;
 
 	let addrn; //if stm and rn in rlist, will hold address where rn is stored (super scuffed)
-	let baseAddr = this.registers[rn][this.registerIndices[mode][rn]];
-	let addr = this.registers[rn][this.registerIndices[mode][rn]] & 0xFFFFFFFC;
+	let baseAddr = registers[rn][0];
+	let addr = registers[rn][0] & 0xFFFFFFFC;
 
 	//handle empty rlist
 	if (!rlist)
@@ -2153,14 +2139,14 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 
 		if (l)
 		{
-			this.registers[15][0] = this.mmu.read32(addr & 0xFFFFFFFC);
+			registers[15][0] = this.mmu.read32(addr & 0xFFFFFFFC);
 			this.cpu.resetPipeline();
 		}
 		else
 		{
-			this.mmu.write32(addr & 0xFFFFFFFC, this.registers[15][0] + 4);
+			this.mmu.write32(addr & 0xFFFFFFFC, registers[15][0] + 4);
 		}
-		this.registers[rn][this.registerIndices[mode][rn]] += (incramt << 4);
+		registers[rn][0] += (incramt << 4);
 		return;
 	}
 
@@ -2169,11 +2155,11 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 		console.log("fancy");
 		if (l && (bitSlice(rlist, 15, 15)))
 		{
-			this.SPSRtoCPSR(mode);
+			this.SPSRtoCPSR();
 		}
 		else
 		{
-			mode = 0; //set mode for this instruction to 0 for user bank register transfer
+			registers = this.userRegisters //switch to user mode registers
 		}
 	}
 
@@ -2190,7 +2176,7 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 			{
 				if (bitSlice(rlist, i, i))
 				{
-					this.registers[i][this.registerIndices[mode][i]] = this.mmu.read32(addr);
+					registers[i][0] = this.mmu.read32(addr);
 					addr += incramt;
 				}
 			}
@@ -2201,7 +2187,7 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 			{
 				if (bitSlice(rlist, i, i))
 				{
-					this.registers[i][this.registerIndices[mode][i]] = this.mmu.read32(addr);
+					registers[i][0] = this.mmu.read32(addr);
 					addr += incramt;
 				}
 			}
@@ -2219,7 +2205,7 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 	}
 	else //STM
 	{
-		this.registers[15][0] += 4; //set r15 to instruction address + 12
+		registers[15][0] += 4; //set r15 to instruction address + 12
 
 		if (p) //IB/DB
 		{
@@ -2234,7 +2220,7 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 				{
 					if (i === rn)
 						addrn = addr;
-					this.mmu.write32(addr, this.registers[i][this.registerIndices[mode][i]]);
+					this.mmu.write32(addr, registers[i][0]);
 					addr += incramt;
 				}
 			}
@@ -2248,7 +2234,7 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 				{
 					if (i === rn)
 						addrn = addr;
-					this.mmu.write32(addr, this.registers[i][this.registerIndices[mode][i]]);
+					this.mmu.write32(addr, registers[i][0]);
 					addr += incramt;
 				}
 			}
@@ -2259,7 +2245,7 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 			addr -= incramt;
 		}
 
-		this.registers[15][0] -= 4; //set r15 back to instruction address + 8
+		registers[15][0] -= 4; //set r15 back to instruction address + 8
 	}
 
 	if (w) //handle writeback
@@ -2272,19 +2258,19 @@ arm.prototype.executeOpcode73 = function (instr, mode) { //73 - LDM / STM
 				{
 					this.mmu.write32(addrn, addr | (baseAddr & 3));
 				}
-				this.registers[rn][this.registerIndices[mode][rn]] = addr | (baseAddr & 3);
+				registers[rn][0] = addr | (baseAddr & 3);
 			}
 			//do nothing if LDM
 		}
 		else
 		{
-			this.registers[rn][this.registerIndices[mode][rn]] = addr | (baseAddr & 3);
+			registers[rn][0] = addr | (baseAddr & 3);
 		}
 	}
 };
 
 //ARM[1]-------------------------------------------------------------------------------------------------------------------------------------------------------
-arm.prototype.executeOpcode74 = function (instr, mode) { //74 - B / BL
+arm.prototype.executeOpcode74 = function (instr) { //74 - B / BL
 	let signedOffset = bitSlice(instr, 0 , 23);
 	if (signedOffset >>> 23)
 	{
@@ -2293,54 +2279,54 @@ arm.prototype.executeOpcode74 = function (instr, mode) { //74 - B / BL
 
 	if (bitSlice(instr, 24, 24)) //BL, set link register
 	{
-		this.registers[14][this.registerIndices[mode][14]] = this.registers[15][this.registerIndices[mode][15]] - 4;
+		this.registers[14][0] = this.registers[15][0] - 4;
 	}
 	
-	this.registers[15][this.registerIndices[mode][15]] += (signedOffset << 2);
+	this.registers[15][0] += (signedOffset << 2);
 	this.cpu.resetPipeline();
 };
 
 //ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
-arm.prototype.executeOpcode75 = function (instr, mode) { //75 - LDC / STC
+arm.prototype.executeOpcode75 = function (instr) { //75 - LDC / STC
 	//gba does not use this instruction
 	console.log("???1");
 	throw Error();
 };
 
-arm.prototype.executeOpcode76 = function (instr, mode) { //76 - CDP
+arm.prototype.executeOpcode76 = function (instr) { //76 - CDP
 	//gba does not use this instruction
 	console.log("???2");
 };
 
-arm.prototype.executeOpcode77 = function (instr, mode) { //77 - MRC / MCR
+arm.prototype.executeOpcode77 = function (instr) { //77 - MRC / MCR
 	//gba does not use this instruction
 	console.log("???3");
 };
 
 //ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
-arm.prototype.executeOpcode78 = function (instr, mode) { //78 - SWI
+arm.prototype.executeOpcode78 = function (instr) { //78 - SWI
 	this.cpu.startSWI(bitSlice(instr, 0, 23));
 };
 
 //ARM[5]-----------------------------------------------------------------------------------------------------
-arm.prototype.executeOpcode79 = function (instr, mode) { //79 - SMULL / SMLAL RdHiLo=Rm*Rs / RdHiLo=Rm*Rs+RdHiLo
+arm.prototype.executeOpcode79 = function (instr) { //79 - SMULL / SMLAL RdHiLo=Rm*Rs / RdHiLo=Rm*Rs+RdHiLo
 	let rdhi = bitSlice(instr, 16, 19);
 	let rdlo = bitSlice(instr, 12, 15);
 	let rs = bitSlice(instr, 8, 11);
 	let rm = bitSlice(instr, 0, 3);
 
-	let result = BigInt(this.registers[rm][this.registerIndices[mode][rm]] >> 0) * BigInt(this.registers[rs][this.registerIndices[mode][rs]] >> 0);
+	let result = BigInt(this.registers[rm][0] >> 0) * BigInt(this.registers[rs][0] >> 0);
 	if (bitSlice(instr, 21, 21)) //accumulate bit
 	{
-		result += (BigInt(this.registers[rdhi][this.registerIndices[mode][rdhi]]) << 32n) + BigInt(this.registers[rdlo][this.registerIndices[mode][rdlo]]);
+		result += (BigInt(this.registers[rdhi][0]) << 32n) + BigInt(this.registers[rdlo][0]);
 	}
 
 	if (bitSlice(instr, 20, 20))
 	{
 		this.setNZCV((result & 0x8000000000000000n) != 0, result == 0);
 	}
-	this.registers[rdhi][this.registerIndices[mode][rdhi]] = Number(result >> 32n);
-	this.registers[rdlo][this.registerIndices[mode][rdlo]] = Number(result & 0xFFFFFFFFn);
+	this.registers[rdhi][0] = Number(result >> 32n);
+	this.registers[rdlo][0] = Number(result & 0xFFFFFFFFn);
 }
 
 arm.prototype.fetch = function () {
@@ -2352,10 +2338,10 @@ arm.prototype.decode = function (instr) {
 	return this.armLUT[((bitSlice(instr, 20, 27) << 4) + bitSlice(instr, 4, 7))];
 };
 
-arm.prototype.execute = function (instr, opcode, mode) {
+arm.prototype.execute = function (instr, opcode) {
 	if (this.checkCondition(bitSlice(instr, 28, 31)))
 	{
-		this.executeOpcode[opcode](instr, mode);
+		this.executeOpcode[opcode](instr);
 	}
 };
 	

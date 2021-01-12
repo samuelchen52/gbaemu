@@ -132,7 +132,7 @@ const start = function (biosBuffer, romBuffer) {
 		//GRAPHICS.updateRegisters(CPU.mode);
 	});
 
-	// while (window.instructionNum <= 3000000)
+	// while (window.instructionNum <= 0)
 	// {
 
 	// 	try {
@@ -166,14 +166,17 @@ const start = function (biosBuffer, romBuffer) {
 			// GRAPHICS.update(1);
 			// TIMERCONTROLLER.update(1)			
 
-			for (let i = 0; i < cyclesToRun && !CPU.halt; i ++)	
-			{	
-				CPU.run();
-			}
+			CPU.run(cyclesToRun);
+			// for (let i = 0; (i + MMU.numCycles) < cyclesToRun && !CPU.halt; i ++)	
+			// {	
+			// 	i += CPU.run();
+			// }
+			// MMU.numCycles = 0;
 			cyclesToRun = Math.min(GRAPHICS.update(cyclesToRun), TIMERCONTROLLER.update(cyclesToRun));
 		}
 		frames ++;
 		frameNotComplete = true;
+		if (!window.debug)
 		setTimeout(executeFrame, 10);
 	};
 	executeFrame();
