@@ -591,31 +591,67 @@ graphics.prototype.renderScanlineMode2 = function(scanline, imageDataIndex, imag
 };
 
 graphics.prototype.renderScanlineMode3 = function(scanline, imageDataIndex, imageDataArr, convertColor) { 
+  let backdrop = this.paletteRamMem16[0];
+
+  if (this.objDisplay)
+  {
+    this.objectLayer.renderScanline(scanline);
+  }
   if (this.bg2Display)
   {
-    let backdrop = this.paletteRamMem16[0];
     this.bg2.renderScanlineMode3(scanline);
+  }
 
+  if (this.windowEnabled)
+  {
+    this.mergeLayersWindow(this.windowController.getEnableScanline(scanline), this.windowController.windowCNT, imageDataArr, imageDataIndex, backdrop, this.convertColor);
+  }
+  else
+  {
     this.mergeLayers(imageDataArr, imageDataIndex, backdrop, this.convertColor);
   }
 };
 
 graphics.prototype.renderScanlineMode4 = function(scanline, imageDataIndex, imageDataArr, convertColor) { 
+  let backdrop = this.paletteRamMem16[0];
+
+  if (this.objDisplay)
+  {
+    this.objectLayer.renderScanline(scanline);
+  }
   if (this.bg2Display)
   {
-    let backdrop = this.paletteRamMem16[0];
-    this.bg2.renderScanlineMode4(scanline, this.page);
+    this.bg2.renderScanlineMode4(scanline);
+  }
 
+  if (this.windowEnabled)
+  {
+    this.mergeLayersWindow(this.windowController.getEnableScanline(scanline), this.windowController.windowCNT, imageDataArr, imageDataIndex, backdrop, this.convertColor);
+  }
+  else
+  {
     this.mergeLayers(imageDataArr, imageDataIndex, backdrop, this.convertColor);
   }
 };
 
 graphics.prototype.renderScanlineMode5 = function(scanline, imageDataIndex, imageDataArr, convertColor) { 
+  let backdrop = this.paletteRamMem16[0];
+
+  if (this.objDisplay)
+  {
+    this.objectLayer.renderScanline(scanline);
+  }
   if (this.bg2Display)
   {
-    let backdrop = this.paletteRamMem16[0];
-    this.bg2.renderScanlineMode5(scanline, this.page);
+    this.bg2.renderScanlineMode5(scanline);
+  }
 
+  if (this.windowEnabled)
+  {
+    this.mergeLayersWindow(this.windowController.getEnableScanline(scanline), this.windowController.windowCNT, imageDataArr, imageDataIndex, backdrop, this.convertColor);
+  }
+  else
+  {
     this.mergeLayers(imageDataArr, imageDataIndex, backdrop, this.convertColor);
   }
 };
@@ -852,12 +888,12 @@ graphics.prototype.finishDraw = function () {
 graphics.prototype.updateRegisters = function(mode) {
   for (let i = 0; i <= 15; i++)
   {
-    this.registersDOM[i].textContent = parseInt(this.registers[i][this.registerIndices[mode][i]]).toString(16);
+    this.registersDOM[i].textContent = parseInt(this.registers[i][0]).toString(16);
   }
   //show SPSR
   if (mode)
   {
-    this.registersDOM[16].textContent = parseInt(this.registers[17][this.registerIndices[mode][17]]).toString(16);
+    this.registersDOM[16].textContent = parseInt(this.registers[17][0]).toString(16);
   }
   let CPSR = this.registers[16][0];
   this.cpsrDOM[0].textContent = bitSlice(CPSR, 31, 31);
