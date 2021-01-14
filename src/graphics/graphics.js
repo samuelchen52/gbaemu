@@ -140,9 +140,9 @@ const graphics = function(mmu, cpu, backingCanvasElement, visibleCanvasElement, 
   ];
 
   //intitalize table for "converting" (just making the rgb values greater) 15 bit colors to 32 bit colors (alpha set to full opacity)
-  //using the number 0x8000 as the transparent color, two situations where this will be interpreted wrongly
-  //when an object is using the alpha blend flag and its pixels are the color 0x0000, this will write 0x8000
-  //when the color 0x8000 is being used, as opposed to 0x0000 i.e. some game wants to use the color black, but instead of writing all zeroes, its setting the 15th bit for some reason
+  //using the number 0x8888 as the transparent color, two situations where this will be interpreted wrongly
+  //when an object is using the alpha blend flag and its pixels are the color 0x0888, this will write 0x8888
+  //when the color 0x8888 is being used, as opposed to 0x0888 i.e. some game wants to use the color 0x888, but instead of writing just 0x888, its setting the 15th bit as well for some reason
   for (let i = 0; i < 32768; i ++)
   {
     //credit to https://byuu.net/video/color-emulation/ for the color correction code (modified) below
@@ -621,7 +621,7 @@ graphics.prototype.renderScanlineMode4 = function(scanline, imageDataIndex, imag
   }
   if (this.bg2Display)
   {
-    this.bg2.renderScanlineMode4(scanline);
+    this.bg2.renderScanlineMode4(scanline, this.page);
   }
 
   if (this.windowEnabled)
@@ -669,7 +669,7 @@ graphics.prototype.blendMode1 = function(color, eva, evb, evy, firstTargetMatch,
     let secondColorWindowIndex = 5;
     for (let p = layerIndex + 1; p < numActiveLayers; p ++)
     {
-      if ((scanlineArrs[p][pixelNum] !== 0x8000) && !(isObj[p] && isObj[layerIndex]))
+      if ((scanlineArrs[p][pixelNum] !== 0x8888) && !(isObj[p] && isObj[layerIndex]))
       {
         secondColor = scanlineArrs[p][pixelNum];
         secondColorWindowIndex = windowIndices[p];
@@ -754,7 +754,7 @@ graphics.prototype.mergeLayers = function (imageDataArr, imageDataIndex, backdro
 
     for (var p = 0; p < numActiveLayers; p ++)
     {
-      if (scanlineArrs[p][i] !== 0x8000)
+      if (scanlineArrs[p][i] !== 0x8888)
       {
         color = scanlineArrs[p][i];
         windowIndex = windowIndices[p];
@@ -802,7 +802,7 @@ graphics.prototype.mergeLayersWindow = function (enableScanline, windowCNT, imag
 
     for (var p = 0; p < numActiveLayers; p ++)
     {
-      if (scanlineArrs[p][i] !== 0x8000 && (windowCNT[enableScanline[i]][windowIndices[p]]))
+      if (scanlineArrs[p][i] !== 0x8888 && (windowCNT[enableScanline[i]][windowIndices[p]]))
       {
         color = scanlineArrs[p][i];
         windowIndex = windowIndices[p];

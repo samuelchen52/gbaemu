@@ -29,13 +29,13 @@ objectLayer.prototype.renderScanline = function (scanline) {
   let spritesPerPBG = this.spritesPerPBG;
 
   if (spritesPerPBG[0])
-    PBGs[0].fill(0x8000);
+    PBGs[0].fill(0x8888);
   if (spritesPerPBG[1])
-    PBGs[1].fill(0x8000);
+    PBGs[1].fill(0x8888);
   if (spritesPerPBG[2])
-    PBGs[2].fill(0x8000);
+    PBGs[2].fill(0x8888);
   if (spritesPerPBG[3])
-    PBGs[3].fill(0x8000);
+    PBGs[3].fill(0x8888);
 
 	for (let i = 127; i >= 0; i--)
 	{

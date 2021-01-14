@@ -199,7 +199,7 @@ background.prototype.writeTileToScanlineBPP4 = function (tileAddr, tileLine, sca
     for (let i = startPixel; i < 8; i ++)
     {
       let paletteIndex = (vramMem8[tileAddr + ((7 - i) >>> 1)] >>> (4 * ((i + 1) & 1)) ) & 15;
-      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex + palBankIndex] : 0x8000;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex + palBankIndex] : 0x8888;
       scanlineArrIndex ++;
     }
   }
@@ -208,7 +208,7 @@ background.prototype.writeTileToScanlineBPP4 = function (tileAddr, tileLine, sca
     for (let i = startPixel; i < 8; i ++)
     {
       let paletteIndex = (vramMem8[tileAddr + (i >>> 1)] >>> (4 * (i & 1))) & 15;
-      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex + palBankIndex] : 0x8000;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex + palBankIndex] : 0x8888;
       scanlineArrIndex ++;
     }
   }
@@ -221,7 +221,7 @@ background.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, sca
     for (let i = startPixel; i < 8; i ++)
     {
       let paletteIndex = vramMem8[tileAddr + 7 - i];
-      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex] : 0x8000;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex] : 0x8888;
       scanlineArrIndex ++;
     }
   }
@@ -230,7 +230,7 @@ background.prototype.writeTileToScanlineBPP8 = function (tileAddr, tileLine, sca
     for (let i = startPixel; i < 8; i ++)
     {
       let paletteIndex = vramMem8[tileAddr + i];
-      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex] : 0x8000;
+      scanlineArr[scanlineArrIndex] = paletteIndex ? paletteRamMem16[paletteIndex] : 0x8888;
       scanlineArrIndex ++;
     }
   }
@@ -281,9 +281,9 @@ background.prototype.getColorNoWrap = function(xCoord, yCoord, screenSize, scree
     let screenEntry = vramMem8[screenAddr + (xCoord >>> 3) + ((yCoord >>> 3) * (screenSize >>> 3))];
     let tileAddr = tileBase + (screenEntry * 0x40);
     let color = vramMem8[tileAddr + (xCoord & 7) + ((yCoord & 7) * 8)];
-    return color ? paletteRamMem16[color] : 0x8000;
+    return color ? paletteRamMem16[color] : 0x8888;
   }
-  return 0x8000;
+  return 0x8888;
 };
 
 background.prototype.getColorWrap = function(xCoord, yCoord, screenSize, screenAddr, tileBase, vramMem8, paletteRamMem16) {
@@ -293,7 +293,7 @@ background.prototype.getColorWrap = function(xCoord, yCoord, screenSize, screenA
   let screenEntry = vramMem8[screenAddr + (xCoord >>> 3) + ((yCoord >>> 3) * (screenSize >>> 3))];
   let tileAddr = tileBase + (screenEntry * 0x40);
   let color = vramMem8[tileAddr + (xCoord & 7) + ((yCoord & 7) * 8)];
-  return color ? paletteRamMem16[color] : 0x8000;
+  return color ? paletteRamMem16[color] : 0x8888;
 };
 
 background.prototype.renderScanlineMode3 = function(scanline) { 
@@ -308,7 +308,6 @@ background.prototype.renderScanlineMode3 = function(scanline) {
     vramPos ++;
   }
 
-  this.scanlineArrIndex = 0;
   return scanlineArr;
 };
 
@@ -321,8 +320,8 @@ background.prototype.renderScanlineMode4 = function(scanline, page) {
 
   for (let i = 0; i < 240; i ++)
   {
-    paletteIndex = vramMem8[vramPos];
-    this.scanlineArr[i] = vramMem8[vramPos] ? paletteRamMem16[vramMem8[vramPos]] : 0x8000; 
+    let paletteIndex = vramMem8[vramPos];
+    this.scanlineArr[i] = paletteIndex ? paletteRamMem16[paletteIndex] : 0x8888; 
     vramPos ++;
   }
 
@@ -344,14 +343,14 @@ background.prototype.renderScanlineMode5 = function (scanline, page) {
     }
     for (i; i < 240; i ++)
     {
-      scanlineArr[i] = 0x8000;
+      scanlineArr[i] = 0x8888;
     }
   }
   else //return all transparent pixels
   {
     for (let i = 0; i < 240; i ++)
     {
-      scanlineArr[i] = 0x8000;
+      scanlineArr[i] = 0x8888;
     }
   }
 
