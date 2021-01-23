@@ -3,7 +3,9 @@ const ioRegion = function() {
 	let ioregENUMS = {IOREG : 0, IOREGREADONLY : 1, IOREGWRITEONLY : 2, IOREGBYTE : 3, IOREGBYTEWRITEONLY : 4, IOREGWORD : 5, IOREGWORDWRITEONLY : 6, IOREGIF : 7, IOREGDISPSTAT : 8, IOREGTMCNTL : 9, UNUSED : 10};
 
 	this.memory = new Uint8Array(1024);
-	this.ioregs = [];
+	this.memory16 = new Uint16Array(this.memory.buffer);
+	this.memory32 = new Uint32Array(this.memory.buffer);
+	this.ioRegs = [];
 	let ioregInitArr = [
 	//LCD IO REGISTERS
 	{name: "DISPCNT", type: ioregENUMS["IOREG"]},
@@ -163,7 +165,7 @@ const ioRegion = function() {
 	];
 
 	//initialize ioregs array
-	let unusedreg = new ioRegUnused("UNUSED", this.memory, this.ioregs, -1);
+	let unusedreg = new ioRegUnused("UNUSED", this, -1);
 	let ioregAddr = 0;
 	let newioreg;
 	let size;
@@ -171,22 +173,22 @@ const ioRegion = function() {
 	{
 		switch(ioregInitArr[i]["type"])
 		{
-			case ioregENUMS["IOREG"]: newioreg = new ioReg(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGREADONLY"]: newioreg = new ioRegReadOnly(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGWRITEONLY"]: newioreg = new ioRegWriteOnly(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGBYTE"]: newioreg = new ioRegByte(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 1; break;
-			case ioregENUMS["IOREGBYTEWRITEONLY"]: newioreg = new ioRegByteWriteOnly(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 1; break;
-			case ioregENUMS["IOREGWORD"]: newioreg = new ioRegWord(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 4; break;
-			case ioregENUMS["IOREGWORDWRITEONLY"]: newioreg = new ioRegWordWriteOnly(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 4; break;
-			case ioregENUMS["IOREGIF"]: newioreg = new ioRegIF(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGDISPSTAT"]: newioreg = new ioRegDISPSTAT(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGTMCNTL"]: newioreg = new ioRegTMCNTL(ioregInitArr[i]["name"], this.memory, this.ioregs, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREG"]: newioreg = new ioReg(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGREADONLY"]: newioreg = new ioRegReadOnly(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGWRITEONLY"]: newioreg = new ioRegWriteOnly(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGBYTE"]: newioreg = new ioRegByte(ioregInitArr[i]["name"], this, ioregAddr); size = 1; break;
+			case ioregENUMS["IOREGBYTEWRITEONLY"]: newioreg = new ioRegByteWriteOnly(ioregInitArr[i]["name"], this, ioregAddr); size = 1; break;
+			case ioregENUMS["IOREGWORD"]: newioreg = new ioRegWord(ioregInitArr[i]["name"], this, ioregAddr); size = 4; break;
+			case ioregENUMS["IOREGWORDWRITEONLY"]: newioreg = new ioRegWordWriteOnly(ioregInitArr[i]["name"], this, ioregAddr); size = 4; break;
+			case ioregENUMS["IOREGIF"]: newioreg = new ioRegIF(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGDISPSTAT"]: newioreg = new ioRegDISPSTAT(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGTMCNTL"]: newioreg = new ioRegTMCNTL(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
 			case ioregENUMS["UNUSED"]: newioreg = unusedreg; size = 2; break;
 			default: throw Error("undefined IO register type!");
 		}
 		for (let p = 0; p < size; p ++)
 		{
-			this.ioregs.push(newioreg);
+			this.ioRegs.push(newioreg);
 		}
 		ioregAddr += size;
 	}
@@ -201,43 +203,40 @@ const ioRegion = function() {
 	// this.getIOReg("TM2CNTL").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
 	// this.getIOReg("TM3CNTL").addCallback(()=> {console.log("THIS ROM IS USING TIMER!!")});
 	//this.getIOReg("HALTCNT").addCallback(()=> {console.log("THIS ROM IS USING HALT!!")});
+	//this.getIOReg("WAITCNT").addCallback(()=> {console.log("THIS ROM IS USING WAITCNT!!")});
 	this.memory[this.getIOReg("SOUNDBIAS").regIndex + 1] = 0x2;
 }
 
 ioRegion.prototype.read8 = function (memAddr) {
-	return this.ioregs[memAddr].read8(memAddr);
+	return this.ioRegs[memAddr].read8(memAddr);
 }
 
 ioRegion.prototype.read16 = function (memAddr) {
-	return this.ioregs[memAddr].read16(memAddr);
+	return this.ioRegs[memAddr].read16(memAddr);
 }
 
 ioRegion.prototype.read32 = function (memAddr) {
-	return this.ioregs[memAddr].read32(memAddr);
+	return this.ioRegs[memAddr].read32(memAddr);
 }
 
 ioRegion.prototype.write8 = function (memAddr, val) {
-	this.ioregs[memAddr].write8(memAddr, val);
-	this.ioregs[memAddr].triggerCallbacks();
+	this.ioRegs[memAddr].write8(memAddr, val);
 }
 
 ioRegion.prototype.write16 = function (memAddr, val) {
-	this.ioregs[memAddr].write16(memAddr, val);
-	//this.ioregs[memAddr].triggerCallbacks();
+	this.ioRegs[memAddr].write16(memAddr, val);
 }
 
 ioRegion.prototype.write32 = function (memAddr, val) {
-	this.ioregs[memAddr].write32(memAddr, val);
-	//this.ioregs[memAddr].triggerCallbacks();
-
+	this.ioRegs[memAddr].write32(memAddr, val);
 }
 
 ioRegion.prototype.getIOReg = function (name) {
-	for (let i = 0; i < this.ioregs.length; i++)
+	for (let i = 0; i < this.ioRegs.length; i++)
 	{
-		if (this.ioregs[i].name === name)
+		if (this.ioRegs[i].name === name)
 		{
-			return this.ioregs[i];
+			return this.ioRegs[i];
 		}
 	}
 	throw Error("failed to retrieve ioreg: " + name);

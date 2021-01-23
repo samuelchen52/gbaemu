@@ -1,30 +1,28 @@
 const memRegion = function(name, size) {
 	this.name = name;
 	this.memory = new Uint8Array(size);
+	this.memory16 = new Uint16Array(this.memory.buffer);
+	this.memory32 = new Uint32Array(this.memory.buffer);
 }
 
 memRegion.prototype.read8 = function (memAddr) {
 	return this.memory[memAddr];
 }
 memRegion.prototype.read16 = function (memAddr) {
-	return this.memory[memAddr] + (this.memory[(memAddr + 1)] << 8);
+	return this.memory16[memAddr >>> 1];
 }
 memRegion.prototype.read32 = function (memAddr) {
-	return this.memory[memAddr] + (this.memory[(memAddr + 1)] << 8) + (this.memory[(memAddr + 2)] << 16) + (this.memory[(memAddr + 3)] << 24);
+	return this.memory32[memAddr >>> 2];
 }
 
 memRegion.prototype.write8 = function (memAddr, val) {
 	this.memory[memAddr] = val & 0xFF;
 }
 memRegion.prototype.write16 = function (memAddr, val) {
-	this.memory[memAddr] = val & 0xFF;
-	this.memory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
+	this.memory16[memAddr >>> 1] = val;
 }
 memRegion.prototype.write32 = function (memAddr, val) {
-	this.memory[memAddr] = val & 0xFF;
-	this.memory[(memAddr + 1)] = (val & 0xFF00) >>> 8;
-	this.memory[(memAddr + 2)] = (val & 0xFF0000) >>> 16;
-	this.memory[(memAddr + 3)] = (val & 0xFF000000) >>> 24;
+	this.memory32[memAddr >>> 2] = val;
 }
 
 memRegion.prototype.dumpMemory = function (memAddr) {
@@ -110,6 +108,14 @@ memRegionSRAM.prototype.read8 = function (memAddr, val) {
 	else if (memAddr === 0x0000001)
 	{
 		return 0x13;
+	}
+	else if (memAddr === 0x005555)
+	{
+		console.log("FLASH1!");
+	}
+	else if (memAddr === 0x002AAA)
+	{
+		console.log("FLASH2!");
 	}
 	return this.memory[memAddr];
 	//throw Error("SRAM not implemented")
