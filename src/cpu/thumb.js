@@ -89,7 +89,7 @@ thumb.prototype.setNZCV = function (nflag, zflag, cflag, vflag) {
 	cflag = (cflag === undefined) ? (this.registers[16][0] & 0x20000000) : (cflag ? 0x20000000 : 0);
 	vflag = (vflag === undefined) ? (this.registers[16][0] & 0x10000000) : (vflag ? 0x10000000 : 0);
 
-  this.registers[16][0] &= 0x00FFFFFF; //set first byte to zero
+  this.registers[16][0] &= 0x0FFFFFFF; //set first halfbyte to zero
   this.registers[16][0] = this.registers[16][0] | (nflag ? 0x80000000 : 0) | (zflag ? 0x40000000 : 0) | cflag | vflag; //add new flags to CPSR
 };
 
@@ -136,9 +136,9 @@ thumb.prototype.executeOpcode3 = function (instr) { //3 - ADD REGISTER Rd=Rs+Rn
 	let rd = bitSlice(instr, 0, 2);
 
 	let result = this.registers[rs][0] + this.registers[rn][0];
-		let vflag = bitSlice(this.registers[rs][0], 31, 31) + bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  !bitSlice(this.registers[rs][0] ^ this.registers[rn][0], 31, 31) && bitSlice(this.registers[rs][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
 	this.registers[rd][0] = result;
 };
 
@@ -148,9 +148,9 @@ thumb.prototype.executeOpcode4 = function (instr) { //4 - SUBTRACT REGISTER Rd=R
 	let rd = bitSlice(instr, 0, 2);
 
 	let result = (this.registers[rs][0] - this.registers[rn][0]) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rs][0], 31, 31) + (bitSlice(this.registers[rn][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(this.registers[rs][0] ^ this.registers[rn][0], 31, 31) && bitSlice(this.registers[rs][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= this.registers[rs][0], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= this.registers[rs][0], vflag);
 	this.registers[rd][0] = result;
 };
 
@@ -160,9 +160,9 @@ thumb.prototype.executeOpcode5 = function (instr) { //5 - ADD IMM3 Rd=Rs+nn
 	let rd = bitSlice(instr, 0, 2);
 
 	let result = this.registers[rs][0] + imm;
-	let vflag = bitSlice(this.registers[rs][0], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  !bitSlice(this.registers[rs][0] ^ imm, 31, 31) && bitSlice(this.registers[rs][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag === 0);
+	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
 	this.registers[rd][0] = result;
 };
 
@@ -172,9 +172,9 @@ thumb.prototype.executeOpcode6 = function (instr) { //6 - SUB IMM3 Rd=Rs-nn
 	let rd = bitSlice(instr, 0, 2);
 
 	let result = (this.registers[rs][0] - imm) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rs][0], 31, 31) + 1 + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(this.registers[rs][0] ^ imm, 31, 31) && bitSlice(this.registers[rs][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, imm <= this.registers[rs][0], vflag === 3);
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, imm <= this.registers[rs][0], vflag);
 	this.registers[rd][0] = result;
 };
 
@@ -192,8 +192,9 @@ thumb.prototype.executeOpcode8 = function (instr) { //8 - CMP IMM8 Void = Rd - #
 	let imm = bitSlice(instr, 0, 7);
 
 	let result = this.registers[rd][0] - imm;
+	let vflag = bitSlice(this.registers[rd][0] ^ imm, 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, imm <= this.registers[rd][0], bitSlice(this.registers[rd][0], 31, 31) && (!bitSlice(result, 31, 31)));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, imm <= this.registers[rd][0], vflag);
 };
 
 thumb.prototype.executeOpcode9 = function (instr) { //9 - ADD IMM8 Rd   = Rd + #nn
@@ -201,9 +202,9 @@ thumb.prototype.executeOpcode9 = function (instr) { //9 - ADD IMM8 Rd   = Rd + #
 	let imm = bitSlice(instr, 0, 7);
 
 	let result = this.registers[rd][0] + imm
-	let vflag = bitSlice(this.registers[rd][0], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  !bitSlice(this.registers[rd][0] ^ imm, 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag === 0);
+	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
 	this.registers[rd][0] = result;
 };
 
@@ -212,9 +213,9 @@ thumb.prototype.executeOpcode10 = function (instr) { //10 - SUB IMM8 Rd   = Rd -
 	let imm = bitSlice(instr, 0, 7);
 
 	let result = (this.registers[rd][0] - imm) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rd][0], 31, 31) + 1 + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(this.registers[rd][0] ^ imm, 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, imm <= this.registers[rd][0], vflag === 3);
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, imm <= this.registers[rd][0], vflag);
 	this.registers[rd][0] = result;
 };
 
@@ -278,9 +279,9 @@ thumb.prototype.executeOpcode16 = function (instr) { //16 - ADC Rd = Rd + Rs + C
 	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
 
 	let result = (this.registers[rd][0] + this.registers[rs][0] + carryFlag);
-	let vflag = bitSlice(this.registers[rd][0], 31, 31) + bitSlice(this.registers[rs][0], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  !bitSlice(this.registers[rd][0] ^ this.registers[rs][0], 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
 	this.registers[rd][0] = result;
 };
 
@@ -290,9 +291,9 @@ thumb.prototype.executeOpcode17 = function (instr) { //17 - SBC Rd = Rd - Rs - N
 	let negCarryFlag = bitSlice(this.registers[16][0], 29, 29) === 0 ? 1 : 0;
 
 	let result = (this.registers[rd][0] - (this.registers[rs][0] + negCarryFlag)) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rd][0], 31, 31) + ((bitSlice(this.registers[rs][0] + negCarryFlag, 31, 31)) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(this.registers[rd][0] ^ this.registers[rs][0], 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rs][0] + negCarryFlag) <= this.registers[rd][0], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rs][0] + negCarryFlag) <= this.registers[rd][0], vflag);
 	this.registers[rd][0] = result;
 };
 
@@ -321,9 +322,9 @@ thumb.prototype.executeOpcode20 = function (instr) { //20 - NEG Rd = 0 - Rs
 	let rd = bitSlice(instr, 0, 2);
 
 	let result = (0 - this.registers[rs][0]) & 0xFFFFFFFF;
-	let vflag = (bitSlice(this.registers[rs][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(0 ^ this.registers[rs][0], 31, 31) && bitSlice(0 ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, result === 0, vflag === 0);
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rs][0] <= 0, vflag);
 	this.registers[rd][0] = result;
 };
 
@@ -332,9 +333,9 @@ thumb.prototype.executeOpcode21 = function (instr) { //21 - CMP Void = Rd - Rs
 	let rd = bitSlice(instr, 0, 2);
 
 	let result = (this.registers[rd][0] - this.registers[rs][0]) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rd][0], 31, 31) + (bitSlice(this.registers[rs][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(this.registers[rd][0] ^ this.registers[rs][0], 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rs][0] <= this.registers[rd][0], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rs][0] <= this.registers[rd][0], vflag);
 };
 
 thumb.prototype.executeOpcode22 = function (instr) { //22 - NEGCMP Void = Rd + Rs
@@ -342,12 +343,9 @@ thumb.prototype.executeOpcode22 = function (instr) { //22 - NEGCMP Void = Rd + R
 	let rd = bitSlice(instr, 0, 2);
 
 	let result = this.registers[rd][0] + this.registers[rs][0];
-		let vflag = bitSlice(this.registers[rd][0], 31, 31) + bitSlice(this.registers[rs][0], 31, 31) + (bitSlice(result, 31, 31) ^ 1);
-		// console.log("rd: " + this.registers[rd][0].toString(16));
-		// console.log("rs: " + this.registers[rs][0].toString(16));
-		// console.log("result: " + result.toString(16));
-		// console.log("vflag: "+ vflag);
-	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF ) === 0, result > 4294967295, (vflag === 0) || (vflag === 3));
+	let vflag =  !bitSlice(this.registers[rd][0] ^ this.registers[rs][0], 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
+
+	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF ) === 0, result > 4294967295, vflag);
 };
 
 thumb.prototype.executeOpcode23 = function (instr) { //23 - OR Rd = Rd OR Rs
@@ -407,9 +405,9 @@ thumb.prototype.executeOpcode28 = function (instr) { //28 - CMP check needed Voi
 	let rd = bitSlice(instr, 0, 2) + (bitSlice(instr, 7, 7) << 3); //add the msbd 
 
 	let result = (this.registers[rd][0] - this.registers[rs][0]) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rd][0], 31, 31) + (bitSlice(this.registers[rs][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(this.registers[rd][0] ^ this.registers[rs][0], 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rs][0] <= this.registers[rd][0], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rs][0] <= this.registers[rd][0], vflag);
 };
 
 thumb.prototype.executeOpcode29 = function (instr) { //29 - MOV check needed Rd = Rs

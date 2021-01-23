@@ -29,7 +29,7 @@ arm.prototype.shiftRegByImm = function (register, shiftamt, type) {
 	{
 		case 0: //LSL #[1,31]
 		this.shiftCarryFlag = bitSlice(register, 32 - shiftamt, 32 - shiftamt);
-		return register << shiftamt;
+		return (register << shiftamt) >>> 0;
 		break;
 
 		case 1: //LSR #[1,32]
@@ -39,7 +39,7 @@ arm.prototype.shiftRegByImm = function (register, shiftamt, type) {
 
 		case 2: //ASR #[1,32]
 		this.shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
-		return shiftamt === 32 ? (this.shiftCarryFlag === 1 ? 0xFFFFFFFF : 0) : register >> shiftamt;
+		return shiftamt === 32 ? (bitSlice(register, 31, 31) ? 0xFFFFFFFF : 0) : (register >> shiftamt) >>> 0;
 		break;
 
 		case 3: //ROR #[1,32]
@@ -50,12 +50,12 @@ arm.prototype.shiftRegByImm = function (register, shiftamt, type) {
 			let result = rotateRight(register, 1);
 			result &= 0x7FFFFFFF;
 			result += cflag << 31;
-			return result;
+			return result >>> 0;
 		}
 		else
 		{
 			this.shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
-			return rotateRight(register, shiftamt);
+			return rotateRight(register, shiftamt) >>> 0;
 		}
 		break;
 
@@ -72,12 +72,11 @@ arm.prototype.shiftRegByReg = function (register, shiftamt, type) {
 		this.shiftCarryFlag = undefined;
 		return register;
 	}
-	//shiftamt nonzero
-	let gt32 = shiftamt > 32;
+	
 	switch(type)
 	{
 		case 0: //LSL
-		if (gt32)
+		if (shiftamt > 32)
 		{
 			this.shiftCarryFlag = 0;
 			return 0;
@@ -85,12 +84,12 @@ arm.prototype.shiftRegByReg = function (register, shiftamt, type) {
 		else //1-32
 		{ 
 			this.shiftCarryFlag = bitSlice(register, 32 - shiftamt, 32 - shiftamt);
-			return shiftamt === 32 ? 0 : register << shiftamt;
+			return shiftamt === 32 ? 0 : (register << shiftamt) >>> 0;
 		}
 		break;
 
 		case 1: //LSR
-		if (gt32)
+		if (shiftamt > 32)
 		{
 			this.shiftCarryFlag = 0;
 			return 0;
@@ -103,7 +102,7 @@ arm.prototype.shiftRegByReg = function (register, shiftamt, type) {
 		break;
 
 		case 2: //ASR
-		if (gt32 || (shiftamt === 32))
+		if (shiftamt >= 32)
 		{
 			this.shiftCarryFlag = register >>> 31;
 			return this.shiftCarryFlag ? 4294967295 : 0; //2 ^ 32 - 1 === 4294967295
@@ -111,7 +110,7 @@ arm.prototype.shiftRegByReg = function (register, shiftamt, type) {
 		else //1-31
 		{
 			this.shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
-			return register >> shiftamt;
+			return (register >> shiftamt) >>> 0;
 		}
 		break;
 
@@ -125,7 +124,7 @@ arm.prototype.shiftRegByReg = function (register, shiftamt, type) {
 		else//1-31
 		{
 			this.shiftCarryFlag = bitSlice(register, shiftamt - 1, shiftamt - 1);
-			return rotateRight(register, shiftamt);
+			return rotateRight(register, shiftamt) >>> 0;
 		}
 		break;
 
@@ -170,11 +169,10 @@ arm.prototype.checkCondition = function (condition)
 		break;
 		case 14: return true;
 		break;
-		case 15: return false;
+		case 15: throw Error("invalid condition (reserved)");
 		break;
+		default: throw Error("condition wasnt a 4 bit number");
 	}
-	return true;
-	throw Error("condition wasnt a 4 bit number?");
 };
 
 //restore CPSR
@@ -198,7 +196,7 @@ arm.prototype.setNZCV = function (nflag, zflag, cflag, vflag) {
 	cflag = (cflag === undefined) ? (this.registers[16][0] & 0x20000000) : (cflag ? 0x20000000 : 0);
 	vflag = (vflag === undefined) ? (this.registers[16][0] & 0x10000000) : (vflag ? 0x10000000 : 0);
 
-  this.registers[16][0] &= 0x00FFFFFF; //set first byte to zero
+  this.registers[16][0] &= 0x0FFFFFFF; //set first halfbyte to zero
   this.registers[16][0] = this.registers[16][0] | (nflag ? 0x80000000 : 0) | (zflag ? 0x40000000 : 0) | cflag | vflag; //add new flags to CPSR
 };
 
@@ -220,7 +218,7 @@ arm.prototype.executeOpcode0 = function (instr) { //0 - UMULL / UMLAL RdHiLo=Rm*
 	{
 		this.setNZCV((result & 0x8000000000000000n) != 0, result == 0);
 	}
-	this.registers[rdhi][0] = Number(result >> 32n);
+	this.registers[rdhi][0] = Number((result >> 32n) & 0xFFFFFFFFn);
 	this.registers[rdlo][0] = Number(result & 0xFFFFFFFFn);
 };
 
@@ -501,11 +499,11 @@ arm.prototype.executeOpcode12 = function (instr) { //12 - SUB 0tt1 Rd = Rn-Op2
 
 	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], vflag);
 	}
 	this.registers[rd][0] = result;
 
@@ -535,11 +533,11 @@ arm.prototype.executeOpcode13 = function (instr) { //13 - RSB 0tt1 Rd = Op2-Rn
 
 	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 	let result = (secondOperand - this.registers[rn][0]) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(secondOperand ^ this.registers[rn][0], 31, 31) && bitSlice(secondOperand ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= secondOperand, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= secondOperand, vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -569,11 +567,11 @@ arm.prototype.executeOpcode14 = function (instr) { //14 - ADD 0tt1 Rd = Rn+Op2
 
 	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 	let result = this.registers[rn][0] + secondOperand;
-		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -604,11 +602,11 @@ arm.prototype.executeOpcode15 = function (instr) { //15 - ADC 0tt1 Rd = Rn+Op2+C
 
 	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 	let result = this.registers[rn][0] + secondOperand + carryFlag;
-		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -639,11 +637,11 @@ arm.prototype.executeOpcode16 = function (instr) { //16 - SBC 0tt1 Rd = Rn-Op2+C
 
 	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 	let result = (this.registers[rn][0] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= this.registers[rn][0] + carryFlag, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= (this.registers[rn][0] + carryFlag), vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -674,11 +672,11 @@ arm.prototype.executeOpcode17 = function (instr) { //17 - RSC 0tt1 Rd = Op2-Rn+C
 
 	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 	let result = (secondOperand - this.registers[rn][0]  + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(secondOperand ^ this.registers[rn][0], 31, 31) && bitSlice(secondOperand ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][0] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][0] + 1) <= (secondOperand + carryFlag), vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -759,11 +757,11 @@ arm.prototype.executeOpcode20 = function (instr) { //20 - SUB stt0 Rd = Rn-Op2
 
 	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
 	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -787,11 +785,11 @@ arm.prototype.executeOpcode21 = function (instr) { //21 - RSB stt0 Rd = Op2-Rn
 
 	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
 	let result = (secondOperand - this.registers[rn][0]) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(secondOperand ^ this.registers[rn][0], 31, 31) && bitSlice(secondOperand ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= secondOperand, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= secondOperand, vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -815,12 +813,12 @@ arm.prototype.executeOpcode22 = function (instr) { //22 - ADD stt0 Rd = Rn+Op2
 
 	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
 	let result = this.registers[rn][0] + secondOperand;
-		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -845,12 +843,12 @@ arm.prototype.executeOpcode23 = function (instr) { //23 - ADC stt0 Rd = Rn+Op2+C
 
 	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
 	let result = this.registers[rn][0] + secondOperand + carryFlag;
-		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -875,11 +873,11 @@ arm.prototype.executeOpcode24 = function (instr) { //24 - SBC stt0 Rd = Rn-Op2+C
 
 	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
 	let result = (this.registers[rn][0] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= this.registers[rn][0] + carryFlag , (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= (this.registers[rn][0] + carryFlag) , vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -904,11 +902,11 @@ arm.prototype.executeOpcode25 = function (instr) { //25 - RSC stt0 Rd = Op2-Rn+C
 
 	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
 	let result = (secondOperand - this.registers[rn][0]  + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(secondOperand ^ this.registers[rn][0], 31, 31) && bitSlice(secondOperand ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][0] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][0] + 1) <= (secondOperand + carryFlag), vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -982,11 +980,11 @@ arm.prototype.executeOpcode29 = function (instr) { //29 - CMP 0tt1 Void = Rn-Op2
 	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
 
-	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	this.registers[15][0] -= 4;
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], vflag);
 };
 
 arm.prototype.executeOpcode30 = function (instr) { //30 - CMN 0tt1 Void = Rn+Op2
@@ -1001,11 +999,11 @@ arm.prototype.executeOpcode30 = function (instr) { //30 - CMN 0tt1 Void = Rn+Op2
 	let secondOperand = this.shiftRegByReg(this.registers[rm][0], this.registers[rs][0] & 0xFF, st);
 	let result = this.registers[rn][0] + secondOperand;
 
-		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
-		this.registers[15][0] -= 4;
+	this.registers[15][0] -= 4;
 
-	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
 };
 
 arm.prototype.executeOpcode31 = function (instr) { //31 - ORR 0tt1 Rd = Rn OR Op2
@@ -1442,9 +1440,9 @@ arm.prototype.executeOpcode48 = function (instr) { //48 - CMP stt0 Void = Rn-Op2
 	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
 	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
 
-	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag =  bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], vflag);
 };
 
 arm.prototype.executeOpcode49 = function (instr) { //49 - CMN stt0 Void = Rn+Op2
@@ -1457,9 +1455,9 @@ arm.prototype.executeOpcode49 = function (instr) { //49 - CMN stt0 Void = Rn+Op2
 	let secondOperand = this.shiftRegByImm(this.registers[rm][0], imm, st);
 	let result = this.registers[rn][0] + secondOperand;
 
-		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
 };
 
 arm.prototype.executeOpcode50 = function (instr) { //50 - ORR stt0 Rd = Rn OR Op2
@@ -1620,11 +1618,11 @@ arm.prototype.executeOpcode56 = function (instr) { //56 - SUB imm Rd = Rn-Op2
 	let s = bitSlice(instr, 20, 20);
 
 	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -1645,11 +1643,11 @@ arm.prototype.executeOpcode57 = function (instr) { //57 - RSB imm Rd = Op2-Rn
 	let s = bitSlice(instr, 20, 20);
 
 	let result = (secondOperand - this.registers[rn][0]) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0], 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(secondOperand ^ this.registers[rn][0], 31, 31) && bitSlice(secondOperand ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= secondOperand, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= secondOperand, vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -1670,12 +1668,12 @@ arm.prototype.executeOpcode58 = function (instr) { //58 - ADD imm Rd = Rn+Op2
 	let s = bitSlice(instr, 20, 20);
 
 	let result = this.registers[rn][0] + secondOperand;
-		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -1697,12 +1695,12 @@ arm.prototype.executeOpcode59 = function (instr) { //59 - ADC imm Rd = Rn+Op2+Cy
 	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
 
 	let result = this.registers[rn][0] + secondOperand + carryFlag;
-		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -1724,11 +1722,11 @@ arm.prototype.executeOpcode60 = function (instr) { //60 - SBC imm Rd = Rn-Op2+Cy
 	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
 
 	let result = (this.registers[rn][0] - secondOperand + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= this.registers[rn][0] + carryFlag , (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (secondOperand + 1) <= (this.registers[rn][0] + carryFlag) , vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -1750,11 +1748,11 @@ arm.prototype.executeOpcode61 = function (instr) { //61 - RSC imm Rd = Op2-Rn+Cy
 	let carryFlag = bitSlice(this.registers[16][0], 29, 29);
 
 	let result = (secondOperand - this.registers[rn][0]  + carryFlag - 1) & 0xFFFFFFFF;
-	let vflag = bitSlice(secondOperand, 31, 31) + (bitSlice(this.registers[rn][0] + carryFlag - 1, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(secondOperand ^ this.registers[rn][0], 31, 31) && bitSlice(secondOperand ^ result, 31, 31);
 
 	if (s)
 	{
-		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][0] + 1) <= secondOperand + carryFlag, (vflag === 0) || (vflag === 3));
+		this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rn][0] + 1) <= (secondOperand + carryFlag), vflag);
 	}
 
 	this.registers[rd][0] = result;
@@ -1852,9 +1850,9 @@ arm.prototype.executeOpcode65 = function (instr) { //65 - CMP imm Void = Rn-Op2
 
 	let result = (this.registers[rn][0] - secondOperand) & 0xFFFFFFFF;
 
-	let vflag = bitSlice(this.registers[rn][0], 31, 31) + (bitSlice(secondOperand, 31, 31) ^ 1) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], vflag);
 };
 
 arm.prototype.executeOpcode66 = function (instr) { //66 - CMN imm Void = Rn+Op2
@@ -1864,9 +1862,9 @@ arm.prototype.executeOpcode66 = function (instr) { //66 - CMN imm Void = Rn+Op2
 
 	let result = this.registers[rn][0] + secondOperand;
 
-		let vflag = bitSlice(this.registers[rn][0], 31, 31) + bitSlice(secondOperand, 31, 31) + (bitSlice(result, 31, 31) ^ 1);
+	let vflag = !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
-	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, (vflag === 0) || (vflag === 3));
+	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
 };
 
 arm.prototype.executeOpcode67 = function (instr) { //67 - ORR imm Rd = Rn OR Op2
