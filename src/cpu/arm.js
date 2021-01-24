@@ -220,6 +220,8 @@ arm.prototype.executeOpcode0 = function (instr) { //0 - UMULL / UMLAL RdHiLo=Rm*
 	}
 	this.registers[rdhi][0] = Number((result >> 32n) & 0xFFFFFFFFn);
 	this.registers[rdlo][0] = Number(result & 0xFFFFFFFFn);
+
+	return accumulate ? 3 : 2;
 };
 
 arm.prototype.executeOpcode1 = function (instr) { //1 - MUL / MLA Rd=Rm*Rs Rd=Rm*Rs+Rn
@@ -243,7 +245,7 @@ arm.prototype.executeOpcode1 = function (instr) { //1 - MUL / MLA Rd=Rm*Rs Rd=Rm
 
 	this.registers[rd][0] = result;
 
-	//That is m=1 for Bit 31-8, m=2 for Bit 31-16, m=3 for Bit 31-24, and m=4 otherwise.
+	return accumulate ? 2 : 1;
 };
 
 
@@ -261,6 +263,8 @@ arm.prototype.executeOpcode2 = function (instr) { //2 - STRH p=0 i=0 [a]=Rd
 	this.mmu.write16(this.registers[rn][0] & 0xFFFFFFFE, this.registers[rd][0] + (rd === 15 ? 4 : 0));
 
 	this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode3 = function (instr) { //3 - LDRH p=0 i=0 Load Unsigned halfword
@@ -283,6 +287,8 @@ arm.prototype.executeOpcode3 = function (instr) { //3 - LDRH p=0 i=0 Load Unsign
 	{
 		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode4 = function (instr) { //4 - STRH p=0 i=1 [a]=Rd
@@ -294,6 +300,8 @@ arm.prototype.executeOpcode4 = function (instr) { //4 - STRH p=0 i=1 [a]=Rd
 	this.mmu.write16(this.registers[rn][0] & 0xFFFFFFFE, this.registers[rd][0] + (rd === 15 ? 4 : 0));
 
 	this.registers[rn][0] += offset * (u ? 1 : -1);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode5 = function (instr) { //5 - LDRH p=0 i=1 Load Unsigned halfword
@@ -316,6 +324,8 @@ arm.prototype.executeOpcode5 = function (instr) { //5 - LDRH p=0 i=1 Load Unsign
 	{
 		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode6 = function (instr) { //6 - LDRSB p=0 i=0 Load Signed Byte
@@ -336,6 +346,8 @@ arm.prototype.executeOpcode6 = function (instr) { //6 - LDRSB p=0 i=0 Load Signe
 	{
 		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode7 = function (instr) { //7 - LDRSB p=0 i=1 Load Signed Byte
@@ -356,6 +368,8 @@ arm.prototype.executeOpcode7 = function (instr) { //7 - LDRSB p=0 i=1 Load Signe
 	{
 		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode8 = function (instr) { //8 - LDRSH p=0 i=0 Load Signed halfword
@@ -388,6 +402,8 @@ arm.prototype.executeOpcode8 = function (instr) { //8 - LDRSH p=0 i=0 Load Signe
 	{
 		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode9 = function (instr) { //9 - LDRSH p=0 i=1 Load Signed halfword
@@ -420,6 +436,8 @@ arm.prototype.executeOpcode9 = function (instr) { //9 - LDRSH p=0 i=1 Load Signe
 	{
 		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 //ARM[4]------------------------second operand register, shifted by register (opcodes 0 - 7)-----------------
@@ -453,6 +471,8 @@ arm.prototype.executeOpcode10 = function (instr) { //10 - AND 0tt1 Rd = Rn AND O
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode11 = function (instr) { //11 - EOR 0tt1 Rd = Rn XOR Op2
@@ -485,6 +505,8 @@ arm.prototype.executeOpcode11 = function (instr) { //11 - EOR 0tt1 Rd = Rn XOR O
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode12 = function (instr) { //12 - SUB 0tt1 Rd = Rn-Op2
@@ -519,6 +541,8 @@ arm.prototype.executeOpcode12 = function (instr) { //12 - SUB 0tt1 Rd = Rn-Op2
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode13 = function (instr) { //13 - RSB 0tt1 Rd = Op2-Rn
@@ -553,6 +577,8 @@ arm.prototype.executeOpcode13 = function (instr) { //13 - RSB 0tt1 Rd = Op2-Rn
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode14 = function (instr) { //14 - ADD 0tt1 Rd = Rn+Op2
@@ -587,6 +613,8 @@ arm.prototype.executeOpcode14 = function (instr) { //14 - ADD 0tt1 Rd = Rn+Op2
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode15 = function (instr) { //15 - ADC 0tt1 Rd = Rn+Op2+Cy
@@ -622,6 +650,8 @@ arm.prototype.executeOpcode15 = function (instr) { //15 - ADC 0tt1 Rd = Rn+Op2+C
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode16 = function (instr) { //16 - SBC 0tt1 Rd = Rn-Op2+Cy-1
@@ -657,6 +687,8 @@ arm.prototype.executeOpcode16 = function (instr) { //16 - SBC 0tt1 Rd = Rn-Op2+C
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode17 = function (instr) { //17 - RSC 0tt1 Rd = Op2-Rn+Cy-1
@@ -692,6 +724,8 @@ arm.prototype.executeOpcode17 = function (instr) { //17 - RSC 0tt1 Rd = Op2-Rn+C
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 //ARM[4]------------------------second operand register, shifted by IMM (opcodes 0 - 7)-----------------
@@ -719,6 +753,8 @@ arm.prototype.executeOpcode18 = function (instr) { //18 - AND stt0 Rd = Rn AND O
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode19 = function (instr) { //19 - EOR stt0 Rd = Rn XOR Op2
@@ -745,6 +781,8 @@ arm.prototype.executeOpcode19 = function (instr) { //19 - EOR stt0 Rd = Rn XOR O
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode20 = function (instr) { //20 - SUB stt0 Rd = Rn-Op2
@@ -773,6 +811,8 @@ arm.prototype.executeOpcode20 = function (instr) { //20 - SUB stt0 Rd = Rn-Op2
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode21 = function (instr) { //21 - RSB stt0 Rd = Op2-Rn
@@ -801,6 +841,8 @@ arm.prototype.executeOpcode21 = function (instr) { //21 - RSB stt0 Rd = Op2-Rn
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode22 = function (instr) { //22 - ADD stt0 Rd = Rn+Op2
@@ -830,6 +872,8 @@ arm.prototype.executeOpcode22 = function (instr) { //22 - ADD stt0 Rd = Rn+Op2
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode23 = function (instr) { //23 - ADC stt0 Rd = Rn+Op2+Cy
@@ -860,6 +904,8 @@ arm.prototype.executeOpcode23 = function (instr) { //23 - ADC stt0 Rd = Rn+Op2+C
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode24 = function (instr) { //24 - SBC stt0 Rd = Rn-Op2+Cy-1
@@ -889,6 +935,8 @@ arm.prototype.executeOpcode24 = function (instr) { //24 - SBC stt0 Rd = Rn-Op2+C
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode25 = function (instr) { //25 - RSC stt0 Rd = Op2-Rn+Cy-1
@@ -918,6 +966,8 @@ arm.prototype.executeOpcode25 = function (instr) { //25 - RSC stt0 Rd = Op2-Rn+C
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 //ARM[4]-----------second operand register, shifted by register (opcodes 8 - 15)---------- & ARM[2]----------------------------------------
@@ -935,6 +985,8 @@ arm.prototype.executeOpcode26 = function (instr) { //26 - TST 0tt1 Void = Rn AND
 	this.registers[15][0] -= 4;
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
+
+	return 1;
 };
 
 arm.prototype.executeOpcode27 = function (instr) { //27 - TEQ 0tt1 Void = Rn XOR Op2
@@ -951,6 +1003,8 @@ arm.prototype.executeOpcode27 = function (instr) { //27 - TEQ 0tt1 Void = Rn XOR
 	this.registers[15][0] -= 4;
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
+
+	return 1;
 };
 
 arm.prototype.executeOpcode28 = function (instr) { //28 - BX PC=Rn T=Rn[0]
@@ -966,6 +1020,8 @@ arm.prototype.executeOpcode28 = function (instr) { //28 - BX PC=Rn T=Rn[0]
 		this.registers[15][0] = this.registers[rn][0]; //clear bottom two bits
 	}
 	this.cpu.resetPipeline();
+
+	return 0;
 };
 
 arm.prototype.executeOpcode29 = function (instr) { //29 - CMP 0tt1 Void = Rn-Op2
@@ -985,6 +1041,8 @@ arm.prototype.executeOpcode29 = function (instr) { //29 - CMP 0tt1 Void = Rn-Op2
 	this.registers[15][0] -= 4;
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], vflag);
+
+	return 1;
 };
 
 arm.prototype.executeOpcode30 = function (instr) { //30 - CMN 0tt1 Void = Rn+Op2
@@ -1004,6 +1062,8 @@ arm.prototype.executeOpcode30 = function (instr) { //30 - CMN 0tt1 Void = Rn+Op2
 	this.registers[15][0] -= 4;
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
+
+	return 1;
 };
 
 arm.prototype.executeOpcode31 = function (instr) { //31 - ORR 0tt1 Rd = Rn OR Op2
@@ -1036,6 +1096,8 @@ arm.prototype.executeOpcode31 = function (instr) { //31 - ORR 0tt1 Rd = Rn OR Op
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode32 = function (instr) { //32 - MOV 0tt1 Rd = Op2
@@ -1067,6 +1129,8 @@ arm.prototype.executeOpcode32 = function (instr) { //32 - MOV 0tt1 Rd = Op2
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode33 = function (instr) { //33 - BIC 0tt1 Rd = Rn AND NOT Op2
@@ -1099,6 +1163,8 @@ arm.prototype.executeOpcode33 = function (instr) { //33 - BIC 0tt1 Rd = Rn AND N
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode34 = function (instr) { //34 - MVN 0tt1 Rd = NOT Op2
@@ -1130,6 +1196,8 @@ arm.prototype.executeOpcode34 = function (instr) { //34 - MVN 0tt1 Rd = NOT Op2
 	{
 		this.registers[15][0] -= 4;
 	}
+
+	return 1;
 };
 
 //ARM[10]------------------------------------------------------------------------------------------------
@@ -1146,6 +1214,8 @@ arm.prototype.executeOpcode35 = function (instr) { //35 - SWP Rd=[Rn], [Rn]=Rm
 	this.mmu.write(this.registers[rn][0] & mask, this.registers[rm][0], b); //STR
 
 	this.registers[rd][0] = data;
+
+	return 1;
 };
 
 
@@ -1167,6 +1237,8 @@ arm.prototype.executeOpcode36 = function (instr) { //36 - STRH p=1 i=0 [a]=Rd
 	{
 		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode37 = function (instr) { //37 - LDRH p=1 i=0 Load Unsigned halfword
@@ -1190,6 +1262,8 @@ arm.prototype.executeOpcode37 = function (instr) { //37 - LDRH p=1 i=0 Load Unsi
 	{
 		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode38 = function (instr) { //38 - STRH p=1 i=1 [a]=Rd
@@ -1205,6 +1279,8 @@ arm.prototype.executeOpcode38 = function (instr) { //38 - STRH p=1 i=1 [a]=Rd
 	{
 		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode39 = function (instr) { //39 - LDRH p=1 i=1 Load Unsigned halfword
@@ -1218,10 +1294,7 @@ arm.prototype.executeOpcode39 = function (instr) { //39 - LDRH p=1 i=1 Load Unsi
 	let data = rotateRight(this.mmu.read16(addr & 0xFFFFFFFE), (addr & 1) << 3);
 
 	this.registers[rd][0] = data;
-	// console.log("base: " + rn);
-	// console.log("offset: " + offset);
-	// console.log("dest: " + rd);
-	// console.log("addr: " + (this.registers[rn][0] + offset * (u ? 1 : -1)).toString(16));
+
 	if (rd === 15)
 	{
 		this.cpu.resetPipeline();
@@ -1231,6 +1304,8 @@ arm.prototype.executeOpcode39 = function (instr) { //39 - LDRH p=1 i=1 Load Unsi
 	{
 		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode40 = function (instr) { //40 - LDRSB p=1 i=0 Load Signed Byte
@@ -1252,6 +1327,8 @@ arm.prototype.executeOpcode40 = function (instr) { //40 - LDRSB p=1 i=0 Load Sig
 	{
 		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode41 = function (instr) { //41 - LDRSB p=1 i=1 Load Signed Byte
@@ -1273,6 +1350,8 @@ arm.prototype.executeOpcode41 = function (instr) { //41 - LDRSB p=1 i=1 Load Sig
 	{
 		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode42 = function (instr) { //42 - LDRSH p=1 i=0 Load Signed halfword
@@ -1306,6 +1385,8 @@ arm.prototype.executeOpcode42 = function (instr) { //42 - LDRSH p=1 i=0 Load Sig
 	{
 		this.registers[rn][0] += this.registers[rm][0] * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 arm.prototype.executeOpcode43 = function (instr) { //43 - LDRSH p=1 i=1 Load Signed halfword
@@ -1339,6 +1420,8 @@ arm.prototype.executeOpcode43 = function (instr) { //43 - LDRSH p=1 i=1 Load Sig
 	{
 		this.registers[rn][0] += offset * (u ? 1 : -1);
 	}
+
+	return 1;
 };
 
 //ARM[6]-----------------------------------------------------------------------------------------------------
@@ -1352,6 +1435,8 @@ arm.prototype.executeOpcode44 = function (instr) { //44 - MRS Rd = Psr
 		this.registers[rd][0] = this.registers[16][0]; //read from CPSR if no SPSR
 		console.log("trying to move PSR to rd in MRS with psr bit set when in USER/SYSTEM MODE");
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode45 = function (instr) { //45 - MSR register Psr[field] = Op
@@ -1401,6 +1486,7 @@ arm.prototype.executeOpcode45 = function (instr) { //45 - MSR register Psr[field
 		this.cpu.setCPSR(psr);
 	}
 
+	return 0;
 };
 
 //ARM[4]-----------second operand register, shifted by IMM(opcodes 8 - 15)----------------------------------------------------------
@@ -1415,6 +1501,8 @@ arm.prototype.executeOpcode46 = function (instr) { //46 - TST stt0 Void = Rn AND
 	& this.shiftRegByImm(this.registers[rm][0], imm, st);
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode47 = function (instr) { //47 - TEQ stt0 Void = Rn XOR Op2
@@ -1428,6 +1516,8 @@ arm.prototype.executeOpcode47 = function (instr) { //47 - TEQ stt0 Void = Rn XOR
 	^ this.shiftRegByImm(this.registers[rm][0], imm, st);
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode48 = function (instr) { //48 - CMP stt0 Void = Rn-Op2
@@ -1443,6 +1533,8 @@ arm.prototype.executeOpcode48 = function (instr) { //48 - CMP stt0 Void = Rn-Op2
 	let vflag =  bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], vflag);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode49 = function (instr) { //49 - CMN stt0 Void = Rn+Op2
@@ -1458,6 +1550,8 @@ arm.prototype.executeOpcode49 = function (instr) { //49 - CMN stt0 Void = Rn+Op2
 	let vflag = !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode50 = function (instr) { //50 - ORR stt0 Rd = Rn OR Op2
@@ -1484,6 +1578,8 @@ arm.prototype.executeOpcode50 = function (instr) { //50 - ORR stt0 Rd = Rn OR Op
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode51 = function (instr) { //51 - MOV stt0 Rd = Op2
@@ -1509,6 +1605,8 @@ arm.prototype.executeOpcode51 = function (instr) { //51 - MOV stt0 Rd = Op2
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode52 = function (instr) { //52 - BIC stt0 Rd = Rn AND NOT Op2
@@ -1535,6 +1633,8 @@ arm.prototype.executeOpcode52 = function (instr) { //52 - BIC stt0 Rd = Rn AND N
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode53 = function (instr) { //53 - MVN stt0 Rd = NOT Op2
@@ -1560,6 +1660,8 @@ arm.prototype.executeOpcode53 = function (instr) { //53 - MVN stt0 Rd = NOT Op2
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 //ARM[4]------------------------second operand IMM (opcodes 0 - 7)---------------------------------
@@ -1585,6 +1687,8 @@ arm.prototype.executeOpcode54 = function (instr) { //54 - AND imm Rd = Rn AND Op
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode55 = function (instr) { //55 - EOR imm Rd = Rn XOR Op2
@@ -1609,6 +1713,8 @@ arm.prototype.executeOpcode55 = function (instr) { //55 - EOR imm Rd = Rn XOR Op
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode56 = function (instr) { //56 - SUB imm Rd = Rn-Op2
@@ -1634,6 +1740,8 @@ arm.prototype.executeOpcode56 = function (instr) { //56 - SUB imm Rd = Rn-Op2
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode57 = function (instr) { //57 - RSB imm Rd = Op2-Rn
@@ -1659,6 +1767,8 @@ arm.prototype.executeOpcode57 = function (instr) { //57 - RSB imm Rd = Op2-Rn
 			this.SPSRtoCPSR();			
 		}
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode58 = function (instr) { //58 - ADD imm Rd = Rn+Op2
@@ -1685,6 +1795,8 @@ arm.prototype.executeOpcode58 = function (instr) { //58 - ADD imm Rd = Rn+Op2
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode59 = function (instr) { //59 - ADC imm Rd = Rn+Op2+Cy
@@ -1712,6 +1824,8 @@ arm.prototype.executeOpcode59 = function (instr) { //59 - ADC imm Rd = Rn+Op2+Cy
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode60 = function (instr) { //60 - SBC imm Rd = Rn-Op2+Cy-1
@@ -1738,6 +1852,8 @@ arm.prototype.executeOpcode60 = function (instr) { //60 - SBC imm Rd = Rn-Op2+Cy
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode61 = function (instr) { //61 - RSC imm Rd = Op2-Rn+Cy-1
@@ -1764,6 +1880,8 @@ arm.prototype.executeOpcode61 = function (instr) { //61 - RSC imm Rd = Op2-Rn+Cy
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 //ARM[4]-----------second operand IMM (opcodes 8 - 15)-------------------------------------------------------- & ARM[6]----------------------------------------
@@ -1775,6 +1893,8 @@ arm.prototype.executeOpcode62 = function (instr) { //62 - TST imm Void = Rn AND 
 	let result = this.registers[rn][0] & secondOperand;
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode63 = function (instr) { //63 - MSR imm Psr[field] = Op
@@ -1831,6 +1951,8 @@ arm.prototype.executeOpcode63 = function (instr) { //63 - MSR imm Psr[field] = O
 	{
 		this.cpu.setCPSR(psr);
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode64 = function (instr) { //64 - TEQ imm Void = Rn XOR Op2
@@ -1841,6 +1963,8 @@ arm.prototype.executeOpcode64 = function (instr) { //64 - TEQ imm Void = Rn XOR 
 	let result = this.registers[rn][0] ^ secondOperand;
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode65 = function (instr) { //65 - CMP imm Void = Rn-Op2
@@ -1853,6 +1977,8 @@ arm.prototype.executeOpcode65 = function (instr) { //65 - CMP imm Void = Rn-Op2
 	let vflag = bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, secondOperand <= this.registers[rn][0], vflag);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode66 = function (instr) { //66 - CMN imm Void = Rn+Op2
@@ -1865,6 +1991,8 @@ arm.prototype.executeOpcode66 = function (instr) { //66 - CMN imm Void = Rn+Op2
 	let vflag = !bitSlice(this.registers[rn][0] ^ secondOperand, 31, 31) && bitSlice(this.registers[rn][0] ^ result, 31, 31);
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0,  result > 4294967295, vflag);
+
+	return 0;
 };
 
 arm.prototype.executeOpcode67 = function (instr) { //67 - ORR imm Rd = Rn OR Op2
@@ -1889,6 +2017,8 @@ arm.prototype.executeOpcode67 = function (instr) { //67 - ORR imm Rd = Rn OR Op2
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode68 = function (instr) { //68 - MOV imm  Rd = Op2
@@ -1912,6 +2042,8 @@ arm.prototype.executeOpcode68 = function (instr) { //68 - MOV imm  Rd = Op2
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode69 = function (instr) { //69 - BIC imm Rd = Rn AND NOT Op2
@@ -1936,6 +2068,8 @@ arm.prototype.executeOpcode69 = function (instr) { //69 - BIC imm Rd = Rn AND NO
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 arm.prototype.executeOpcode70 = function (instr) { //70 - MVN imm Rd = NOT Op2
@@ -1959,6 +2093,8 @@ arm.prototype.executeOpcode70 = function (instr) { //70 - MVN imm Rd = NOT Op2
 		}
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 //ARM[7]-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -1971,15 +2107,6 @@ arm.prototype.executeOpcode71 = function (instr) { //71 - LDR / STR i=0
 	let size = bitSlice(instr, 22, 22) ? 1 : 4; //byte / word
 	let mask = (size === 1 ? 0xFFFFFFFF : 0xFFFFFFFC);
 	let w = bitSlice(instr, 21, 21); //writeback
-
-	//console.log((rn === 15)  && (!p || w) );
-	//console.log("base: " + rn);
-	//console.log("offset: " + offset);
-	//console.log("size: " + size);
-	//console.log("dest: " + rd);
-	//if (rd === rn){
-		//console.log("hallo");
-	//}
 
 	if (bitSlice(instr, 20, 20)) //LDR
 	{
@@ -2014,6 +2141,8 @@ arm.prototype.executeOpcode71 = function (instr) { //71 - LDR / STR i=0
 		{
 			this.cpu.resetPipeline();
 		}
+
+		return 1;
 	}
 	else //STR
 	{
@@ -2031,6 +2160,8 @@ arm.prototype.executeOpcode71 = function (instr) { //71 - LDR / STR i=0
 				this.registers[rn][0] = addr;
 			}
 		}
+
+		return 0;
 	}
 };
 
@@ -2076,6 +2207,8 @@ arm.prototype.executeOpcode72 = function (instr) { //72 - LDR / STR i=1
 		{
 			this.cpu.resetPipeline();
 		}
+
+		return 1;
 	}
 	else //STR
 	{
@@ -2093,6 +2226,8 @@ arm.prototype.executeOpcode72 = function (instr) { //72 - LDR / STR i=1
 				this.registers[rn][0] = addr;
 			}
 		}
+
+		return 0;
 	}
 };
 
@@ -2145,7 +2280,7 @@ arm.prototype.executeOpcode73 = function (instr) { //73 - LDM / STM
 			this.mmu.write32(addr & 0xFFFFFFFC, registers[15][0] + 4);
 		}
 		registers[rn][0] += (incramt << 4);
-		return;
+		return 0;
 	}
 
 	if (s)
@@ -2265,6 +2400,8 @@ arm.prototype.executeOpcode73 = function (instr) { //73 - LDM / STM
 			registers[rn][0] = addr | (baseAddr & 3);
 		}
 	}
+
+	return 1;
 };
 
 //ARM[1]-------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -2282,28 +2419,31 @@ arm.prototype.executeOpcode74 = function (instr) { //74 - B / BL
 	
 	this.registers[15][0] += (signedOffset << 2);
 	this.cpu.resetPipeline();
+
+	return 0;
 };
 
 //ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
 arm.prototype.executeOpcode75 = function (instr) { //75 - LDC / STC
 	//gba does not use this instruction
-	console.log("???1");
-	throw Error();
+	throw Error("LDC/STC not implemented");
 };
 
 arm.prototype.executeOpcode76 = function (instr) { //76 - CDP
 	//gba does not use this instruction
-	console.log("???2");
+	throw Error("CDP not implemented");
 };
 
 arm.prototype.executeOpcode77 = function (instr) { //77 - MRC / MCR
 	//gba does not use this instruction
-	console.log("???3");
+	throw Error("MRC / MCR not implemented");
 };
 
 //ARM[11]-------------------------------------------------------------------------------------------------------------------------------------------------------
 arm.prototype.executeOpcode78 = function (instr) { //78 - SWI
 	this.cpu.startSWI(bitSlice(instr, 0, 23));
+
+	return 0;
 };
 
 //ARM[5]-----------------------------------------------------------------------------------------------------
@@ -2312,9 +2452,10 @@ arm.prototype.executeOpcode79 = function (instr) { //79 - SMULL / SMLAL RdHiLo=R
 	let rdlo = bitSlice(instr, 12, 15);
 	let rs = bitSlice(instr, 8, 11);
 	let rm = bitSlice(instr, 0, 3);
+	let accumulate = bitSlice(instr, 21, 21);
 
 	let result = BigInt(this.registers[rm][0] >> 0) * BigInt(this.registers[rs][0] >> 0);
-	if (bitSlice(instr, 21, 21)) //accumulate bit
+	if (accumulate) //accumulate bit
 	{
 		result += (BigInt(this.registers[rdhi][0]) << 32n) + BigInt(this.registers[rdlo][0]);
 	}
@@ -2325,6 +2466,8 @@ arm.prototype.executeOpcode79 = function (instr) { //79 - SMULL / SMLAL RdHiLo=R
 	}
 	this.registers[rdhi][0] = Number(result >> 32n);
 	this.registers[rdlo][0] = Number(result & 0xFFFFFFFFn);
+
+	return accumulate ? 3 : 2;
 }
 
 arm.prototype.fetch = function () {
@@ -2339,8 +2482,12 @@ arm.prototype.decode = function (instr) {
 arm.prototype.execute = function (instr, opcode) {
 	if (this.checkCondition(bitSlice(instr, 28, 31)))
 	{
-		this.executeOpcode[opcode](instr);
+		let num = this.executeOpcode[opcode](instr);
+		if (num === undefined)
+			throw Error(num);
+		return num;
 	}
+	return 0;
 };
 	
 arm.prototype.initFnTable = function () {

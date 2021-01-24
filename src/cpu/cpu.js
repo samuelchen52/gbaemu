@@ -218,7 +218,7 @@ cpu.prototype.changeMode = function (newMode) {
   {
     if (this.mode === this.modeENUMS["FIQ"]) //switch out FIQ registers
     {
-      console.log("WHAT");
+      console.log("FIQ mode used?");
       this.registers[8] = this.r8;
       this.registers[9] = this.r9;
       this.registers[10] = this.r10;
@@ -227,7 +227,7 @@ cpu.prototype.changeMode = function (newMode) {
     }
     else if (newMode === this.modeENUMS["FIQ"]) //switch in FIQ registers
     {
-      console.log("WHAT");
+      console.log("FIQ mode used?");
       this.registers[8] = this.r8_FIQ;
       this.registers[9] = this.r9_FIQ;
       this.registers[10] = this.r10_FIQ;
@@ -286,11 +286,11 @@ cpu.prototype.decode = function (instr) {
 cpu.prototype.execute = function (instr, opcode) {
   if (this.state === this.stateENUMS["ARM"])
   {
-    this.ARM.execute(instr, opcode);
+    return this.ARM.execute(instr, opcode);
   }
   else //state === stateEnums["THUMB"]
   {
-    this.THUMB.execute(instr, opcode);
+    return this.THUMB.execute(instr, opcode);
   }
 };
 
@@ -359,28 +359,6 @@ cpu.prototype.resetPipeline = function (){
 //   this.registers[15][0] += this.insize; //increment pc
 // }
 
-// cpu.prototype.run = function() {
-//   if (!this.halt)
-//   {
-//     if (this.checkInterrupt)
-//     {
-//       this.startIRQ();
-//       this.checkInterrupt = false;
-//     }
-
-//     this.pipeline[4] = this.pipeline[2];
-//     this.pipeline[3] = this.pipeline[1];
-
-//     this.pipeline[2] = this.decode(this.pipeline[0]); 
-//     this.pipeline[1] = this.pipeline[0];  
-
-//     this.pipeline[0] = this.fetch();
-
-//     this.execute(this.pipeline[3], this.pipeline[4]);
-//     this.registers[15][0] += this.insize; //increment pc
-//   }
-// }
-
 cpu.prototype.run = function(numCycles) {
   let mmu = this.mmu;
   let pipeline = this.pipeline;
@@ -403,13 +381,8 @@ cpu.prototype.run = function(numCycles) {
     pipeline[1] = pipelinecopy0;
     pipeline[2] = this.decode(pipelinecopy0);   
 
-    this.execute(pipelinecopy1, pipelinecopy2);
+    i += this.execute(pipelinecopy1, pipelinecopy2);
     registers[15][0] += this.insize; //increment pc
-    // if (typeof this.registers[17] === "number")
-    // {
-    //   console.log("[" + 1 +  "] executing opcode: " + (this.state ? THUMBopcodes[pipelinecopy2] : ARMopcodes[pipelinecopy2]) + " at Memory addr: 0x" + (this.registers[15][0] - (this.state ? 4 : 8)).toString(16));
-    //   throw Error();
-    // }
   }
   mmu.numCycles = 0;
 

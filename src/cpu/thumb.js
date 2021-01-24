@@ -103,6 +103,8 @@ thumb.prototype.executeOpcode0 = function (instr) { //0 - LSL IMM5 Rd,Rs,#Offset
 	
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, offset === 0 ? undefined : bitSlice(this.registers[rs][0], 32 - offset, 32 - offset));
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode1 = function (instr) { //1 - LSR IMM5 Rd,Rs,#Offset (shifts in zeroes)
@@ -115,6 +117,8 @@ thumb.prototype.executeOpcode1 = function (instr) { //1 - LSR IMM5 Rd,Rs,#Offset
 	
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, bitSlice(this.registers[rs][0], offset - 1, offset - 1));
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode2 = function (instr) { //2 - ASR IMM5 Rd,Rs,#Offset (shifts in most significant bit)
@@ -127,6 +131,8 @@ thumb.prototype.executeOpcode2 = function (instr) { //2 - ASR IMM5 Rd,Rs,#Offset
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, bitSlice(this.registers[rs][0], offset - 1, offset - 1));
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 //THUMB.2------------------------------------------------------------------------------------------------------
@@ -140,6 +146,8 @@ thumb.prototype.executeOpcode3 = function (instr) { //3 - ADD REGISTER Rd=Rs+Rn
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode4 = function (instr) { //4 - SUBTRACT REGISTER Rd=Rs-Rn
@@ -152,6 +160,8 @@ thumb.prototype.executeOpcode4 = function (instr) { //4 - SUBTRACT REGISTER Rd=R
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rn][0] <= this.registers[rs][0], vflag);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode5 = function (instr) { //5 - ADD IMM3 Rd=Rs+nn
@@ -164,6 +174,8 @@ thumb.prototype.executeOpcode5 = function (instr) { //5 - ADD IMM3 Rd=Rs+nn
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode6 = function (instr) { //6 - SUB IMM3 Rd=Rs-nn
@@ -176,6 +188,8 @@ thumb.prototype.executeOpcode6 = function (instr) { //6 - SUB IMM3 Rd=Rs-nn
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, imm <= this.registers[rs][0], vflag);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 //THUMB.3------------------------------------------------------------------------------------------------------
@@ -185,6 +199,8 @@ thumb.prototype.executeOpcode7 = function (instr) { //7 - MOV IMM8 Rd   = #nn
 
 	this.setNZCV(false, imm === 0);
 	this.registers[rd][0] = imm;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode8 = function (instr) { //8 - CMP IMM8 Void = Rd - #nn
@@ -195,6 +211,8 @@ thumb.prototype.executeOpcode8 = function (instr) { //8 - CMP IMM8 Void = Rd - #
 	let vflag = bitSlice(this.registers[rd][0] ^ imm, 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, imm <= this.registers[rd][0], vflag);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode9 = function (instr) { //9 - ADD IMM8 Rd   = Rd + #nn
@@ -206,6 +224,8 @@ thumb.prototype.executeOpcode9 = function (instr) { //9 - ADD IMM8 Rd   = Rd + #
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode10 = function (instr) { //10 - SUB IMM8 Rd   = Rd - #nn
@@ -217,6 +237,8 @@ thumb.prototype.executeOpcode10 = function (instr) { //10 - SUB IMM8 Rd   = Rd -
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, imm <= this.registers[rd][0], vflag);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 //THUMB.4------------------------------------------------------------------------------------------------------
@@ -228,6 +250,8 @@ thumb.prototype.executeOpcode11 = function (instr) { //11 - AND  Rd = Rd AND Rs
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode12 = function (instr) { //12 - XOR Rd = Rd XOR Rs
@@ -238,6 +262,8 @@ thumb.prototype.executeOpcode12 = function (instr) { //12 - XOR Rd = Rd XOR Rs
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode13 = function (instr) { //13 - LSL Rd = Rd << (Rs AND 0FFh)
@@ -249,6 +275,8 @@ thumb.prototype.executeOpcode13 = function (instr) { //13 - LSL Rd = Rd << (Rs A
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 	this.registers[rd][0] = result;
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode14 = function (instr) { //14 - LSR Rd = Rd >> (Rs AND 0FFh)
@@ -260,6 +288,8 @@ thumb.prototype.executeOpcode14 = function (instr) { //14 - LSR Rd = Rd >> (Rs A
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 	this.registers[rd][0] = result;
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode15 = function (instr) { //15 - ASR Rd = Rd SAR (Rs AND 0FFh)
@@ -271,6 +301,8 @@ thumb.prototype.executeOpcode15 = function (instr) { //15 - ASR Rd = Rd SAR (Rs 
 	
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 	this.registers[rd][0] = result;
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode16 = function (instr) { //16 - ADC Rd = Rd + Rs + Cy
@@ -283,6 +315,8 @@ thumb.prototype.executeOpcode16 = function (instr) { //16 - ADC Rd = Rd + Rs + C
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF) === 0, result > 4294967295, vflag);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode17 = function (instr) { //17 - SBC Rd = Rd - Rs - NOT Cy
@@ -295,6 +329,8 @@ thumb.prototype.executeOpcode17 = function (instr) { //17 - SBC Rd = Rd - Rs - N
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, (this.registers[rs][0] + negCarryFlag) <= this.registers[rd][0], vflag);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode18 = function (instr) { //18 - ROTATE RIGHT Rd = Rd ROR (Rs AND 0FFh)
@@ -306,6 +342,8 @@ thumb.prototype.executeOpcode18 = function (instr) { //18 - ROTATE RIGHT Rd = Rd
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.shiftCarryFlag);
 	this.registers[rd][0] = result;
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode19 = function (instr) { //19 - TST Void = Rd AND Rs
@@ -315,6 +353,8 @@ thumb.prototype.executeOpcode19 = function (instr) { //19 - TST Void = Rd AND Rs
 	let result = this.registers[rd][0] & this.registers[rs][0];
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode20 = function (instr) { //20 - NEG Rd = 0 - Rs
@@ -326,6 +366,8 @@ thumb.prototype.executeOpcode20 = function (instr) { //20 - NEG Rd = 0 - Rs
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rs][0] <= 0, vflag);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode21 = function (instr) { //21 - CMP Void = Rd - Rs
@@ -336,6 +378,8 @@ thumb.prototype.executeOpcode21 = function (instr) { //21 - CMP Void = Rd - Rs
 	let vflag =  bitSlice(this.registers[rd][0] ^ this.registers[rs][0], 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rs][0] <= this.registers[rd][0], vflag);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode22 = function (instr) { //22 - NEGCMP Void = Rd + Rs
@@ -346,6 +390,8 @@ thumb.prototype.executeOpcode22 = function (instr) { //22 - NEGCMP Void = Rd + R
 	let vflag =  !bitSlice(this.registers[rd][0] ^ this.registers[rs][0], 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
 	this.setNZCV(bitSlice(result, 31, 31), (result & 0xFFFFFFFF ) === 0, result > 4294967295, vflag);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode23 = function (instr) { //23 - OR Rd = Rd OR Rs
@@ -356,6 +402,8 @@ thumb.prototype.executeOpcode23 = function (instr) { //23 - OR Rd = Rd OR Rs
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode24 = function (instr) { //24 - MUL Rd = Rd * Rs
@@ -366,6 +414,8 @@ thumb.prototype.executeOpcode24 = function (instr) { //24 - MUL Rd = Rd * Rs
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0);
 	this.registers[rd][0] = result;
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode25 = function (instr) { //25 - BIT CLEAR Rd = Rd AND NOT Rs
@@ -376,6 +426,8 @@ thumb.prototype.executeOpcode25 = function (instr) { //25 - BIT CLEAR Rd = Rd AN
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode26 = function (instr) { //26 - NOT Rd = NOT Rs
@@ -386,6 +438,8 @@ thumb.prototype.executeOpcode26 = function (instr) { //26 - NOT Rd = NOT Rs
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0);
 	this.registers[rd][0] = result;
+
+	return 0;
 };
 
 //THUMB.5------------------------------------------------------------------------------------------------------
@@ -398,6 +452,8 @@ thumb.prototype.executeOpcode27 = function (instr) { //27 - ADD check needed Rd 
 	{
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode28 = function (instr) { //28 - CMP check needed Void = Rd-Rs  ;CPSR affected
@@ -408,6 +464,8 @@ thumb.prototype.executeOpcode28 = function (instr) { //28 - CMP check needed Voi
 	let vflag = bitSlice(this.registers[rd][0] ^ this.registers[rs][0], 31, 31) && bitSlice(this.registers[rd][0] ^ result, 31, 31);
 
 	this.setNZCV(bitSlice(result, 31, 31), result === 0, this.registers[rs][0] <= this.registers[rd][0], vflag);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode29 = function (instr) { //29 - MOV check needed Rd = Rs
@@ -419,6 +477,8 @@ thumb.prototype.executeOpcode29 = function (instr) { //29 - MOV check needed Rd 
 	{
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode30 = function (instr) { //30 - BX check needed PC = Rs     ;may switch THUMB/ARM
@@ -437,6 +497,8 @@ thumb.prototype.executeOpcode30 = function (instr) { //30 - BX check needed PC =
 	}
 
 	this.cpu.resetPipeline();
+
+	return 0;
 };
 
 //THUMB.6------------------------------------------------------------------------------------------------------
@@ -449,6 +511,8 @@ thumb.prototype.executeOpcode31 = function (instr) { //31 - LDR IMM (PC) Rd = WO
 	data = rotateRight(data, (addr & 3) << 3);
 
 	this.registers[rd][0] = data;
+
+	return 1;
 };
 
 //THUMB.7/8------------------------------------------------------------------------------------------------------
@@ -458,6 +522,8 @@ thumb.prototype.executeOpcode32 = function (instr) { //32 - STR REG OFFSET WORD[
 	let rd = bitSlice(instr, 0, 2);
 
 	this.mmu.write32((this.registers[rb][0] + this.registers[ro][0]) & 0xFFFFFFFC, this.registers[rd][0]);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode33 = function (instr) { //33 - STRH REG OFFSET HALFWORD[Rb+Ro] = Rd
@@ -466,6 +532,8 @@ thumb.prototype.executeOpcode33 = function (instr) { //33 - STRH REG OFFSET HALF
 	let rd = bitSlice(instr, 0, 2);
 
 	this.mmu.write16((this.registers[rb][0] + this.registers[ro][0]) & 0xFFFFFFFE, this.registers[rd][0]);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode34 = function (instr) { //34 - STRB REG OFFSET BYTE[Rb+Ro] = Rd
@@ -474,6 +542,8 @@ thumb.prototype.executeOpcode34 = function (instr) { //34 - STRB REG OFFSET BYTE
 	let rd = bitSlice(instr, 0, 2);
 
 	this.mmu.write8((this.registers[rb][0] + this.registers[ro][0]), this.registers[rd][0]);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode35 = function (instr) { //35 - LDSB REG OFFSET Rd = BYTE[Rb+Ro]
@@ -485,6 +555,8 @@ thumb.prototype.executeOpcode35 = function (instr) { //35 - LDSB REG OFFSET Rd =
 	byte += byte & 128 ? 0xFFFFFF00 : 0; //sign extend byte
 	
 	this.registers[rd][0] = byte;
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode36 = function (instr) { //36 - LDR REG OFFSET Rd = WORD[Rb+Ro]
@@ -498,6 +570,8 @@ thumb.prototype.executeOpcode36 = function (instr) { //36 - LDR REG OFFSET Rd = 
 	data = rotateRight(data, (addr & 3) << 3);
 
 	this.registers[rd][0] = data;
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode37 = function (instr) { //37 - LDRH REG OFFSET Rd = HALFWORD[Rb+Ro]
@@ -509,6 +583,8 @@ thumb.prototype.executeOpcode37 = function (instr) { //37 - LDRH REG OFFSET Rd =
 	let data = rotateRight(this.mmu.read16(addr & 0xFFFFFFFE), (addr & 1) << 3);
 
 	this.registers[rd][0] = data;
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode38 = function (instr) { //38 - LDRB REG OFFSET Rd = BYTE[Rb+Ro]
@@ -517,6 +593,8 @@ thumb.prototype.executeOpcode38 = function (instr) { //38 - LDRB REG OFFSET Rd =
 	let rd = bitSlice(instr, 0, 2);
 
 	this.registers[rd][0] = this.mmu.read8(this.registers[rb][0] + this.registers[ro][0]);
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode39 = function (instr) { //39 - LDSH REG OFFSET Rd = HALFWORD[Rb+Ro]
@@ -538,6 +616,8 @@ thumb.prototype.executeOpcode39 = function (instr) { //39 - LDSH REG OFFSET Rd =
 		halfword += halfword & 32768 ? 0xFFFF0000 : 0; //sign extend halfword
 		this.registers[rd][0] = halfword;
 	}
+
+	return 1;
 };
 
 //THUMB.9------------------------------------------------------------------------------------------------------
@@ -547,6 +627,8 @@ thumb.prototype.executeOpcode40 = function (instr) { //40 - STR IMM OFFSET WORD[
 	let rd = bitSlice(instr, 0, 2);
 
 	this.mmu.write32((this.registers[rb][0] + offset) & 0xFFFFFFFC, this.registers[rd][0]);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode41 = function (instr) { //41 - LDR IMM OFFSET Rd = WORD[Rb+nn]
@@ -559,6 +641,8 @@ thumb.prototype.executeOpcode41 = function (instr) { //41 - LDR IMM OFFSET Rd = 
 	data = rotateRight(data, (addr & 3) << 3);
 
 	this.registers[rd][0] = data;
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode42 = function (instr) { //42 - STRB IMM OFFSET BYTE[Rb+nn] = Rd
@@ -567,6 +651,8 @@ thumb.prototype.executeOpcode42 = function (instr) { //42 - STRB IMM OFFSET BYTE
 	let rd = bitSlice(instr, 0, 2);
 
 	this.mmu.write8(this.registers[rb][0] + offset, this.registers[rd][0]);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode43 = function (instr) { //43 - LDRB IMM OFFSET Rd = BYTE[Rb+nn]
@@ -575,6 +661,8 @@ thumb.prototype.executeOpcode43 = function (instr) { //43 - LDRB IMM OFFSET Rd =
 	let rd = bitSlice(instr, 0, 2);
 
 	this.registers[rd][0] = this.mmu.read8(this.registers[rb][0] + offset);
+
+	return 1;
 };
 
 //THUMB.10------------------------------------------------------------------------------------------------------
@@ -584,6 +672,8 @@ thumb.prototype.executeOpcode44 = function (instr) { //44 - STRH IMM OFFSET HALF
 	let rd = bitSlice(instr, 0, 2);
 
 	this.mmu.write16((this.registers[rb][0] + offset) & 0xFFFFFFFE, this.registers[rd][0]);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode45 = function (instr) { //45 - LDRH IMM OFFSET Rd = HALFWORD[Rb+nn]
@@ -595,6 +685,8 @@ thumb.prototype.executeOpcode45 = function (instr) { //45 - LDRH IMM OFFSET Rd =
 	let data = rotateRight(this.mmu.read16(addr & 0xFFFFFFFE), (addr & 1) << 3);
 
 	this.registers[rd][0] = data;
+
+	return 1;
 };
 
 //THUMB.11------------------------------------------------------------------------------------------------------
@@ -603,6 +695,8 @@ thumb.prototype.executeOpcode46 = function (instr) { //46 - STR IMM OFFSET (SP) 
 	let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 
 	this.mmu.write32((this.registers[13][0] + offset) & 0xFFFFFFFC, this.registers[rd][0]);
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode47 = function (instr) { //47 - LDR IMM OFFSET (SP) Rd = WORD[SP+nn]
@@ -614,6 +708,8 @@ thumb.prototype.executeOpcode47 = function (instr) { //47 - LDR IMM OFFSET (SP) 
 	data = rotateRight(data, (addr & 3) << 3);
 
 	this.registers[rd][0] = data;
+
+	return 1;
 };
 
 //THUMB.12------------------------------------------------------------------------------------------------------
@@ -622,6 +718,8 @@ thumb.prototype.executeOpcode48 = function (instr) { //48 - ADD RD PC IMM Rd = (
 	let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 
 	this.registers[rd][0] = (this.registers[15][0] & 0xFFFFFFFC) + offset;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode49 = function (instr) { //49 - ADD RD SP IMM Rd = SP + nn
@@ -629,6 +727,8 @@ thumb.prototype.executeOpcode49 = function (instr) { //49 - ADD RD SP IMM Rd = S
 	let offset = bitSlice(instr, 0, 7) << 2; //offset is 10 bits, lower 2 bits are zero, so we shift left two
 
 	this.registers[rd][0] = this.registers[13][0] + offset;
+
+	return 0;
 };
 
 //THUMB.13------------------------------------------------------------------------------------------------------
@@ -636,12 +736,16 @@ thumb.prototype.executeOpcode50 = function (instr) { //50 - ADD SP IMM SP = SP +
 	let offset = bitSlice(instr, 0, 6) << 2; //offset is 9 bits, lower 2 bits are zero, so we shift left two
 
 	this.registers[13][0] += offset;
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode51 = function (instr) { //51 - ADD SP -IMM SP = SP - nn
 	let offset = bitSlice(instr, 0, 6) << 2; //offset is 9 bits, lower 2 bits are zero, so we shift left two
 
 	this.registers[13][0] -= offset;
+
+	return 0;
 };
 
 //THUMB.14------------------------------------------------------------------------------------------------------
@@ -662,6 +766,8 @@ thumb.prototype.executeOpcode52 = function (instr) { //52 - PUSH store in memory
 			this.mmu.write32(this.registers[13][0] & 0xFFFFFFFC, this.registers[i][0]);
 		}
 	}
+
+	return 1;
 };
 
 thumb.prototype.executeOpcode53 = function (instr) { //53 - POP load from memory, increments SP (R13) LDMIA=POP
@@ -682,6 +788,8 @@ thumb.prototype.executeOpcode53 = function (instr) { //53 - POP load from memory
 		this.registers[13][0] += 4;
 		this.cpu.resetPipeline();
 	}
+
+	return 1;
 };
 
 //THUMB.15------------------------------------------------------------------------------------------------------
@@ -716,6 +824,8 @@ thumb.prototype.executeOpcode54 = function (instr) { //54 - STMIA store in memor
 		}
 		this.registers[rb][0] = addr;
 	}
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode55 = function (instr) { //55 - LDMIA load from memory, increments Rb
@@ -743,6 +853,8 @@ thumb.prototype.executeOpcode55 = function (instr) { //55 - LDMIA load from memo
 			this.registers[rb][0] = addr;
 		}
 	}
+
+	return 1;
 };
 
 //THUMB.16------------------------------------------------------------------------------------------------------
@@ -793,11 +905,15 @@ thumb.prototype.executeOpcode56 = function (instr) { //56 - CONDITIONAL BRANCH
 		this.registers[15][0] += offset;
 		this.cpu.resetPipeline();
 	}
+
+	return 0;
 };
 
 //THUMB.17------------------------------------------------------------------------------------------------------
 thumb.prototype.executeOpcode57 = function (instr) { //57 - SWI
 	this.cpu.startSWI(bitSlice(instr, 0, 7));
+
+	return 0;
 };
 
 //THUMB.18------------------------------------------------------------------------------------------------------
@@ -806,6 +922,8 @@ thumb.prototype.executeOpcode58 = function (instr) { //58 - UNCONDITIONAL BRANCH
 	let offset =  bitSlice(instr, 10, 10) ? (((~(bitSlice(instr, 0, 10) - 1)) & 0x7FF) * -1) << 1 : bitSlice(instr, 0, 9) << 1;
 	this.registers[15][0] += offset;
 	this.cpu.resetPipeline();
+
+	return 0;
 };
 
 //THUMB.19------------------------------------------------------------------------------------------------------
@@ -826,6 +944,8 @@ thumb.prototype.executeOpcode59 = function (instr) { //59 - LONG BRANCH 1
 	{
 		this.registers[14][0] = this.registers[15][0] + offset;
 	}
+
+	return 0;
 };
 
 thumb.prototype.executeOpcode60 = function (instr) { //60 - LONG BRANCH 2
@@ -835,6 +955,8 @@ thumb.prototype.executeOpcode60 = function (instr) { //60 - LONG BRANCH 2
 	this.registers[14][0] = (this.registers[15][0] - 2) | 1;
 	this.registers[15][0] = (temp + offset);
 	this.cpu.resetPipeline();
+
+	return 0;
 };
 
 thumb.prototype.decode = function (instr) {
@@ -842,7 +964,7 @@ thumb.prototype.decode = function (instr) {
 };
 
 thumb.prototype.execute = function (instr, opcode) {
-	this.executeOpcode[opcode](instr);
+	return this.executeOpcode[opcode](instr);
 };
 	
 thumb.prototype.initFnTable = function () {
