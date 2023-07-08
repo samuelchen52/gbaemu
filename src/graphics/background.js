@@ -397,29 +397,29 @@ background.prototype.serialize = function() {
 }
 
 background.prototype.setState = function(saveState) {
-  this.prio = this.prio;
-	this.CBB = this.CBB;
-	this.mosaic = this.mosaic;
-	this.bpp8 = this.bpp8;
-	this.SBB = this.SBB;
-	this.wrapAround = this.wrapAround;
-	this.screenSize = this.screenSize;
+  this.prio = saveState.prio;
+	this.CBB = saveState.CBB;
+	this.mosaic = saveState.mosaic;
+	this.bpp8 = saveState.bpp8;
+	this.SBB = saveState.SBB;
+	this.wrapAround = saveState.wrapAround;
+	this.screenSize = saveState.screenSize;
 
-	this.hOffset = this.hOffset;
-	this.vOffset = this.vOffset;
+	this.hOffset = saveState.hOffset;
+	this.vOffset = saveState.vOffset;
 
-	this.mapWidth = this.mapWidth;
-	this.mapHeight = this.mapHeight;
+	this.mapWidth = saveState.mapWidth;
+	this.mapHeight = saveState.mapHeight;
 
 
-  this.internalRefX = this.internalRefX;
-  this.internalRefY = this.internalRefY;
-  this.refX = this.refX;
-  this.refY = this.refY;
-  this.bgpa = this.bgpa;
-  this.bgpb = this.bgpb;
-  this.bgpc = this.bgpc;
-  this.bgpd = this.bgpd;
+  this.internalRefX = saveState.internalRefX;
+  this.internalRefY = saveState.internalRefY;
+  this.refX = saveState.refX;
+  this.refY = saveState.refY;
+  this.bgpa = saveState.bgpa;
+  this.bgpb = saveState.bgpb;
+  this.bgpc = saveState.bgpc;
+  this.bgpd = saveState.bgpd;
 
   //preserve type as typed arr, as typed arr serialized as normal array
   copyArrIntoArr(saveState.scanlineArr, this.scanlineArr);

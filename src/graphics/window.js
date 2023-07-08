@@ -367,10 +367,10 @@ windowController.prototype.setState = function(saveState) {
 	this.win1Top = saveState.win1Top;
 
 	//BG0, BG1, BG2, BG3, OBJ, BLD display bits
-	copyArrIntoArr(this.win0CNT, saveState.win0CNT);
-	copyArrIntoArr(this.win1CNT, saveState.win1CNT);
-	copyArrIntoArr(this.winOutCNT, saveState.winOutCNT);
-	copyArrIntoArr(this.winOBJCNT, saveState.winOBJCNT);
+	copyArrIntoArr(saveState.win0CNT, this.win0CNT);
+	copyArrIntoArr(saveState.win1CNT, this.win1CNT);
+	copyArrIntoArr(saveState.winOutCNT, this.winOutCNT);
+	copyArrIntoArr(saveState.winOBJCNT, this.winOBJCNT);
 
 	//enable bits (dispcnt)
 	this.winInDisplay = saveState.winInDisplay;
