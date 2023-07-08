@@ -39,6 +39,34 @@ memRegion.prototype.dumpMemory = function (memAddr) {
 	}
 };
 
+//returns JSON of inner state
+memRegion.prototype.serialize = function() {
+	let copy = {};
+
+	copy.memory = [...compressBinaryData(this.memory, 1)];
+
+	return copy;
+}
+  
+memRegion.prototype.setState = function(saveState) {
+	copyArrIntoArr(decompressBinaryData(new Uint8Array(saveState.memory), 1), this.memory);
+}
+
+// memRegion.prototype.serialize = function() {
+// 	let copy = {};
+
+// 	copy.memory = serializeBinaryData32((compressBinaryData(this.memory)));
+
+// 	//copy.memory = [...this.memory];
+
+// 	return JSON.stringify(copy);
+// }
+  
+// memRegion.prototype.setState = function(saveState) {
+// 	//copyArrIntoArr(new Uint32Array(decompressBinaryData(new Uint8Array(new Uint32Array(saveState.memory).buffer), 1).buffer), new Uint32Array(this.memory));
+// 	copyArrIntoArr(decompressBinaryData(deserializeBinaryData32(saveState.memory), 1), 1, this.memory);
+// }
+
 
 //VRAM and PALETTERAM
 const memRegionDisplay = function (name, size) {
@@ -150,7 +178,7 @@ memRegionSRAM.prototype.write32 = function (memAddr, val) {
 
 //unused memory
 const memRegionUndefined = function () {
-	
+	this.memory = new Uint8Array(0);
 }
 
 memRegionUndefined.prototype = Object.create(memRegion.prototype);

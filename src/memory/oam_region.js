@@ -79,3 +79,16 @@ oamRegion.prototype.getIOReg = function (name) {
 	}
 	throw Error("failed to retrieve ioreg: " + name);
 };
+
+//returns JSON of inner state
+oamRegion.prototype.serialize = function() {
+	let copy = {};
+
+	copy.memory = [...compressBinaryData(this.memory, 1)];
+
+	return copy;
+}
+  
+oamRegion.prototype.setState = function(saveState) {
+	copyArrIntoArr(decompressBinaryData(new Uint8Array(saveState.memory), 1), this.memory);
+}

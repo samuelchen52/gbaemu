@@ -1178,3 +1178,15 @@ thumb.prototype.initLUT = function () {
 		}
 	}
 }
+//returns JSON of inner state
+thumb.prototype.serialize = function() {
+	let copy = {};
+
+	copy.shiftCarryFlag = this.shiftCarryFlag;
+  
+	return copy;
+}
+  
+thumb.prototype.setState = function(saveState) {
+	this.shiftCarryFlag = saveState.shiftCarryFlag;
+}

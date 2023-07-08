@@ -361,3 +361,67 @@ background.prototype.copyRefPoint = function () {
   this.internalRefX = this.refX;
   this.internalRefY = this.refY;
 };
+
+//returns JSON of inner state
+background.prototype.serialize = function() {
+  let copy = {};
+  
+	copy.prio = this.prio;
+	copy.CBB = this.CBB;
+	copy.mosaic = this.mosaic;
+	copy.bpp8 = this.bpp8;
+	copy.SBB = this.SBB;
+	copy.wrapAround = this.wrapAround;
+	copy.screenSize = this.screenSize;
+
+	copy.hOffset = this.hOffset;
+	copy.vOffset = this.vOffset;
+
+	copy.mapWidth = this.mapWidth;
+	copy.mapHeight = this.mapHeight;
+
+
+  copy.internalRefX = this.internalRefX;
+  copy.internalRefY = this.internalRefY;
+  copy.refX = this.refX;
+  copy.refY = this.refY;
+  copy.bgpa = this.bgpa;
+  copy.bgpb = this.bgpb;
+  copy.bgpc = this.bgpc;
+  copy.bgpd = this.bgpd;
+
+  copy.scanlineArr = [...this.scanlineArr];
+  copy.seArr = [...this.seArr];
+
+  return copy;
+}
+
+background.prototype.setState = function(saveState) {
+  this.prio = this.prio;
+	this.CBB = this.CBB;
+	this.mosaic = this.mosaic;
+	this.bpp8 = this.bpp8;
+	this.SBB = this.SBB;
+	this.wrapAround = this.wrapAround;
+	this.screenSize = this.screenSize;
+
+	this.hOffset = this.hOffset;
+	this.vOffset = this.vOffset;
+
+	this.mapWidth = this.mapWidth;
+	this.mapHeight = this.mapHeight;
+
+
+  this.internalRefX = this.internalRefX;
+  this.internalRefY = this.internalRefY;
+  this.refX = this.refX;
+  this.refY = this.refY;
+  this.bgpa = this.bgpa;
+  this.bgpb = this.bgpb;
+  this.bgpc = this.bgpc;
+  this.bgpd = this.bgpd;
+
+  //preserve type as typed arr, as typed arr serialized as normal array
+  copyArrIntoArr(saveState.scanlineArr, this.scanlineArr);
+  copyArrIntoArr(saveState.seArr, this.seArr);
+}

@@ -18,8 +18,6 @@
 //rest are partially shared
 
 const cpu = function (pc, mmu) {
-
-    window.irq = 0;
     this.mmu = mmu;
 
   	this.stateENUMS = {ARM : 0, THUMB : 1};
@@ -104,20 +102,20 @@ const cpu = function (pc, mmu) {
     ioregion.getIOReg("HALTCNT").addCallback((newHALTCNTVal) => {this.updateHALTCNT(newHALTCNTVal)});
 
     //debugging stuff
-    window.cpu = this;
-    const ARM = this.ARM;
-    const THUMB = this.THUMB;
-    this.LOG = log(this.registers);
-    $("#decode").change(function()
-    {
-      let instr = parseInt($(this).val(), 16);
-      console.log("ARM opcode: " + ARM.decode(instr));
-      console.log("THUMB opcode: " + THUMB.decode(instr));
-    });
-    $("#fetch").click(function()
-    {
-      console.log("data: 0x" + (mmu.read32(parseInt($("#addr").val(), 16), 4) >>> 0).toString(16).padStart(0, 8));
-    });
+    // window.cpu = this;
+    // const ARM = this.ARM;
+    // const THUMB = this.THUMB;
+    // this.LOG = log(this.registers);
+    // $("#decode").change(function()
+    // {
+    //   let instr = parseInt($(this).val(), 16);
+    //   console.log("ARM opcode: " + ARM.decode(instr));
+    //   console.log("THUMB opcode: " + THUMB.decode(instr));
+    // });
+    // $("#fetch").click(function()
+    // {
+    //   console.log("data: 0x" + (mmu.read32(parseInt($("#addr").val(), 16), 4) >>> 0).toString(16).padStart(0, 8));
+    // });
 };
 
 cpu.prototype.updateIME = function (newIMEVal) {
@@ -410,3 +408,131 @@ cpu.prototype.run = function(numCycles) {
   //   return 0;
   // }
 };
+
+//returns JSON of inner state
+cpu.prototype.serialize = function() {
+	let copy = {};
+
+  copy.state = this.state;
+  copy.insize = this.insize;
+  copy.mode = this.mode;
+  copy.halt = this.halt;
+
+  copy.r8 = [...this.r8];
+  copy.r9 = [...this.r9];
+  copy.r10 = [...this.r10];
+  copy.r11 = [...this.r11];
+  copy.r12 = [...this.r12];
+
+  copy.r8_FIQ = [...this.r8_FIQ];
+  copy.r9_FIQ = [...this.r9_FIQ];
+  copy.r10_FIQ = [...this.r10_FIQ];
+  copy.r11_FIQ = [...this.r11_FIQ];
+  copy.r12_FIQ = [...this.r12_FIQ];
+
+  copy.r13 = this.r13.map(x => [...x]);
+  copy.r14 = this.r14.map(x => [...x]);
+  copy.SPSR = this.SPSR.map(x => [...x]);
+
+
+  copy.registers = [
+    [...this.registers[0]], //R0         ^       ^
+    [...this.registers[1]], //R1         |       |
+    [...this.registers[2]], //R2         |       |
+    [...this.registers[3]], //R3         |       |
+    [...this.registers[4]], //R4         |       |
+    [...this.registers[5]], //R5         |       |
+    [...this.registers[6]], //R6         |       |     
+    [...this.registers[7]], //R7 shared (LO) registers R0 - R7 (in both ARM and THUMB state) 
+    null, //R8         ^       ^
+    null, //R9         |       |
+    null, //R10        |       |
+    null, //R11        |       |
+    null, //R12, shared among all modes except FIQ mode, unavailable in THUMB STATE
+    null, //R13, every mode has banked registers for this register (stack pointer in the THUMB state)
+    null, //R14, every mode has banked registers for this register  (link register)
+    [...this.registers[15]], //R15, shared (program counter)
+    [...this.registers[16]], //CPSR, shared (current program status register)
+    null //SPSR, every mode has banked registers for this register (saved process status register) besides USER/SYSTEM
+  ];
+  
+  //cpu pipeline (pipeline[0] holds instruction to be decoded, pipeline[1] and pipeline[2] hold the opcode and the instruction itself to be executed)
+  copy.pipeline = [...this.pipeline];
+
+  //ARM and THUMB 
+  copy.THUMB = this.THUMB.serialize();
+  copy.ARM = this.ARM.serialize();
+
+  copy.interruptEnable = this.interruptEnable;
+  copy.masterInterruptEnable = this.masterInterruptEnable;
+  copy.checkInterrupt = this.checkInterrupt;
+  
+	return copy;
+}
+  
+cpu.prototype.setState = function(saveState) {
+  this.state = saveState.state;
+  this.insize = saveState.insize;
+  this.mode = saveState.mode;
+  this.halt = saveState.halt;
+
+  //preserve type as typed arr, as typed arr serialized as normal array
+  copyArrIntoArr(saveState.r8, this.r8);
+  copyArrIntoArr(saveState.r9, this.r9);
+  copyArrIntoArr(saveState.r10, this.r10);
+  copyArrIntoArr(saveState.r11, this.r11);
+  copyArrIntoArr(saveState.r12, this.r12);
+
+  copyArrIntoArr(saveState.r8_FIQ, this.r8_FIQ);
+  copyArrIntoArr(saveState.r9_FIQ, this.r9_FIQ);
+  copyArrIntoArr(saveState.r10_FIQ, this.r10_FIQ);
+  copyArrIntoArr(saveState.r11_FIQ, this.r11_FIQ);
+  copyArrIntoArr(saveState.r12_FIQ, this.r12_FIQ);
+
+	saveState.r13.forEach((arrToCopy, index) => {
+		copyArrIntoArr(arrToCopy, this.r13[index]);
+	});
+  saveState.r14.forEach((arrToCopy, index) => {
+		copyArrIntoArr(arrToCopy, this.r14[index]);
+	});
+  saveState.SPSR.forEach((arrToCopy, index) => {
+		copyArrIntoArr(arrToCopy, this.SPSR[index]);
+	});
+
+  //set up registers array
+  copyArrIntoArr(saveState.registers[0], this.registers[0]);
+  copyArrIntoArr(saveState.registers[1], this.registers[1]);
+  copyArrIntoArr(saveState.registers[2], this.registers[2]);
+  copyArrIntoArr(saveState.registers[3], this.registers[3]);
+  copyArrIntoArr(saveState.registers[4], this.registers[4]);
+  copyArrIntoArr(saveState.registers[5], this.registers[5]);
+  copyArrIntoArr(saveState.registers[6], this.registers[6]);
+  copyArrIntoArr(saveState.registers[7], this.registers[7]);
+  this.registers[8] = this.r8;
+  this.registers[9] = this.r9;
+  this.registers[10] = this.r10;
+  this.registers[11] = this.r11;
+  this.registers[12] = this.r12;
+  this.registers[13] = this.r13;
+  this.registers[14] = this.r14;
+  copyArrIntoArr(saveState.registers[15], this.registers[15]);
+  copyArrIntoArr(saveState.registers[16], this.registers[16]);
+  this.registers[17] = this.SPSR;
+
+  //cpu pipeline (pipeline[0] holds instruction to be decoded, pipeline[1] and pipeline[2] hold the opcode and the instruction itself to be executed)
+  copyArrIntoArr(saveState.pipeline, this.pipeline);
+
+  //ARM and THUMB
+  this.THUMB.setState(saveState.THUMB);
+  this.ARM.setState(saveState.ARM);
+
+  this.interruptEnable = saveState.interruptEnable;
+  this.masterInterruptEnable = saveState.masterInterruptEnable;
+  this.checkInterrupt = saveState.checkInterrupt;
+
+  //some modes have banked registers, and registers arr may have swapped out some registers
+  //have to restablish that state here
+  this.changeMode(this.mode);
+}
+
+

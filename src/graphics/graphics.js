@@ -1,5 +1,5 @@
 //"layers" are just wrapper objects for the scanline buffers written to by the backgrounds / object layer 
-const layer = function (scanlineArr, windowIndex, prio, display, isObj, sortVal, layerNum) {
+const layer = function (scanlineArr, windowIndex, prio, display, isObj, sortVal, layerNum, code) {
   //sortval used for sorting layers, updated whenever priority is changed
   //the lower the sortval, the higher the priority
   //if two layers share the same sortval, layerNum is used as a tiebreaker
@@ -12,32 +12,37 @@ const layer = function (scanlineArr, windowIndex, prio, display, isObj, sortVal,
   this.isObj = isObj;
   this.sortVal = sortVal;
   this.layerNum = layerNum;
+  this.code = code; //descriptor for serialization
+
+  let codes = ["BG0","BG1","BG2","BG3","OL0","OL1","OL2","OL3",];
+  if (!codes.includes(code))
+    throw new Error("Invalid layer code");
 };
 
 const graphics = function(mmu, cpu, backingCanvasElement, visibleCanvasElement, setFrameComplete) {
 
   //debugging stuff////////////////////////////////////////////
-  this.registers = cpu.registers;
-	this.registersDOM = $(".register");
-	this.cpsrDOM = $(".statusregister"); //N, Z, C, V, Q, I, F, T, Mode, all
-	this.valToMode = []; //modes indexed by their value in the CPSR
-  this.valToMode[31] = "SYSTEM";
-  this.valToMode[16] = "USER";
-  this.valToMode[17] = "FIQ"; //never used
-  this.valToMode[19] = "SVC";
-  this.valToMode[23] = "ABT";
-  this.valToMode[18] = "IRQ";
-  this.valToMode[27] = "UND";
-	this.registerIndices = [
-    //                     1 1 1 1 1 1
-    //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"]
-      [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0], //modeENUMS["FIQ"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,1], //modeENUMS["SVC"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,0,2], //modeENUMS["ABT"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,0,0,3], //modeENUMS["IRQ"]
-      [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,4], //modeENUMS["UND"]
-  ];
+  // this.registers = cpu.registers;
+	// this.registersDOM = $(".register");
+	// this.cpsrDOM = $(".statusregister"); //N, Z, C, V, Q, I, F, T, Mode, all
+	// this.valToMode = []; //modes indexed by their value in the CPSR
+  // this.valToMode[31] = "SYSTEM";
+  // this.valToMode[16] = "USER";
+  // this.valToMode[17] = "FIQ"; //never used
+  // this.valToMode[19] = "SVC";
+  // this.valToMode[23] = "ABT";
+  // this.valToMode[18] = "IRQ";
+  // this.valToMode[27] = "UND";
+	// this.registerIndices = [
+  //   //                     1 1 1 1 1 1
+  //   //r0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 C S 
+  //     [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,-1], //modeENUMS["USER"]
+  //     [0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,0,0,0], //modeENUMS["FIQ"]
+  //     [0,0,0,0,0,0,0,0,0,0,0,0,0,2,2,0,0,1], //modeENUMS["SVC"]
+  //     [0,0,0,0,0,0,0,0,0,0,0,0,0,3,3,0,0,2], //modeENUMS["ABT"]
+  //     [0,0,0,0,0,0,0,0,0,0,0,0,0,4,4,0,0,3], //modeENUMS["IRQ"]
+  //     [0,0,0,0,0,0,0,0,0,0,0,0,0,5,5,0,0,4], //modeENUMS["UND"]
+  // ];
   //////////////////////////////////////////////////////////
 
   this.cpu = cpu;
@@ -161,14 +166,14 @@ const graphics = function(mmu, cpu, backingCanvasElement, visibleCanvasElement, 
   //graphics.prototype.bgNumToLayerIndex = [0, 1, 2, 3];
   //graphics.prototype.objLayerNumToLayerIndex = [4, 5, 6, 7];
   this.layers = [
-    new layer(this.bg0.scanlineArr, 0, 0, 0, false, 20, 1), //background 0
-    new layer(this.bg1.scanlineArr, 1, 0, 0, false, 20, 2), //background 1
-    new layer(this.bg2.scanlineArr, 2, 0, 0, false, 20, 3), //background 2
-    new layer(this.bg3.scanlineArr, 3, 0, 0, false, 20, 4), //background 3
-    new layer(this.objectLayer.PBGs[0], 4, 0, 1, true, 20, 0), //object layer 0
-    new layer(this.objectLayer.PBGs[1], 4, 1, 0, true, 20, 0), //object layer 1
-    new layer(this.objectLayer.PBGs[2], 4, 2, 0, true, 20, 0), //object layer 2
-    new layer(this.objectLayer.PBGs[3], 4, 3, 0, true, 20, 0) //object layer 3
+    new layer(this.bg0.scanlineArr, 0, 0, 0, false, 20, 1, "BG0"), //background 0
+    new layer(this.bg1.scanlineArr, 1, 0, 0, false, 20, 2, "BG1"), //background 1
+    new layer(this.bg2.scanlineArr, 2, 0, 0, false, 20, 3, "BG2"), //background 2
+    new layer(this.bg3.scanlineArr, 3, 0, 0, false, 20, 4, "BG3"), //background 3
+    new layer(this.objectLayer.PBGs[0], 4, 0, 1, true, 20, 0, "OL0"), //object layer 0
+    new layer(this.objectLayer.PBGs[1], 4, 1, 0, true, 20, 0, "OL1"), //object layer 1
+    new layer(this.objectLayer.PBGs[2], 4, 2, 0, true, 20, 0, "OL2"), //object layer 2
+    new layer(this.objectLayer.PBGs[3], 4, 3, 0, true, 20, 0, "OL3") //object layer 3
   ];
 
   //the actual array used for sorting
@@ -179,8 +184,6 @@ const graphics = function(mmu, cpu, backingCanvasElement, visibleCanvasElement, 
   this.sortedWindowIndices = new Array(this.sortedLayers.length);
   this.sortedIsObj = new Array(this.sortedLayers.length);
   this.numActiveLayers = 0; //number of layers used for the final screen (when doing the blending and collapsing and whatnot)
-
-  window.graphics = this;
 };
 
 graphics.prototype.convertColor = new Uint32Array(65536);
@@ -877,7 +880,7 @@ graphics.prototype.update = function(numCycles) {
   }
 };
 
-
+//ui related code should really be at emu level :/
 graphics.prototype.finishDraw = function () {
   this.backingContext.putImageData(this.imageData, 0, 0);
   this.visibleContext.drawImage(this.backingCanvasElement, 0, 0, this.backingCanvasElement.width, this.backingCanvasElement.height, 0, 0, this.visibleCanvasElement.width, this.visibleCanvasElement.height);
@@ -907,58 +910,153 @@ graphics.prototype.updateRegisters = function(mode) {
   this.cpsrDOM[9].textContent = getBytes(CPSR, 0);
 };
 
+//returns JSON of inner state
+graphics.prototype.serialize = function() {
+  let copy = {};
+
+  //copy.imageDataArr = [...this.imageDataArr];
+  copy.imageDataArr = [...compressBinaryData(this.imageDataArr, 4)];
+
+  copy.pixel = this.pixel;
+  copy.scanline = this.scanline;
+  copy.hblank = this.hblank;
+  copy.vblank = this.vblank;
+
+  copy.mode = this.mode;
+  copy.page = this.page;
+  copy.objMappingMode = this.objMappingMode;
+  copy.bg0Display = this.bg0Display;
+  copy.bg1Display = this.bg1Display;
+  copy.bg2Display = this.bg2Display;
+  copy.bg3Display = this.bg3Display;
+  copy.objDisplay = this.objDisplay;
+  copy.win0Display = this.win0Display;
+  copy.win1Display = this.win1Display;
+  copy.winOBJDisplay = this.winOBJDisplay;
+  copy.windowEnabled = this.windowEnabled;
+
+  copy.blendMode = this.blendMode;
+  copy.firstTarget = this.firstTarget;
+  copy.secondTarget = this.secondTarget;
+  copy.eva = this.eva;
+  copy.evb = this.evb;
+  copy.evy = this.evy;
+
+  copy.hblankIRQEnable = this.hblankIRQEnable;
+  copy.vblankIRQEnable = this.vblankIRQEnable;
+  copy.vCountIRQEnable = this.vCountIRQEnable;
+  copy.vCountSetting = this.vCountSetting;
+
+  copy.bg0 = this.bg0.serialize();
+  copy.bg1 = this.bg1.serialize();
+  copy.bg2 = this.bg2.serialize();
+  copy.bg3 = this.bg3.serialize();
+
+  copy.objectLayer = this.objectLayer.serialize();
+
+  copy.windowController = this.windowController.serialize();
+
+  //remove refs to scanline arrs, these have to be re-set
+  copy.layers = this.layers.map(x => {
+    let layer = _.clone(x);
+    x.scanline = null;
+    return layer;
+  });
+  copy.sortedLayers = this.sortedLayers.map(x => {
+    let layer = _.clone(x);
+    x.scanline = null;
+    return layer;
+  });
+  copy.numActiveLayers = this.numActiveLayers;
+
+  return copy;
+}
+ 
+graphics.prototype.setState = function(saveState) {
+
+  //have to copy in data, as imageDataArr backing buffer is tied to another object
+  //also to preserve type as typed arr, as typed arr serialized as normal array
+  // saveState.imageDataArr.forEach((x, index) => {
+  //   this.imageDataArr[index] = x;
+  // });
+  copyArrIntoArr(decompressBinaryData(new Uint8Array(saveState.imageDataArr), 4), this.imageDataArr);
 
 
-// let fn1 = function (x = 5, y = 10) {
-//   let somevar = x + y;
-// }
+  this.pixel = saveState.pixel;
+  this.scanline = saveState.scanline;
+  this.hblank = saveState.hblank;
+  this.vblank = saveState.vblank;
 
-// let fn2 = function (x = 5, y = 10) {
-//   let somevar = x * y;
-// }
+  this.mode = saveState.mode;
+  this.page = saveState.page;
+  this.objMappingMode = saveState.objMappingMode;
+  this.bg0Display = saveState.bg0Display;
+  this.bg1Display = saveState.bg1Display;
+  this.bg2Display = saveState.bg2Display;
+  this.bg3Display = saveState.bg3Display;
+  this.objDisplay = saveState.objDisplay;
+  this.win0Display = saveState.win0Display;
+  this.win1Display = saveState.win1Display;
+  this.winOBJDisplay = saveState.winOBJDisplay;
+  this.windowEnabled = saveState.windowEnabled;
 
-// let fn3 = function (x = 5, y = 10) {
-//   let somevar = x / y;
-// }
+  this.blendMode = saveState.blendMode;
+  this.firstTarget = saveState.firstTarget;
+  this.secondTarget = saveState.secondTarget;
+  this.eva = saveState.eva;
+  this.evb = saveState.evb;
+  this.evy = saveState.evy;
 
-// let fn4 = function (x = 5, y = 10) {
-//   let somevar = x - y;
-// }
+  this.hblankIRQEnable = saveState.hblankIRQEnable;
+  this.vblankIRQEnable = saveState.vblankIRQEnable;
+  this.vCountIRQEnable = saveState.vCountIRQEnable;
+  this.vCountSetting = saveState.vCountSetting;
 
-// let mode = 1;
+  this.bg0.setState(saveState.bg0);
+  this.bg1.setState(saveState.bg1);
+  this.bg2.setState(saveState.bg2);
+  this.bg3.setState(saveState.bg3);
 
-// const obj = function () {
-//   this.x = [5];
-//   this.y = [6];
-//   this.z = [10];
+  this.objectLayer.setState(saveState.objectLayer);
+  this.windowController.setState(saveState.windowController);
 
-//   this.calculateClosure = ((x, y, z) => {
-//     return function ()
-//     {
-//       x[0] ++;
-//       return x[0] * y[0] / z[0];
-//     }
-//   })(this.x, this.y, this.z);
-// };
+  //kinda hacky - restoring the object refs to background scanline arr after deserialization
+  this.layers = saveState.layers;
+  this.layers.forEach(x => {
+    switch (x.code) {
+      case "BG0":
+        x.scanlineArr = this.bg0.scanlineArr;
+        break;
+      case "BG1":
+        x.scanlineArr = this.bg1.scanlineArr;
+        break;
+      case "BG2":
+        x.scanlineArr = this.bg2.scanlineArr;
+        break;
+      case "BG3":
+        x.scanlineArr = this.bg3.scanlineArr;
+        break;
+      case "OL0":
+        x.scanlineArr = this.objectLayer.PBGs[0];
+        break;
+      case "OL1":
+        x.scanlineArr = this.objectLayer.PBGs[1];
+        break;
+      case "OL2":
+        x.scanlineArr = this.objectLayer.PBGs[2];
+        break;
+      case "OL3":
+        x.scanlineArr = this.objectLayer.PBGs[3];
+        break;
+    }
+  });
 
-// obj.prototype.calculate = function () {
-//   this.x[0] ++;
-//   return this.x[0] * this.y[0]  / this.z[0];
-// }
+  //restore refs to layer objects
+  this.sortedLayers = saveState.sortedLayers;
+  this.sortedLayers = this.sortedLayers.map((sortedLayer) => _.find(this.layers, (layer) => layer.code === sortedLayer.code));
 
-// let newobj = new obj();
-
-// let timenow = (new Date).getTime();
-// for (let i = 0; i < 1000000000; i++)
-// {
-//   newobj.calculate();
-// }
-// console.log((new Date).getTime() - timenow);
-
-// mode = 3;
-// timenow = (new Date).getTime();
-// for (let i = 0; i < 1000000000; i++)
-// {
-//   newobj.calculateClosure();
-// }
-// console.log((new Date).getTime() - timenow);
+  this.numActiveLayers = saveState.numActiveLayers;
+  this.sortedScanlineArrs = this.sortedLayers.map(x => x.scanlineArr);
+  this.sortedWindowIndices = this.sortedLayers.map(x => x.windowIndex);
+  this.sortedIsObj = this.sortedLayers.map(x => x.isObj);
+}

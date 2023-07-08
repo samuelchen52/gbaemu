@@ -27,7 +27,6 @@ const keypad = function(mmu) {
 	this.rKeyBinding ="Q";
 	this.lKeyBinding ="E";
 
-	this.registerEventHandlers();
 	this.initKeyCodeMappings();
 };
 
@@ -123,7 +122,6 @@ keypad.prototype.setKeyHighlighted = function(keyCode, highlight) {
 	}
 }
 
-//ui related code should really be at emu level :/
 keypad.prototype.registerEventHandlers = function() {
 	//for triggering key presses in the emulator
 	$(document).keydown((e) => {
@@ -272,11 +270,39 @@ keypad.prototype.deregisterEventHandlers = function() {
 	}
 };	
 
-keypad.prototype.serializeState = function() {
-	//return JSON
-}
+//returns JSON of inner state
+keypad.prototype.serialize = function() {
+	let copy = {};
 
+	copy.aKeyBinding = this.aKeyBinding;
+	copy.bKeyBinding = this.bKeyBinding;
+	copy.selectKeyBinding = this.selectKeyBinding;
+	copy.startKeyBinding = this.startKeyBinding;
+	copy.arrowRightKeyBinding = this.arrowRightKeyBinding;
+	copy.arrowLeftKeyBinding = this.arrowLeftKeyBinding;
+	copy.arrowUpKeyBinding = this.arrowUpKeyBinding;
+	copy.arrowDownKeyBinding = this.arrowDownKeyBinding;
+	copy.rKeyBinding = this.rKeyBinding;
+	copy.lKeyBinding = this.lKeyBinding;
+
+	copy.keyCodeToKeyDown = this.keyCodeToKeyDown;
+	copy.keyCodeToKeyUp = this.keyCodeToKeyUp;
+
+	return copy;
+}
+  
 keypad.prototype.setState = function(saveState) {
-	//json.deserialize
-}
+	this.aKeyBinding = saveState.aKeyBinding;
+	this.bKeyBinding = saveState.bKeyBinding;
+	this.selectKeyBinding = saveState.selectKeyBinding;
+	this.startKeyBinding = saveState.startKeyBinding;
+	this.arrowRightKeyBinding = saveState.arrowRightKeyBinding;
+	this.arrowLeftKeyBinding = saveState.arrowLeftKeyBinding;
+	this.arrowUpKeyBinding = saveState.arrowUpKeyBinding;
+	this.arrowDownKeyBinding = saveState.arrowDownKeyBinding;
+	this.rKeyBinding = saveState.rKeyBinding;
+	this.lKeyBinding = saveState.lKeyBinding;
 
+	this.keyCodeToKeyDown = saveState.keyCodeToKeyDown;
+	this.keyCodeToKeyUp = saveState.keyCodeToKeyUp;
+}

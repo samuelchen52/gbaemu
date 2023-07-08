@@ -58,8 +58,6 @@ const windowController = function(WIN0H, WIN1H, WIN0V, WIN1V, WININ0, WININ1, WI
 	WININ1.addCallback((newWININ1Val) => {this.updateWININ1(newWININ1Val);});
 	WINOUT.addCallback((newWINOUTVal) => {this.updateWINOUT(newWINOUTVal);});
 	WINOBJ.addCallback((newWINOBJVal) => {this.updateWINOBJ(newWINOBJVal);});
-
-	window.windowController = this;
 };
 
 //dimensions
@@ -320,3 +318,73 @@ windowController.prototype.updateWin1 = function(dimensionsChanged) {
 	}
 
 };
+
+//returns JSON of inner state
+windowController.prototype.serialize = function() {
+	let copy = {};
+
+	//win0 dimensions
+	copy.win0Right = this.win0Right;
+	copy.win0Left = this.win0Left;
+	copy.win0Bottom = this.win0Bottom;
+	copy.win0Top = this.win0Top;
+
+	//win1 dimensions
+	copy.win1Right = this.win1Right;
+	copy.win1Left = this.win1Left;
+	copy.win1Bottom = this.win1Bottom;
+	copy.win1Top = this.win1Top;
+
+	//BG0, BG1, BG2, BG3, OBJ, BLD display bits
+	copy.win0CNT = this.win0CNT;
+	copy.win1CNT = this.win1CNT;
+	copy.winOutCNT = this.winOutCNT;
+	copy.winOBJCNT = this.winOBJCNT;
+
+	//enable bits (dispcnt)
+	copy.winInDisplay = this.winInDisplay;
+	copy.winOBJDisplay = this.winOBJDisplay;
+
+	copy.win0ScanlineBuffer = this.win0ScanlineBuffer.map(x => [...x]);
+	copy.win1ScanlineBuffer = this.win1ScanlineBuffer.map(x => [...x]);
+	copy.winInScanlineBuffer = this.winInScanlineBuffer.map(x => [...x]);
+	copy.objScanlineBuffer = [...this.objScanlineBuffer];
+
+	return copy;
+}
+  
+windowController.prototype.setState = function(saveState) {
+	//win0 dimensions
+	this.win0Right = saveState.win0Right;
+	this.win0Left = saveState.win0Left;
+	this.win0Bottom = saveState.win0Bottom;
+	this.win0Top = saveState.win0Top;
+
+	//win1 dimensions
+	this.win1Right = saveState.win1Right;
+	this.win1Left = saveState.win1Left;
+	this.win1Bottom = saveState.win1Bottom;
+	this.win1Top = saveState.win1Top;
+
+	//BG0, BG1, BG2, BG3, OBJ, BLD display bits
+	copyArrIntoArr(this.win0CNT, saveState.win0CNT);
+	copyArrIntoArr(this.win1CNT, saveState.win1CNT);
+	copyArrIntoArr(this.winOutCNT, saveState.winOutCNT);
+	copyArrIntoArr(this.winOBJCNT, saveState.winOBJCNT);
+
+	//enable bits (dispcnt)
+	this.winInDisplay = saveState.winInDisplay;
+	this.winOBJDisplay = saveState.winOBJDisplay;
+
+	//preserve type as typed arr, as typed arr serialized as normal array
+	saveState.win0ScanlineBuffer.forEach((arrToCopy, index) => {
+		copyArrIntoArr(arrToCopy, this.win0ScanlineBuffer[index]);
+	});
+	saveState.win1ScanlineBuffer.forEach((arrToCopy, index) => {
+		copyArrIntoArr(arrToCopy, this.win1ScanlineBuffer[index]);
+	});
+	saveState.winInScanlineBuffer.forEach((arrToCopy, index) => {
+		copyArrIntoArr(arrToCopy, this.winInScanlineBuffer[index]);
+	});
+	copyArrIntoArr(saveState.objScanlineBuffer, this.objScanlineBuffer);
+}

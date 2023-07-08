@@ -422,6 +422,70 @@ sprite.prototype.shouldRenderWindow = function (scanline) {
 	&& (((this.xCoord >= 0) && (this.xCoord < 240)) || ((this.rightX >= 0) && (this.rightX < 240)));
 };
 
+//returns JSON of inner state
+sprite.prototype.serialize = function() {
+	let copy = {};
+  
+	//attribute 0
+	copy.yCoord = this.yCoord;
+	copy.mode = this.mode;
+	copy.gfxMode = this.gfxMode;
+	copy.mosaic = this.mosaic;
+	copy.bpp8 = this.bpp8;
+	copy.shape = this.shape;
+
+	//attribute 1
+	copy.xCoord = this.xCoord;
+	copy.affineIndex = this.affineIndex;
+	copy.hflip = this.hflip;
+	copy.vflip = this.vflip;
+	copy.size = this.size;
+
+	//attribute 2
+	copy.tileIndex = this.tileIndex;
+	copy.priority = this.priority;
+	copy.palBankIndex = this.palBankIndex;
+
+	//other
+	copy.bottomY = this.bottomY;
+	copy.rightX = this.rightX;
+	copy.display = this.display;
+	copy.mappingMode = this.mappingMode;
+	copy.spriteRowSize = this.spriteRowSize;
+	copy.transparentBit = this.transparentBit;
+  
+	return copy;
+}
+  
+sprite.prototype.setState = function(saveState) {
+	//attribute 0
+	this.yCoord = saveState.yCoord;
+	this.mode = saveState.mode;
+	this.gfxMode = saveState.gfxMode;
+	this.mosaic = saveState.mosaic;
+	this.bpp8 = saveState.bpp8;
+	this.shape = saveState.shape;
+
+	//attribute 1
+	this.xCoord = saveState.xCoord;
+	this.affineIndex = saveState.affineIndex;
+	this.hflip = saveState.hflip;
+	this.vflip = saveState.vflip;
+	this.size = saveState.size;
+
+	//attribute 2
+	this.tileIndex = saveState.tileIndex;
+	this.priority = saveState.priority;
+	this.palBankIndex = saveState.palBankIndex;
+
+	//other
+	this.bottomY = saveState.bottomY;
+	this.rightX = saveState.rightX;
+	this.display = saveState.display;
+	this.mappingMode = saveState.mappingMode;
+	this.spriteRowSize = saveState.spriteRowSize;
+	this.transparentBit = saveState.transparentBit;
+}
 
 
 
@@ -457,3 +521,22 @@ OBJAffine.prototype.updatePD = function(newPDVal) {
 	//console.log(newPDVal + " from " + this.objAffineNum);
 	this.pd = newPDVal & 32768 ? -1 * (~(newPDVal - 1) & 0xFFFF) : newPDVal;
 };
+
+//returns JSON of inner state
+OBJAffine.prototype.serialize = function() {
+	let copy = {};
+  
+	copy.pa = this.pa;
+	copy.pb = this.pb;
+	copy.pc = this.pc;
+	copy.pd = this.pd;
+  
+	return copy;
+}
+  
+OBJAffine.prototype.setState = function(saveState) {
+	this.pa = saveState.pa;
+	this.pb = saveState.pb;
+	this.pc = saveState.pc;
+	this.pd = saveState.pd;
+}

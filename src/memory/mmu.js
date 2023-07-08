@@ -44,8 +44,6 @@ const mmu = function() {
 	this.waitState1NSEQ = 4;
 	this.waitState2NSEQ = 4;
 	this.waitStateSRAM = 4;
-
-	window.mmu = this;
 };
 
 // 	 0-1   SRAM Wait Control          (0..3 = 4,3,2,8 cycles)
@@ -402,3 +400,33 @@ mmu.prototype.getMemoryRegion = function(region)
 	}
 };
 
+mmu.prototype.serialize = function() {
+	let copy = {};
+
+	copy.memRegions = this.memRegions.map(x => x === null ? null : x.serialize());
+
+	copy.numCycles = this.numCycles;
+	copy.maskedAddr = this.maskedAddr;
+	copy.lastAccesssedAddr = this.lastAccesssedAddr;
+	copy.waitState0NSEQ = this.waitState0NSEQ;
+	copy.waitState1NSEQ = this.waitState1NSEQ;
+	copy.waitState2NSEQ = this.waitState2NSEQ;
+	copy.waitStateSRAM = this.waitStateSRAM;
+
+	return copy;
+}
+  
+mmu.prototype.setState = function(saveState) {
+	saveState.memRegions.forEach((x, index) => {
+		if (x)
+			this.memRegions[index].setState(x);
+	});
+
+	this.numCycles = saveState.numCycles;
+	this.maskedAddr = saveState.maskedAddr;
+	this.lastAccesssedAddr = saveState.lastAccesssedAddr;
+	this.waitState0NSEQ = saveState.waitState0NSEQ;
+	this.waitState1NSEQ = saveState.waitState1NSEQ;
+	this.waitState2NSEQ = saveState.waitState2NSEQ;
+	this.waitStateSRAM = saveState.waitStateSRAM;
+}

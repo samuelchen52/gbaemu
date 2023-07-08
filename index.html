@@ -16,6 +16,11 @@
 		<link href="./resources/style.css" rel="stylesheet">
 		<!-- lodash -->
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js" integrity="sha512-WFN04846sdKMIP5LKNphMaWzU7YpMyCU245etK3g/2ARYbPK9Ub18eG+ljU96qKRCWh+quCY7yefSmlkQw1ANQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+		<!-- compression utility for strings from https://pieroxy.net/blog/pages/lz-string/index.html -->
+		<script language="javascript" src="./src/lz-string.min.js"></script>
+		<!-- compression utility for binary data -->	
+		<script src="https://cdn.jsdelivr.net/npm/fflate@0.8.0/umd/index.js"></script>
+		<!-- Now, the global variable fflate contains the library -->
 	</head>
 	<body>
 		<div class = "container-fluid">
@@ -28,6 +33,14 @@
 					<input type="file" id="romInput">
 					<div> load demo: </div>
 					<input type = "button" id = "demo" value="demo">
+					<input class="mt-2 d-block" type = "button" id = "pause" value="pause">
+					<input class="mt-2 d-block" type = "button" id = "savestate" value="savestate">
+					<input class="mt-2 d-block" type = "button" id = "restore" value="restore">
+					<div> 
+						<span>status message:</span>
+						<span id="statusMessage" class="text-danger"></span>
+					</div>
+
 					<div class = "d-none">
 						<input type="text" placeholder="type instruction in hex here to test opcode" id ="decode">
 						<button id = "runbutton"> click to run one instruction</button>
@@ -103,6 +116,10 @@
 							<input type="button" id="startKeyRebindButton" data-toggle="tooltip" data-placement="top" title="Rebind" value="N/A">
 						</div>
 					</div>
+				</div>
+				<div class="col-3 pl-5">
+					<h4>Save States</h4>
+
 				</div>
 				<div class ="col-8 d-none">
 					<table>
@@ -233,5 +250,6 @@
 	<script src = "./src/graphics/graphics.js"> </script>
 	<script src = "./src/dma_controller.js"> </script>
 	<script src = "./src/emu.js"> </script>
+	<script src = "./src/index.js"> </script>
 
 </html>

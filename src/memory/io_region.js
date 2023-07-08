@@ -255,3 +255,17 @@ ioRegion.prototype.dumpMemory = function (memAddr) {
 		console.log((i & 0xFF).toString(16).padStart(2, "0") + ": " + str);
 	}
 };
+
+
+//returns JSON of inner state
+ioRegion.prototype.serialize = function() {
+	let copy = {};
+
+	copy.memory = [...compressBinaryData(this.memory, 1)];
+
+	return copy;
+}
+  
+ioRegion.prototype.setState = function(saveState) {
+	copyArrIntoArr(decompressBinaryData(new Uint8Array(saveState.memory), 1), this.memory);
+}

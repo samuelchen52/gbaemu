@@ -1,74 +1,108 @@
-var biosBuffer;
+const emulator = function(biosBuffer, romBuffer) {
+	this.cyclesToRun;
+	this.frames;
+	this.frameNotComplete;
+	this.pauseFlag;
 
-const waitFile = function(fileName)
-{
-	return new Promise(function (resolve, reject)
-	{
-		let fileInput = document.getElementById(fileName);
-
-    fileInput.addEventListener('change', function(e) {
-        let file = fileInput.files[0];
-        let reader = new FileReader();
-
-        reader.onload = function () {
-        	resolve(new Uint8Array(reader.result));
-				}
-        reader.readAsArrayBuffer(file);
-    });
-	});
-};
-
-const disableInput = function ()
-{
-	$("#biosInput").prop("disabled", true);
-	$("#romInput").prop("disabled", true);
-	$("#demo").prop("disabled", true);
+	this.gbaMMU;
+	this.gbaCPU;
+	this.gbaGPU;
+	this.gbaTimerController;
+	this.gbaKeypad;
+	this.gbaDMAController;
+	
+	this.init(biosBuffer, romBuffer);
 }
 
-const start = function (biosBuffer, romBuffer) {
-	let	cyclesToRun = 0;
-	let frames = 0;
-	let frameNotComplete = true;
 
-	//hardware
-	const MMU = new mmu();
-	const CPU = new cpu(0x8000000, MMU);
-	const GRAPHICS = new graphics(MMU, CPU, document.getElementById("backingScreen"), document.getElementById("visibleScreen"), function(){frameNotComplete = false;});
-	const TIMERCONTROLLER = new timerController(MMU, CPU);
-	const KEYPAD = new keypad(MMU);
-	const DMACONTROLLER = new DMAController(MMU, CPU, GRAPHICS);
+emulator.prototype.pause = function() {
+	this.pauseFlag.pause = true;
+}
+
+emulator.prototype.unpause = function() {
+	this.pauseFlag.pause = false;
+}
+
+emulator.prototype.togglePause = function() {
+	this.pauseFlag.pause = !this.pauseFlag.pause;
+}
+
+// emulator.prototype.resetSaveStatesUI = function(saveState) {
+// 	//clear savestates from session storage
+
+
+
+// };
+
+emulator.prototype.resetUI = function() {
+	//turn off keypad event handlers
+	this.keypad.deregisterEventHandlers();
+	//reset save states ui
+	//
+};
+
+emulator.prototype.reset = function(biosBuffer, romBuffer, saveState) {
+	//clean up ui stuff
+	this.resetUI();
+	//kill execution of emulator loop
+	this.pauseFlag.pause = true;
+	//reinit everything
+	this.init();
+	this.start();
+};
+
+// emulator.prototype.initSaveStatesUI = function(saveState) {
+// 	//read savestates from session storage
+
+
+
+// };
+
+emulator.prototype.initUI = function() {
+	//clean up ui stuff
+	this.gbaKeypad.registerEventHandlers();
+	//reinit everything
+	//this.init();
+};
+
+emulator.prototype.initHardware = function(biosBuffer, romBuffer, saveState) {
+	if (!biosBuffer?.length)
+		throw Error("Cannot initialize emulator without bios");
+	if (!romBuffer?.length && !saveState?.length)
+		throw Error("Cannot initialize emulator without rom");
+
+	if (saveState) {
+
+	}
+	else {
+		this.gbaMMU = new mmu();
+		this.gbaCPU = new cpu(0x8000000, this.gbaMMU);
+		this.gbaGPU = new graphics(this.gbaMMU, this.gbaCPU, document.getElementById("backingScreen"), document.getElementById("visibleScreen"), () => { this.frameNotComplete = false; });
+		this.gbaTimerController = new timerController(this.gbaMMU, this.gbaCPU);
+		this.gbaKeypad = new keypad(this.gbaMMU);
+		this.gbaDMAController = new DMAController(this.gbaMMU, this.gbaCPU, this.gbaGPU);
+	}
 
 	//copy BIOS into memory
-	if (biosBuffer !== undefined)
-	{
-		let biosMem = MMU.getMemoryRegion("BIOS").memory;
-		for (let i = 0; i < biosBuffer.length; i ++)
-		{
-			biosMem[i] = biosBuffer[i];
-		}
-		console.log("loaded BIOS into memory");
-	}
-	else //load normatt bios
-	{
-		let nbios = getNormattBIOS();
-		let biosMem = MMU.getMemoryRegion("BIOS").memory;
+	let biosMem = this.gbaMMU.getMemoryRegion("BIOS").memory;
 
-		for (let i = 0; i < nbios.length; i ++)
-		{
-			biosMem[i] = nbios[i];
-		}
-		console.log("loaded normatt BIOS");
-	}
+	if (biosBuffer.length > biosMem.length)
+		throw Error("BIOS file too big?")
+	for (let i = 0; i < biosBuffer.length; i ++)
+		biosMem[i] = biosBuffer[i];
+	console.log("loaded BIOS into memory");
 
 	//copy ROM into memory
-	if (romBuffer !== undefined)
+	if (romBuffer)
 	{
-		let rom1Mem = MMU.getMemoryRegion("ROM1").memory;
-		let rom2Mem = MMU.getMemoryRegion("ROM2").memory;
+		let rom1Mem = this.gbaMMU.getMemoryRegion("ROM1").memory;
+		let rom2Mem = this.gbaMMU.getMemoryRegion("ROM2").memory;
+
+		if (romBuffer.length > (rom1Mem.length + rom2Mem.length))
+			throw Error("ROM too big?")
+
 		for (let i = 0; i < Math.min(rom1Mem.length, romBuffer.length); i++)
-		{
 			rom1Mem[i] = romBuffer[i];
-		}
 		for (let i = rom1Mem.length; i < romBuffer.length; i ++)
 		{
 			let p = i & 0xFFFFFF;
@@ -76,115 +110,37 @@ const start = function (biosBuffer, romBuffer) {
 		}
 		console.log("loaded ROM into memory");
 	}
-	else //load TONC demo
-	{
-		let m7demo = getTONCDemo();
-		let rom1Mem = MMU.getMemoryRegion("ROM1").memory;
+	this.gbaCPU.initPipeline();
+}
 
-		for (let i = 0; i < m7demo.length; i ++)
-		{
-			rom1Mem[i] = m7demo[i];
-		}
-		console.log("loaded DEMO");
-	}
+emulator.prototype.init = function(biosBuffer, romBuffer) {
+	this.cyclesToRun = 0;
+	this.frames = 0;
+	this.frameNotComplete = true;
+	this.pauseFlag = { pause : false };
+	this.initHardware(biosBuffer, romBuffer);
+	this.initUI();
+};
 
-	romBuffer = null;
-	biosBuffer = null;
-
-	CPU.initPipeline();
-
-	//for debugging------------------------------------------------------------------
-	window.instructionNum = 1;
-	$("#runbutton").click(function()
-	{
-		if (CPU.halt)
-		{
-			while (CPU.halt)
+emulator.prototype.start = function() {
+	const executeFrame = () => {
+		if (!this.pauseFlag.pause) {
+			while (this.frameNotComplete)
 			{
-				GRAPHICS.update(1);
-				TIMERCONTROLLER.update(1)
+				this.gbaCPU.run(this.cyclesToRun);
+				this.cyclesToRun = Math.min(this.gbaGPU.update(this.cyclesToRun), this.gbaTimerController.update(this.cyclesToRun));
 			}
+			this.frames ++;
+			this.frameNotComplete = true;
 		}
-		else
-		{
-			if (window.debug)
-			{
-				while (!CPU.checkInterrupt)
-				{
-					if (!CPU.halt)
-					{
-						CPU.run(false, window.instructionNum);
-						window.instructionNum ++;
-					}
-					GRAPHICS.update(1);
-					TIMERCONTROLLER.update(1)
-				}
-			}
-			else
-			{
-				CPU.run(true, window.instructionNum);
-				window.instructionNum ++;
-				GRAPHICS.update(1);
-				TIMERCONTROLLER.update(1);
-			}
-			GRAPHICS.updateRegisters(CPU.mode);
-		}
-		//GRAPHICS.updateRegisters(CPU.mode);
-	});
-
-	// while (window.instructionNum <= 0)
-	// {
-
-	// 	try {
-	// 		if (!CPU.halt)
-	// 		{
-	// 			CPU.run(false, window.instructionNum);
-	// 			window.instructionNum ++;
-	// 		}
-	// 		GRAPHICS.update(1);
-	// 		TIMERCONTROLLER.update(1)			
-	// 	}
-	// 	catch (err)
-	// 	{
-	// 		console.log("error on instruction " + window.instructionNum );
-	// 		//download(strData, strFileName);
-	// 		throw (err);
-	// 	}
-	// }
-	console.log("finished");
-	//download(strData, strFileName);
-	//for debugging------------------------------------------------------------------
-
-	const executeFrame = function() {
-		while (frameNotComplete)
-		{
-			// if (!CPU.halt)
-			// {
-			// 	CPU.run();
-			// 	window.instructionNum ++;
-			// }
-			// GRAPHICS.update(1);
-			// TIMERCONTROLLER.update(1)			
-
-			CPU.run(cyclesToRun);
-			// for (let i = 0; (i + MMU.numCycles) < cyclesToRun && !CPU.halt; i ++)	
-			// {	
-			// 	i += CPU.run();
-			// }
-			// MMU.numCycles = 0;
-			cyclesToRun = Math.min(GRAPHICS.update(cyclesToRun), TIMERCONTROLLER.update(cyclesToRun));
-		}
-		frames ++;
-		frameNotComplete = true;
-		if (!window.debug)
 		setTimeout(executeFrame, 10);
 	};
 	executeFrame();
 
-	const printFPS = function () {
-		setTimeout(function (){
-			console.log("FPS: " + frames / 30);
-			frames = 0;
+	const printFPS = () => {
+		setTimeout(() => {
+			console.log("FPS: " + this.frames / 30);
+			this.frames = 0;
 			printFPS();
 		}, 30000);
 	}
@@ -192,11 +148,93 @@ const start = function (biosBuffer, romBuffer) {
 };
 
 
-waitFile("biosInput").then(function(buffer) {biosBuffer = buffer;});
-waitFile("romInput").then(function(buffer) {disableInput(); start(biosBuffer, buffer); biosBuffer = null;});
-$("#demo").click(function(){disableInput(); start(biosBuffer); biosBuffer = null;})
+//for debugging
+const getCircularReplacer = () => {
+  const seen = new WeakSet();
+  return (key, value) => {
+    if (typeof value === "object" && value !== null) {
+      if (seen.has(value)) {
+        return "dupe";
+      }
+      seen.add(value);
+    }
+    return value;
+  };
+};
+
+//const stringified = JSON.stringify(circularReference, getCircularReplacer());
+
+emulator.prototype.serialize = function () {
+
+	//this.pause();
 
 
+	let ret = {
+		cyclesToRun: this.cyclesToRun,
+		frames: this.frames,
+		frameNotComplete: this.frameNotComplete,
 
+		gbaMMU: this.gbaMMU.serialize(), //good
+		gbaCPU: this.gbaCPU.serialize(), //good
+		gbaGPU: this.gbaGPU.serialize(), //good
+		gbaTimerController: this.gbaTimerController.serialize(), //good
+		gbaKeypad: this.gbaKeypad.serialize(), //good
+		gbaDMAController: this.gbaDMAController.serialize() //good
+	};
 
+	//debug save states for non mmu stuff
+	//cmd json-diff json1.json json2.json
+	// for (let i = 0; i < this.gbaMMU.memRegions.length; i ++)
+	// {
+	// 	let memRegion = this.gbaMMU.memRegions[i];
+	// 	if (memRegion) {
+	// 		memRegion.memory = [];
+	// 		memRegion.memory16 = [];
+	// 		memRegion.memory32 = [];
+	// 	}
+	// }
+	// console.log(JSON.stringify(this, getCircularReplacer()));
 
+	return ret;
+}
+emulator.prototype.setState = function (saveState) {
+	this.cyclesToRun = saveState.cyclesToRun;
+	this.frames = saveState.frames;
+	this.frameNotComplete = saveState.frameNotComplete;
+
+	//debugging save states for mmu stuff
+	// for (let i = 0; i < this.gbaMMU.memRegions.length; i ++)
+	// {
+	// 	let memRegion = this.gbaMMU.memRegions[i];
+	// 	if (memRegion)
+	// 		memRegion.memory2 = _.cloneDeep(memRegion.memory);
+	// }
+
+	this.gbaMMU.setState(saveState.gbaMMU);
+	this.gbaCPU.setState(saveState.gbaCPU);
+	this.gbaGPU.setState(saveState.gbaGPU);
+	this.gbaTimerController.setState(saveState.gbaTimerController);
+	this.gbaKeypad.setState(saveState.gbaKeypad);
+	this.gbaDMAController.setState(saveState.gbaDMAController);
+
+	//debug save states for non mmu stuff
+	// for (let i = 0; i < this.gbaMMU.memRegions.length; i ++)
+	// {
+	// 	let memRegion = this.gbaMMU.memRegions[i];
+	// 	if (memRegion)
+	// 		memRegion.memory = [];
+	// }
+	// console.log(JSON.stringify(this, getCircularReplacer()));
+
+	//debugging save states for mmu stuff, run this in console to compare mem
+	// for (let i = 0; i < gbaEmu.gbaMMU.memRegions.length; i ++)
+	// {
+	// 	let memRegion = gbaEmu.gbaMMU.memRegions[i];
+	// 	if (memRegion) {
+	// 		for (let ii = 0; ii < memRegion.memory.length; ii ++)
+	// 			if (memRegion.memory[ii] !== memRegion.memory2[ii])
+	// 				throw Error(memRegion.name + " doesnt match");
+	// 		console.log(memRegion.name + " matches")
+	// 	}
+	// }
+}

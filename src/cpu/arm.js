@@ -2724,3 +2724,15 @@ arm.prototype.initLUT = function () {
 		}
 	}
 }
+//returns JSON of inner state
+arm.prototype.serialize = function() {
+	let copy = {};
+
+	copy.shiftCarryFlag = this.shiftCarryFlag;
+  
+	return copy;
+}
+  
+arm.prototype.setState = function(saveState) {
+	this.shiftCarryFlag = saveState.shiftCarryFlag;
+}

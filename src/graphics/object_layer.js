@@ -79,3 +79,30 @@ objectLayer.prototype.setMappingMode = function (mappingMode) {
 	}
 };
 
+//returns JSON of inner state
+objectLayer.prototype.serialize = function() {
+  let copy = {};
+
+  copy.PBGs = this.PBGs.map(x => [...x]);
+  copy.spritesPerPBG = this.spritesPerPBG;
+  
+  copy.mappingMode = this.mappingMode;
+  
+  copy.OBJAffines = this.OBJAffines.map(x => x.serialize());
+  copy.sprites = this.sprites.map(x => x.serialize());
+
+  return copy;
+}
+
+objectLayer.prototype.setState = function(saveState) {
+  //preserve type as typed arr, as typed arr serialized as normal array
+  saveState.PBGs.forEach((arrToCopy, index) => {
+    copyArrIntoArr(arrToCopy, this.PBGs[index]);
+	});
+  this.spritesPerPBG = saveState.spritesPerPBG;
+  
+  this.mappingMode = saveState.mappingMode;
+  
+  saveState.OBJAffines.forEach((x, index) => this.OBJAffines[index].setState(x));
+  saveState.sprites.forEach((x, index) => this.sprites[index].setState(x));
+}

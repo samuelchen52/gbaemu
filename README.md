@@ -2,7 +2,7 @@
 A Game Boy Advance emulator, written in javascript.
 
 ## Usage
-This project is hosted on Github at [https://samuelchen52.github.io/gbaemu/](https://samuelchen52.github.io/gbaemu/). To use, just select your desired GBA rom. You can also select a BIOS file beforehand, though this is optional and if not provided the [BIOS](https://github.com/Nebuleon/ReGBA/blob/master/bios/gba_bios.bin) file by [Normatt](https://github.com/Normmatt/gba_bios) will be used. You can also just try out an awesome demo rom from [TONC](https://www.coranac.com/projects/#tonc) by clicking on the demo button.
+This project is hosted on Github at [https://samuelchen52.github.io/gbaemu/](https://samuelchen52.github.io/gbaemu/). To use, just select your desired GBA rom. You can also select a BIOS file beforehand, though this is optional and if not provided the [BIOS](https://github.com/Nebuleon/ReGBA/blob/master/bios/gba_bios.bin) file by [Normatt](https://github.com/Normmatt/gba_bios) will be used, or play around with a demo rom from [TONC](https://www.coranac.com/projects/#tonc) by clicking on the demo button.
 
 ## Screenshots
 The classic GBA BIOS boot screen
@@ -26,12 +26,13 @@ So far, only the timers and graphics are in a (near) complete state. There is st
 * Savestates / Savegames
 * Better UI
 * Sound
+* Tests
 
 ## Credit
-[TONC](https://www.coranac.com/tonc/text/toc.htm) - an amazing write-up on the internals of GBA hardware
+[TONC](https://www.coranac.com/tonc/text/toc.htm) - very helpful write-up on the internals of GBA hardware
 
-[GBATEK](https://problemkaputt.de/gbatek.htm) - an extremely detailed reference sheet for all things GBA
+[GBATEK](https://problemkaputt.de/gbatek.htm) - reference sheet for GBA hardware
 
-[No$gba](https://problemkaputt.de/gba.htm) / [mGBA](https://mgba.io/downloads.html) - established GBA emulators that were immensely helpful for debugging 
+[No$gba](https://problemkaputt.de/gba.htm) / [mGBA](https://mgba.io/downloads.html) - established GBA emulators that were used for debugging
 
 [Near / Talarubi](https://byuu.net/video/color-emulation/) - color correction

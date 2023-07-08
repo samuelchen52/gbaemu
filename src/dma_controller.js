@@ -7,7 +7,6 @@ const DMAController = function(mmu, cpu, graphics) {
 	this.DMAChannel3 = new DMAChannel3(mmu, cpu, ioregion.getIOReg("DMA3SAD"), ioregion.getIOReg("DMA3DAD"), ioregion.getIOReg("DMA3CNTL"), ioregion.getIOReg("DMA3CNTH"), 0xFFFFFFF, 0xFFFFFFF, 0xFFFF, 8);
 
 	graphics.addCallbacks(this.triggerHblankDMA.bind(this), this.triggerVblankDMA.bind(this));
-	window.dma = this;
 };
 
 DMAController.prototype.triggerVblankDMA = function () {
@@ -24,14 +23,32 @@ DMAController.prototype.triggerHblankDMA = function () {
 	this.DMAChannel3.startTransfer(this.DMAChannel3.enable && (this.DMAChannel3.timingMode === 2));
 };
 
+//returns JSON of inner state
+DMAController.prototype.serialize = function() {
+	let copy = {};
+
+	copy.DMAChannel0 = this.DMAChannel0.serialize();
+	copy.DMAChannel1 = this.DMAChannel1.serialize();
+	copy.DMAChannel2 = this.DMAChannel2.serialize();
+	copy.DMAChannel3 = this.DMAChannel3.serialize();
+  
+	return copy;
+}
+  
+DMAController.prototype.setState = function(saveState) {
+	this.DMAChannel0.setState(saveState.DMAChannel0);
+	this.DMAChannel1.setState(saveState.DMAChannel1);
+	this.DMAChannel2.setState(saveState.DMAChannel2);
+	this.DMAChannel3.setState(saveState.DMAChannel3);
+}
+
 const DMAChannel = function (mmu, cpu, DMASAD, DMADAD, DMACNTL, DMACNTH, sadMask, dadMask, dmacntlMask, interruptFlag) {
 	let ioRegion = mmu.getMemoryRegion("IOREGISTERS");
-	window.ioRegion = ioRegion;
 
 	this.memRegions = mmu.memRegions;
 	this.memRegionsENUMS = mmu.memENUMS;
 	this.ioRegionMem = ioRegion.memory;
-  this.ifByte2 = ioRegion.getIOReg("IF").regIndex + 1;
+	this.ifByte2 = ioRegion.getIOReg("IF").regIndex + 1;
 	this.interruptFlag = interruptFlag;
 	this.sadMask = sadMask;
 	this.dadMask = dadMask;
@@ -218,6 +235,68 @@ DMAChannel.prototype.startTransfer = function (shouldStart) {
 		}
 	}
 };
+
+//returns JSON of inner state
+DMAChannel.prototype.serialize = function() {
+	let copy = {};
+
+	copy.srcAddr = this.srcAddr;
+	copy.destAddr = this.destAddr;
+	copy.numTransfers = this.numTransfers;
+	copy.destAdjust = this.destAdjust;
+	copy.srcAdjust = this.srcAdjust;
+	copy.repeat = this.repeat;
+	copy.chunkSize = this.chunkSize;
+	copy.timingMode = this.timingMode;
+	copy.irqEnable = this.irqEnable;
+	copy.enable = this.enable;
+
+	//copy.srcMemRegion = this.srcMemRegion; //ref that is set after initialization, need to re-set this
+	copy.srcMemRegionMask = this.srcMemRegionMask;
+	copy.srcIncrAmount = this.srcIncrAmount;
+	copy.srcAddrInvalid = this.srcAddrInvalid;
+	//copy.destMemRegion = this.destMemRegion; //ref that is set after initialization, need to re-set this
+	copy.destMemRegionMask = this.destMemRegionMask;
+	copy.destIncrAmount = this.destIncrAmount;
+	copy.destAddrInvalid = this.destAddrInvalid;
+
+	copy.srcMemRegionName = this.srcMemRegionName;
+	copy.destMemRegionName = this.destMemRegionName;
+  
+	return copy;
+}
+  
+DMAChannel.prototype.setState = function(saveState) {
+	this.srcAddr = saveState.srcAddr;
+	this.destAddr = saveState.destAddr;
+	this.numTransfers = saveState.numTransfers;
+	this.destAdjust = saveState.destAdjust;
+	this.srcAdjust = saveState.srcAdjust;
+	this.repeat = saveState.repeat;
+	this.chunkSize = saveState.chunkSize;
+	this.timingMode = saveState.timingMode;
+	this.irqEnable = saveState.irqEnable;
+	this.enable = saveState.enable;
+
+	//this.srcMemRegion = saveState.srcMemRegion; //ref that is set after initialization, need to re-set this
+	this.srcMemRegionMask = saveState.srcMemRegionMask;
+	this.srcIncrAmount = saveState.srcIncrAmount;
+	this.srcAddrInvalid = saveState.srcAddrInvalid;
+	//this.destMemRegion = saveState.destMemRegion; //ref that is set after initialization, need to re-set this
+	this.destMemRegionMask = saveState.destMemRegionMask;
+	this.destIncrAmount = saveState.destIncrAmount;
+	this.destAddrInvalid = saveState.destAddrInvalid;
+
+	this.srcMemRegionName = saveState.srcMemRegionName;
+	this.destMemRegionName = saveState.destMemRegionName;
+
+	let srcMemRegionIndex = this.memRegionMasks.indexOf(this.srcMemRegionMask);
+	if (srcMemRegionIndex)
+		this.srcMemRegion = this.memRegions[srcMemRegionIndex];
+	let destMemRegionIndex = this.memRegionMasks.indexOf(this.destMemRegionMask);
+	if (destMemRegionIndex)
+		this.destMemRegion = this.memRegions[destMemRegionIndex];
+}
 
 
 

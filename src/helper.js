@@ -646,3 +646,63 @@ let sigs = instructionVal([
 	
 	]);
 
+function copyArrIntoArr (arrToCopy, arrToCopyInto, startIndexCopy) {
+	// if (arrToCopy.length != arrToCopyInto.length)
+	// 	throw Error("Different array length when copying");
+	if (!startIndexCopy)
+		startIndexCopy = 0;
+
+	for (let i = 0; i < arrToCopy.length; i ++)
+		arrToCopyInto[startIndexCopy + i] = arrToCopy[i];
+}
+
+// function serializeBinaryData32 (arr) {
+// 	let uint8View = new Uint8Array(arr.buffer);
+// 	let numRemainderBytes = uint8View.length % 4;
+
+// 	return JSON.stringify({
+// 		uint32Buffer : [...new Uint32Array(uint8View.buffer.slice(0, uint8View.length - numRemainderBytes))],
+// 		uint8Remainder : [...new Uint8Array(uint8View.buffer.slice(uint8View.length - numRemainderBytes, uint8View.length))]
+// 	})
+// }
+
+// function deserializeBinaryData32 (binaryData32Serialized, size) {
+// 	let binaryData32 = JSON.parse(binaryData32Serialized);
+
+// 	let uint8Array = new Uint8Array((binaryData32.uint32Buffer.length * 4) + binaryData32.uint8Remainder.length);
+// 	copyArrIntoArr(binaryData32.uint32Buffer, uint8Array);
+// 	copyArrIntoArr(binaryData32.uint8Remainder, uint8Array, binaryData32.uint32Buffer.length * 4);
+// 	switch (size)
+// 	{
+// 		case 1:
+// 			return uint8Array;
+// 		case 2:
+// 			return new Uint16Array(uint8Array.buffer);
+// 		case 4:
+// 			return new Uint32Array(uint8Array.buffer);
+// 		default:
+// 			throw new Error("invalid size when deserializing binary data 32")
+// 	}
+// }
+
+
+function compressBinaryData (arr) {
+	let toCompress = new Uint8Array(arr.buffer);
+	
+	return fflate.zlibSync(toCompress, { level: 9 }); //level 9 means highest compression and lowest performance
+}
+
+function decompressBinaryData (arr, size) {
+	if (!(size === 1 || size === 4)) // in bytes
+		throw Error("invalid size when decompressing");
+	
+	let decompressedArr = fflate.unzlibSync(arr);
+
+	if (size === 4)
+		decompressedArr = new Uint32Array(decompressedArr.buffer);
+	
+	return decompressedArr;
+}
+
+
+
