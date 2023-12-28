@@ -84,7 +84,7 @@ objectLayer.prototype.serialize = function() {
   let copy = {};
 
   copy.PBGs = this.PBGs.map(x => [...x]);
-  copy.spritesPerPBG = this.spritesPerPBG;
+  copy.spritesPerPBG = [...this.spritesPerPBG];
   
   copy.mappingMode = this.mappingMode;
   
@@ -99,7 +99,7 @@ objectLayer.prototype.setState = function(saveState) {
   saveState.PBGs.forEach((arrToCopy, index) => {
     copyArrIntoArr(arrToCopy, this.PBGs[index]);
 	});
-  this.spritesPerPBG = saveState.spritesPerPBG;
+  this.spritesPerPBG = [...saveState.spritesPerPBG];
   
   this.mappingMode = saveState.mappingMode;
   

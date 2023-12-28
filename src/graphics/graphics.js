@@ -936,8 +936,8 @@ graphics.prototype.serialize = function() {
   copy.windowEnabled = this.windowEnabled;
 
   copy.blendMode = this.blendMode;
-  copy.firstTarget = this.firstTarget;
-  copy.secondTarget = this.secondTarget;
+  copy.firstTarget = [...this.firstTarget];
+  copy.secondTarget = [...this.secondTarget];
   copy.eva = this.eva;
   copy.evb = this.evb;
   copy.evy = this.evy;
@@ -959,12 +959,12 @@ graphics.prototype.serialize = function() {
   //remove refs to scanline arrs, these have to be re-set
   copy.layers = this.layers.map(x => {
     let layer = _.clone(x);
-    x.scanline = null;
+    layer.scanlineArr = null;
     return layer;
   });
   copy.sortedLayers = this.sortedLayers.map(x => {
     let layer = _.clone(x);
-    x.scanline = null;
+    layer.scanlineArr = null;
     return layer;
   });
   copy.numActiveLayers = this.numActiveLayers;
@@ -1001,8 +1001,8 @@ graphics.prototype.setState = function(saveState) {
   this.windowEnabled = saveState.windowEnabled;
 
   this.blendMode = saveState.blendMode;
-  this.firstTarget = saveState.firstTarget;
-  this.secondTarget = saveState.secondTarget;
+  this.firstTarget = [...saveState.firstTarget];
+  this.secondTarget = [...saveState.secondTarget];
   this.eva = saveState.eva;
   this.evb = saveState.evb;
   this.evy = saveState.evy;
@@ -1021,7 +1021,7 @@ graphics.prototype.setState = function(saveState) {
   this.windowController.setState(saveState.windowController);
 
   //kinda hacky - restoring the object refs to background scanline arr after deserialization
-  this.layers = saveState.layers;
+  this.layers = _.cloneDeep(saveState.layers);
   this.layers.forEach(x => {
     switch (x.code) {
       case "BG0":

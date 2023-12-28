@@ -285,8 +285,8 @@ keypad.prototype.serialize = function() {
 	copy.rKeyBinding = this.rKeyBinding;
 	copy.lKeyBinding = this.lKeyBinding;
 
-	copy.keyCodeToKeyDown = this.keyCodeToKeyDown;
-	copy.keyCodeToKeyUp = this.keyCodeToKeyUp;
+	copy.keyCodeToKeyDown = _.clone(this.keyCodeToKeyDown);
+	copy.keyCodeToKeyUp = _.clone(this.keyCodeToKeyUp);
 
 	return copy;
 }
@@ -303,6 +303,6 @@ keypad.prototype.setState = function(saveState) {
 	this.rKeyBinding = saveState.rKeyBinding;
 	this.lKeyBinding = saveState.lKeyBinding;
 
-	this.keyCodeToKeyDown = saveState.keyCodeToKeyDown;
-	this.keyCodeToKeyUp = saveState.keyCodeToKeyUp;
+	this.keyCodeToKeyDown = _.clone(saveState.keyCodeToKeyDown);
+	this.keyCodeToKeyUp = _.clone(saveState.keyCodeToKeyUp);
 }

@@ -20,6 +20,7 @@ const disableInput = function () {
 	$("#biosInput").prop("disabled", true);
 	$("#romInput").prop("disabled", true);
 	$("#demo").prop("disabled", true);
+	$("#importsave").prop("disabled", true);
 }
 
 const start = function (biosBuffer, romBuffer) {
@@ -259,6 +260,22 @@ $("#demo").click(function(){
     gbaEmu.start(); 
 })
 
+waitFile("importsave").then(function(buffer) {
+    disableInput(); 
+
+    if (!biosBuffer) {
+        biosBuffer = getNormattBIOS();
+        console.log("used normatt bios");
+    }
+    else
+        console.log("used inputted bios");
+
+	let json = new TextDecoder().decode(buffer);
+    gbaEmu = new emulator(biosBuffer, [0]);
+	gbaEmu.setState(JSON.parse(json));
+    gbaEmu.start(); 
+});
+
 //pause button
 let pauseButton = document.getElementById("pause");
 
@@ -270,28 +287,290 @@ pauseButton.addEventListener('click', function(e) {
     
 });
 
-let saveStateButton = document.getElementById("savestate");
+// Undefined	"undefined"
+// Null	"object"
+// Boolean	"boolean"
+// Number	"number"
+// BigInt	"bigint"
+// String	"string"
+// Symbol	"symbol" ???
+// Function "function"
+// Any other object	"object"
 
-saveStateButton.addEventListener('click', function(e) {
-    window.temp = gbaEmu.serialize();
-    //window.save = LZString.compressToUTF16(window.temp);
-	window.save = window.temp;    
+isIterable = function (obj) {
+	return obj && typeof obj[Symbol.iterator] === 'function';
+}
+
+//iterate through all key value pairs of both objects
+//if an object has already been visited, ignore (circ references)
+deepCompare = function (obj1, obj2) {
+	let visited = {};
+	let result = "";
+
+	//typeof obj1, obj2 === "object"
+	let _deepCompare = function (obj1, obj2) {
+		if (obj1 === null && obj2 === null)
+			return;
+		//null checks
+		else if ((obj1 === null || obj2 === null) && (obj1 !== null || obj2 !== null)) {
+			result += "\n" + ("obj1 or obj2 is null but not the other??");
+			return;
+		}
+		//array, compare each element
+		else if ((isIterable(obj1) || isIterable(obj2))) {
+			if (!isIterable(obj1) || !isIterable(obj2))
+				result += "\n" + ("obj1 or obj2 is an array in one but not the other??");
+			else {
+				for (let i = 0; i < Math.max(obj1.length, obj2.length); i ++)
+				{
+					let val1 = obj1[i];
+					let val2 = obj2[i];
+
+					if (typeof val1 === "object" || typeof val2 === "object")
+						_deepCompare(val1, val2);
+					else if (val1  !== val2) {
+						//result += "\n" + ("array check failed");
+						result += "\n" + ("skip for now2");
+						return;
+					}
+				}
+				result += "\n" + ("array checked out");
+			}
+
+			return;
+		}
+		
+		//object, compare each key
+		let keys = [];
+		keys = keys.concat(Object.keys(obj1));
+		keys = keys.concat(Object.keys(obj2));
+
+		for (let i = 0; i < keys.length; i ++)
+		{
+			let key = keys[i];
+			let val1 = obj1[key];
+			let val2 = obj2[key];
+
+			//avoid circular ref
+			if (visited[val1?.["_id"]] || visited[val2?.["_id"]]) {
+				result += "\n" + ("key: " + key + " skipped");
+				continue;
+			}
+			if (typeof val1 === "object" && val1) {
+				val1["_id"] = _.uniqueId();
+				visited[val1["_id"]] = true;
+			}
+			if (typeof val2 === "object" && val2) {
+				val2["_id"] = _.uniqueId();
+				visited[val2["_id"]] = true;
+			}
+
+			if (typeof val1 !== typeof val2)
+				result += "\n" + ("key: " + key + " does not match. val1: " + val1 + ". val2: " + val2 + ".");
+			else {
+				if (typeof val1 === "object") {
+					result += "\n" + ("comparing sub-object: " + key);
+					_deepCompare(val1, val2);
+					result += "\n" + ("done comparing sub-object: " + key);
+				}
+				else {
+					if (val1 !== val2)
+						result += "\n" + ("key: " + key + " does not match. val1: " + val1 + ". val2: " + val2 + ".");
+				}
+			}
+
+		}
+	};
+
+	_deepCompare(obj1, obj2);
+	console.log(result);
+}
+// let saveStateButton = document.getElementById("savestate");
+
+// saveStateButton.addEventListener('click', function(e) {
+//     window.temp = gbaEmu.serialize();
+//     //window.save = LZString.compressToUTF16(window.temp);
+// 	window.save = window.temp;    
+// });
+
+
+// let restore = document.getElementById("restore");
+
+// restore.addEventListener('click', function(e) {
+//     //let decompressed = LZString.decompressFromUTF16(window.save);
+//     // gbaEmu.setState(JSON.parse(decompressed));     
+// 	let decompressed = window.save;
+// 	gbaEmu.setState(decompressed);
+// 	//gbaEmu.pause();
+// });
+
+datetime = function () {
+	let now = new Date();
+	let datetime = now.toLocaleDateString() + "_" + now.toLocaleTimeString(); 
+	return datetime.replace(" ", "_");
+}
+//save state related stuff
+const displaySaveStateScreen = function(canvasID, saveState) {
+	let canvas = document.getElementById(canvasID);
+	let context = canvas.getContext("2d");
+	let imageData = context.createImageData(240, 160);
+	let imageDataArr = new Uint32Array(imageData.data.buffer);
+	//save state saves compressed binary data, have to decompress
+	copyArrIntoArr(decompressBinaryData(new Uint8Array(saveState.gbaGPU.imageDataArr), 4), imageDataArr);
+
+	context.putImageData(imageData, 0, 0);
+}
+
+//save state event handlers
+let saveStateOverwritten;
+let saveState1;
+let saveState2;
+let saveState3;
+
+let restoresavestateoverwrittenButton = document.getElementById("restoresavestateoverwritten");
+let exportsavestateoverwrittenButton = document.getElementById("exportsavestateoverwritten");
+
+let createsavestate1Button = document.getElementById("createsavestate1");
+let restoresavestate1Button = document.getElementById("restoresavestate1");
+let exportsavestate1Button = document.getElementById("exportsavestate1");
+
+let createsavestate2Button = document.getElementById("createsavestate2");
+let restoresavestate2Button = document.getElementById("restoresavestate2");
+let exportsavestate2Button = document.getElementById("exportsavestate2");
+
+let createsavestate3Button = document.getElementById("createsavestate3");
+let restoresavestate3Button = document.getElementById("restoresavestate3");
+let exportsavestate3Button = document.getElementById("exportsavestate3");
+
+const createButtonUIUpdate = function (saveStateBefore, saveState, restoreButton, exportButton, canvasID, restoreButtonOverwritten, exportButtonOverwritten, restoreCanvasID) {
+	if (!gbaEmu)
+		return;
+
+	if (saveStateBefore) {
+		saveStateOverwritten = saveStateBefore;
+		displaySaveStateScreen(restoreCanvasID, saveStateOverwritten);
+		restoreButtonOverwritten.removeAttribute("disabled")
+		exportButtonOverwritten.removeAttribute("disabled");
+	}
+
+	displaySaveStateScreen(canvasID, saveState);
+	restoreButton.removeAttribute("disabled");
+	exportButton.removeAttribute("disabled");
+};
+
+//SS 1
+createsavestate1Button.addEventListener('click', function(e) {
+	if (!gbaEmu)
+		return;
+
+	//debugging for serialization
+	//gbaEmu.pause();
+
+
+	let savestate = gbaEmu.serialize();
+	createButtonUIUpdate(saveState1, savestate, restoresavestate1Button, exportsavestate1Button, 'savestate1screen', restoresavestateoverwrittenButton, exportsavestateoverwrittenButton, 'savestateoverwrittenscreen');
+	saveState1 = savestate;
+
+	//debugging for serialization
+	// console.log("comparing...");
+	// window.clone = _.cloneDeep(gbaEmu);
+	// gbaEmu.setState(savestate);
+	// deepCompare(window.clone, gbaEmu);
+});
+
+restoresavestate1Button.addEventListener('click', function(e) {
+	if (!saveState1)
+		return;
+	
+	gbaEmu.setState(saveState1);
+});
+
+exportsavestate1Button.addEventListener('click', function(e) {
+	if (!saveState1)
+		return;
+
+	download(JSON.stringify(saveState1), "savestate1_" + datetime() + ".json");
+});
+
+//SS 2
+createsavestate2Button.addEventListener('click', function(e) {
+	if (!gbaEmu)
+		return;
+
+	let savestate = gbaEmu.serialize();
+	createButtonUIUpdate(saveState2, savestate, restoresavestate2Button, exportsavestate2Button, 'savestate2screen', restoresavestateoverwrittenButton, exportsavestateoverwrittenButton, 'savestateoverwrittenscreen');
+	saveState2 = savestate;
+});
+
+restoresavestate2Button.addEventListener('click', function(e) {
+	if (!saveState2)
+		return;
+
+	gbaEmu.setState(saveState2);
+});
+
+exportsavestate2Button.addEventListener('click', function(e) {
+	if (!saveState2)
+		return;
+
+	download(JSON.stringify(saveState2), "savestate2_" + datetime() + ".json");
+});
+
+//SS3
+createsavestate3Button.addEventListener('click', function(e) {
+	if (!gbaEmu)
+		return;
+
+	let savestate = gbaEmu.serialize();
+	createButtonUIUpdate(saveState3, savestate, restoresavestate3Button, exportsavestate3Button, 'savestate3screen', restoresavestateoverwrittenButton, exportsavestateoverwrittenButton, 'savestateoverwrittenscreen');
+	saveState3 = savestate;
+});
+
+restoresavestate3Button.addEventListener('click', function(e) {
+	if (!saveState3)
+		return;
+
+	gbaEmu.setState(saveState3);
+});
+
+exportsavestate3Button.addEventListener('click', function(e) {
+	if (!saveState3)
+		return;
+
+	download(JSON.stringify(saveState3), "savestate3_" + datetime() + ".json");
+});
+
+//overwritten
+restoresavestateoverwrittenButton.addEventListener('click', function(e) {
+	if (!saveStateOverwritten)
+		return;
+
+	gbaEmu.setState(saveStateOverwritten);
+});
+
+exportsavestateoverwrittenButton.addEventListener('click', function(e) {
+	if (!saveStateOverwritten)
+		return;
+
+	download(JSON.stringify(saveStateOverwritten), "overwrittensave_" + datetime() + ".json");
 });
 
 
-let restore = document.getElementById("restore");
-
-restore.addEventListener('click', function(e) {
-    //let decompressed = LZString.decompressFromUTF16(window.save);
-    // gbaEmu.setState(JSON.parse(decompressed));     
-	let decompressed = window.save;
-	gbaEmu.setState(decompressed);
+//allow pressing 1, 2, 3 as short cut to create saves
+$(document).keydown((e) => {
+	if (e.key === "1") {
+		let savestate = gbaEmu.serialize();
+		createButtonUIUpdate(saveState1, savestate, restoresavestate1Button, exportsavestate1Button, 'savestate1screen', restoresavestateoverwrittenButton, exportsavestateoverwrittenButton, 'savestateoverwrittenscreen');
+		saveState1 = savestate;
+	}
+	else if (e.key === "2") {
+		let savestate = gbaEmu.serialize();
+		createButtonUIUpdate(saveState2, savestate, restoresavestate2Button, exportsavestate2Button, 'savestate2screen', restoresavestateoverwrittenButton, exportsavestateoverwrittenButton, 'savestateoverwrittenscreen');
+		saveState2 = savestate;
+	}
+	else if (e.key === "3") {
+		let savestate = gbaEmu.serialize();
+		createButtonUIUpdate(saveState3, savestate, restoresavestate3Button, exportsavestate3Button, 'savestate3screen', restoresavestateoverwrittenButton, exportsavestateoverwrittenButton, 'savestateoverwrittenscreen');
+		saveState3 = savestate;
+	}
 });
-
-
-//    let test2 = JSON.parse(LZString.decompressFromUTF16(x))
-
-
-
-
-

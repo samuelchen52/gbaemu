@@ -31,15 +31,19 @@
 					<input type="file" id="biosInput">
 					<div> enter gba file: </div>
 					<input type="file" id="romInput">
+					<div> or enter save file (json): </div>
+					<input class="d-block" type = "file" id = "importsave" value="import save">
 					<div> load demo: </div>
 					<input type = "button" id = "demo" value="demo">
 					<input class="mt-2 d-block" type = "button" id = "pause" value="pause">
-					<input class="mt-2 d-block" type = "button" id = "savestate" value="savestate">
-					<input class="mt-2 d-block" type = "button" id = "restore" value="restore">
-					<div> 
+					<div> FPS: </div>
+					<input class="mt-2 d-block" type="button" id="FPS" value="N/A" disabled>
+					<!-- <input class="mt-2 d-block" type = "button" id = "savestate" value="savestate">
+					<input class="mt-2 d-block" type = "button" id = "restore" value="restore"> -->
+					<!-- <div> 
 						<span>status message:</span>
 						<span id="statusMessage" class="text-danger"></span>
-					</div>
+					</div> -->
 
 					<div class = "d-none">
 						<input type="text" placeholder="type instruction in hex here to test opcode" id ="decode">
@@ -52,7 +56,7 @@
 					<div class="d-flex justify-content-center">	
 						<canvas id = "backingScreen" width = 240 height = 160 class = "d-none" >
 						</canvas>
-						<canvas id = "visibleScreen" width = 960 height = 640 class = "border border-dark" >
+						<canvas id = "visibleScreen" width = 960 height = 640 class = "border border-dark" style="z-index: 10;">
 						</canvas>
 					</div>
 					<div class = "mt-2 text-center font-weight-bold">Controls (click button to rebind):</div>
@@ -118,7 +122,59 @@
 					</div>
 				</div>
 				<div class="col-3 pl-5">
-					<h4>Save States</h4>
+					<h4 class="text-center">Save States</h4>
+					<div class="h-25 d-flex">
+						<div class="d-flex align-items-center pr-5">
+							<div>
+								<input class="d-block" type="button" id="restoresavestateoverwritten" data-toggle="tooltip" data-placement="top" title="Restore Save" value="Restore">
+								<!-- <input class="d-block" type="button" id="createsavestateoverwritten" data-toggle="tooltip" data-placement="top" title="Create Save" value="Create"> -->
+								<input class="d-block" type="button" id="exportsavestateoverwritten" data-toggle="tooltip" data-placement="top" title="Export Save" value="Export">
+							</div>
+						</div>
+						<div>
+							<span class="text-center">Last Overwritten Save</span>
+							<canvas id = "savestateoverwrittenscreen" width = 240 height = 160 class = "border border-dark" ></canvas>
+						</div>
+					</div>
+					<div class="h-25 d-flex">
+						<div class="d-flex align-items-center pr-5">
+							<div>
+								<input class="d-block" type="button" id="createsavestate1" data-toggle="tooltip" data-placement="top" title="Create Save" value="New (press 1)">
+								<input class="d-block" type="button" id="restoresavestate1" data-toggle="tooltip" data-placement="top" title="Restore Save" value="Restore" disabled>
+								<input class="d-block" type="button" id="exportsavestate1" data-toggle="tooltip" data-placement="top" title="Export Save" value="Export" disabled>
+							</div>
+						</div>
+						<div>
+							<span class="text-center">Save State 1</span>
+							<canvas id = "savestate1screen" width = 240 height = 160 class = "border border-dark" ></canvas>
+						</div>
+					</div>
+					<div class="h-25 d-flex">
+						<div class="d-flex align-items-center pr-5">
+							<div>
+								<input class="d-block" type="button" id="createsavestate2" data-toggle="tooltip" data-placement="top" title="Create Save" value="New (press 2)">
+								<input class="d-block" type="button" id="restoresavestate2" data-toggle="tooltip" data-placement="top" title="Restore Save" value="Restore" disabled>
+								<input class="d-block" type="button" id="exportsavestate2" data-toggle="tooltip" data-placement="top" title="Export Save" value="Export" disabled>
+							</div>
+						</div>
+						<div>
+							<span class="text-center">Save State 2</span>
+							<canvas id = "savestate2screen" width = 240 height = 160 class = "border border-dark" ></canvas>
+						</div>
+					</div>
+					<div class="h-25 d-flex">
+						<div class="d-flex align-items-center pr-5">
+							<div>
+								<input class="d-block" type="button" id="createsavestate3" data-toggle="tooltip" data-placement="top" title="Create Save" value="New (press 3)">
+								<input class="d-block" type="button" id="restoresavestate3" data-toggle="tooltip" data-placement="top" title="Restore Save" value="Restore" disabled>
+								<input class="d-block" type="button" id="exportsavestate3" data-toggle="tooltip" data-placement="top" title="Export Save" value="Export" disabled>
+							</div>
+						</div>
+						<div>
+							<span class="text-center">Save State 3</span>
+							<canvas id = "savestate3screen" width = 240 height = 160 class = "border border-dark" ></canvas>
+						</div>
+					</div>
 
 				</div>
 				<div class ="col-8 d-none">

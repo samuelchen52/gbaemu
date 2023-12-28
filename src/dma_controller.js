@@ -46,7 +46,7 @@ const DMAChannel = function (mmu, cpu, DMASAD, DMADAD, DMACNTL, DMACNTH, sadMask
 	let ioRegion = mmu.getMemoryRegion("IOREGISTERS");
 
 	this.memRegions = mmu.memRegions;
-	this.memRegionsENUMS = mmu.memENUMS;
+	this.memRegionsNames = mmu.memRegionNames;
 	this.ioRegionMem = ioRegion.memory;
 	this.ifByte2 = ioRegion.getIOReg("IF").regIndex + 1;
 	this.interruptFlag = interruptFlag;
@@ -123,7 +123,7 @@ DMAChannel.prototype.updateDMASAD = function (newDMASADVal) {
 	this.srcMemRegion = this.memRegions[memRegionIndex];
 	this.srcMemRegionMask = this.memRegionMasks[memRegionIndex];
 	this.srcAddr = newDMASADVal & 0x00FFFFFF;
-	this.srcMemRegionName = this.memRegionsENUMS[memRegionIndex];
+	this.srcMemRegionName = this.memRegionsNames[memRegionIndex];
 	this.srcAddrInvalid = false;
 };
 
@@ -141,7 +141,7 @@ DMAChannel.prototype.updateDMADAD = function (newDMADADVal) {
 	this.destMemRegion = this.memRegions[memRegionIndex];
 	this.destMemRegionMask = this.memRegionMasks[memRegionIndex];
 	this.destAddr = newDMADADVal & 0x00FFFFFF;
-	this.destMemRegionName = this.memRegionsENUMS[memRegionIndex];
+	this.destMemRegionName = this.memRegionsNames[memRegionIndex];
 	this.destAddrInvalid = false;
 };
 
@@ -290,11 +290,11 @@ DMAChannel.prototype.setState = function(saveState) {
 	this.srcMemRegionName = saveState.srcMemRegionName;
 	this.destMemRegionName = saveState.destMemRegionName;
 
-	let srcMemRegionIndex = this.memRegionMasks.indexOf(this.srcMemRegionMask);
-	if (srcMemRegionIndex)
+	let srcMemRegionIndex = this.memRegionsNames.indexOf(this.srcMemRegionName);
+	if (srcMemRegionIndex !== -1)
 		this.srcMemRegion = this.memRegions[srcMemRegionIndex];
-	let destMemRegionIndex = this.memRegionMasks.indexOf(this.destMemRegionMask);
-	if (destMemRegionIndex)
+	let destMemRegionIndex = this.memRegionsNames.indexOf(this.destMemRegionName);
+	if (destMemRegionIndex !== -1)
 		this.destMemRegion = this.memRegions[destMemRegionIndex];
 }
 

@@ -20,8 +20,6 @@ timerController.prototype.update = function (numCycles) {
 timerController.prototype.serialize = function() {
 	let copy = {};
 
-	copy.dummyTimer = this.dummyTimer;
-
 	copy.timer3 = this.timer3.serialize();
 	copy.timer2 = this.timer2.serialize();
 	copy.timer1 = this.timer1.serialize();
@@ -31,8 +29,6 @@ timerController.prototype.serialize = function() {
 }
   
 timerController.prototype.setState = function(saveState) {
-	this.dummyTimer = saveState.dummyTimer;
-
 	this.timer3.setState(saveState.timer3);
 	this.timer2.setState(saveState.timer2);
 	this.timer1.setState(saveState.timer1);

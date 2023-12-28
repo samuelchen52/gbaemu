@@ -9,6 +9,7 @@ const background = function(bgNum, graphics, mmu, bgcnt, bghofs, bgvofs, bgx, bg
 	this.SBB = 0;
 	this.wrapAround = 0; //wraps around by default for regular bg, affine bg is transparent if no wrap
 	this.screenSize = 0;
+  this.screenSizeAffine;
 
 	this.hOffset = 0;
 	this.vOffset = 0;
@@ -373,6 +374,7 @@ background.prototype.serialize = function() {
 	copy.SBB = this.SBB;
 	copy.wrapAround = this.wrapAround;
 	copy.screenSize = this.screenSize;
+  copy.screenSizeAffine = this.screenSizeAffine;
 
 	copy.hOffset = this.hOffset;
 	copy.vOffset = this.vOffset;
@@ -404,6 +406,7 @@ background.prototype.setState = function(saveState) {
 	this.SBB = saveState.SBB;
 	this.wrapAround = saveState.wrapAround;
 	this.screenSize = saveState.screenSize;
+  this.screenSizeAffine = saveState.screenSizeAffine;
 
 	this.hOffset = saveState.hOffset;
 	this.vOffset = saveState.vOffset;

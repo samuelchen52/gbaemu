@@ -137,12 +137,15 @@ emulator.prototype.start = function() {
 	};
 	executeFrame();
 
+	let FPSCounter = document.getElementById("FPS");
+
 	const printFPS = () => {
-		setTimeout(() => {
-			console.log("FPS: " + this.frames / 30);
+		if (!this.pauseFlag.pause) {	
+			console.log("FPS: " + this.frames);
+			FPSCounter.value = this.frames;
 			this.frames = 0;
-			printFPS();
-		}, 30000);
+		}
+		setTimeout(printFPS, 1000);
 	}
 	printFPS();
 };

@@ -513,11 +513,11 @@ cpu.prototype.setState = function(saveState) {
   this.registers[10] = this.r10;
   this.registers[11] = this.r11;
   this.registers[12] = this.r12;
-  this.registers[13] = this.r13;
-  this.registers[14] = this.r14;
+  //this.registers[13] = this.r13;
+  //this.registers[14] = this.r14;
   copyArrIntoArr(saveState.registers[15], this.registers[15]);
   copyArrIntoArr(saveState.registers[16], this.registers[16]);
-  this.registers[17] = this.SPSR;
+  //this.registers[17] = this.SPSR;
 
   //cpu pipeline (pipeline[0] holds instruction to be decoded, pipeline[1] and pipeline[2] hold the opcode and the instruction itself to be executed)
   copyArrIntoArr(saveState.pipeline, this.pipeline);
@@ -532,7 +532,9 @@ cpu.prototype.setState = function(saveState) {
 
   //some modes have banked registers, and registers arr may have swapped out some registers
   //have to restablish that state here
-  this.changeMode(this.mode);
+  let newMode = this.mode;
+  this.mode = -1; //hacky, mode change only triggers if mode has actually changed, so we set to -1 here
+  this.changeMode(newMode);
 }
 
 
