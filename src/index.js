@@ -287,6 +287,16 @@ pauseButton.addEventListener('click', function(e) {
     
 });
 
+//dark mode
+let darkModeCheckBox = document.getElementById("darkmode");
+
+darkModeCheckBox.addEventListener('change', function(e) {
+    if (e.target.checked)
+		document.body.style = "background-color: black; color: white";
+	else
+		document.body.style = "background-color: Gainsboro;";
+});
+
 // Undefined	"undefined"
 // Null	"object"
 // Boolean	"boolean"
