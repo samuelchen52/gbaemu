@@ -284,7 +284,6 @@ pauseButton.addEventListener('click', function(e) {
         gbaEmu.togglePause();
         pauseButton.value = gbaEmu.pause ? "unpause" : "pause";
     }
-    
 });
 
 //dark mode
@@ -301,10 +300,12 @@ darkModeCheckBox.addEventListener('change', function(e) {
 let capFPS = document.getElementById("capfps");
 
 capFPS.addEventListener('change', function(e) {
-    if (e.target.checked)
-		document.body.style = "background-color: black; color: white";
-	else
-		document.body.style = "background-color: Gainsboro;";
+	if (gbaEmu) {
+		if (e.target.checked)
+			gbaEmu.setFPSCap(60);
+		else
+			gbaEmu.setFPSCap(1000);
+    }
 });
 
 // Undefined	"undefined"
