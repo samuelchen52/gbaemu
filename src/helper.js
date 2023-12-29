@@ -175,21 +175,74 @@ function getBytes (instr, state)
 //returns bits from startBit to endBit from a 32 bit number
 function bitSlice (num, startBit, endBit)
 {
-	if (arguments.length < 3)
-	{
-		throw Error("bitSlice takes at least two arguments");
-	}
-	if ((startBit < 0) || (endBit > 31))
-	{
-		throw Error("starting bit or ending bit out of range");
-	}
-	if (startBit > endBit)
-	{
-		throw Error("starting bit greater than ending bit");
-	}
+	// if (arguments.length < 3)
+	// {
+	// 	throw Error("bitSlice takes at least two arguments");
+	// }
+	// if ((startBit < 0) || (endBit > 31))
+	// {
+	// 	throw Error("starting bit or ending bit out of range");
+	// }
+	// if (startBit > endBit)
+	// {
+	// 	throw Error("starting bit greater than ending bit");
+	// }
 
 	return (num >>> startBit) & (masks[endBit - startBit + 1]);
 }
+
+// function bitSlice2 (num, startBit, endBit)
+// {
+// 	return (num >>> startBit) & (masks2[startBit][endBit]);
+// }
+
+// let masks2 = [];
+// function generateall () 
+// {
+// 	masks2 = [];
+// 	for (let i = 0; i <= 31; i ++)
+// 	{
+// 		let newarr = new Uint32Array(32);
+// 		masks2.push(newarr);
+// 		for (let ii = 0; ii <= 31; ii ++)
+// 		{
+// 			if (ii < i)
+// 				newarr[ii] = 0;
+// 			else
+// 				newarr[ii] = (masks[ii - i + 1])
+// 		}
+// 	}
+// }
+
+// generateall();
+
+// function test1 () {
+
+// 	let now = new Date().getTime();
+
+// 	for (let i = 0; i < 100000000; i ++)
+// 	{
+// 		let random = Math.floor(Math.random() * 1000000);
+// 		let slice = bitSlice(random, Math.floor(Math.random() * 32), Math.floor(Math.random() * 32));
+// 		slice ++;
+// 	}
+
+// 	return (new Date().getTime() - now) / 1000;
+// }
+
+// function test2 () {
+// 	let now = new Date().getTime();
+
+// 	for (let i = 0; i < 100000000; i ++)
+// 	{
+// 		let random = Math.floor(Math.random() * 1000000);
+// 		let slice = bitSlice2(random, Math.floor(Math.random() * 32), Math.floor(Math.random() * 32));
+// 		slice ++;
+// 	}
+
+// 	return (new Date().getTime() - now) / 1000;
+// }
+
 
 //rotates a 32 bit number right by 0 to 31 bits
 function rotateRight(num, rotateBy)
@@ -423,49 +476,77 @@ const log = function (registers)
 //0 - 133
 //144 - 172
 //https://stackoverflow.com/questions/21012580/is-it-possible-to-write-data-to-file-using-only-javascript
-function download(strData, strFileName, strMimeType) {
-    var D = document,
-        A = arguments,
-        a = D.createElement("a"),
-        d = A[0],
-        n = A[1],
-        t = A[2] || "text/plain";
+// function download(strData, strFileName, strMimeType) {
+//     var D = document,
+//         A = arguments,
+//         a = D.createElement("a"),
+//         d = A[0],
+//         n = A[1],
+//         t = A[2] || "text/plain";
 
-    //build download link:
-    a.href = "data:" + strMimeType + "charset=utf-8," + escape(strData);
-
-
-    if (window.MSBlobBuilder) { // IE10
-        var bb = new MSBlobBuilder();
-        bb.append(strData);
-        return navigator.msSaveBlob(bb, strFileName);
-    } /* end if(window.MSBlobBuilder) */
+//     //build download link:
+//     a.href = "data:" + strMimeType + "charset=utf-8," + escape(strData);
 
 
-
-    if ('download' in a) { //FF20, CH19
-        a.setAttribute("download", n);
-        a.innerHTML = "downloading...";
-        D.body.appendChild(a);
-        setTimeout(function() {
-            var e = D.createEvent("MouseEvents");
-            e.initMouseEvent("click", true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
-            a.dispatchEvent(e);
-            D.body.removeChild(a);
-        }, 66);
-        return true;
-    }; /* end if('download' in a) */
+//     if (window.MSBlobBuilder) { // IE10
+//         var bb = new MSBlobBuilder();
+//         bb.append(strData);
+//         return navigator.msSaveBlob(bb, strFileName);
+//     } /* end if(window.MSBlobBuilder) */
 
 
 
-    //do iframe dataURL download: (older W3)
-    var f = D.createElement("iframe");
-    D.body.appendChild(f);
-    f.src = "data:" + (A[2] ? A[2] : "application/octet-stream") + (window.btoa ? ";base64" : "") + "," + (window.btoa ? window.btoa : escape)(strData);
-    setTimeout(function() {
-        D.body.removeChild(f);
-    }, 333);
-    return true;
+//     if ('download' in a) { //FF20, CH19
+//         a.setAttribute("download", n);
+//         a.innerHTML = "downloading...";
+//         D.body.appendChild(a);
+//         setTimeout(function() {
+//             var e = D.createEvent("MouseEvents");
+//             e.initMouseEvent("click", true, false, window, 0, 0, 0, 0, 0, false, false, false, false, 0, null);
+//             a.dispatchEvent(e);
+//             D.body.removeChild(a);
+//         }, 66);
+//         return true;
+//     }; /* end if('download' in a) */
+
+
+
+//     //do iframe dataURL download: (older W3)
+//     var f = D.createElement("iframe");
+//     D.body.appendChild(f);
+//     f.src = "data:" + (A[2] ? A[2] : "application/octet-stream") + (window.btoa ? ";base64" : "") + "," + (window.btoa ? window.btoa : escape)(strData);
+//     setTimeout(function() {
+//         D.body.removeChild(f);
+//     }, 333);
+//     return true;
+// }
+
+//https://stackoverflow.com/questions/21012580/is-it-possible-to-write-data-to-file-using-only-javascript
+function download(strData, strFileName)
+{
+    var textToWrite = strData;
+    var textFileAsBlob = new Blob([textToWrite], {type:'text/plain'});
+    var fileNameToSaveAs = strFileName
+    var downloadLink = document.createElement("a");
+    downloadLink.download = fileNameToSaveAs;
+    downloadLink.innerHTML = "Download File";
+    if (window.webkitURL != null)
+    {
+        // Chrome allows the link to be clicked
+        // without actually adding it to the DOM.
+        downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+    }
+    else
+    {
+        // Firefox requires the link to be added to the DOM
+        // before it can be clicked.
+        downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+        downloadLink.onclick = destroyClickedElement;
+        downloadLink.style.display = "none";
+        document.body.appendChild(downloadLink);
+    }
+
+    downloadLink.click();
 }
 
 window.help = "0xB0 to 0xE0, DMA (12bytes ea)\n" + "0x100 to 0x110 timers(4bytes ea)\n" + "0x200 to 0x204 IE and IF(2byte ea)";

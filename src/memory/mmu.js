@@ -183,7 +183,8 @@ mmu.prototype.accessMemRegion = function (memAddr, dataSize) {
 		case 0: //BIOS (16 KB, not mirrored)
 		if (memAddr > 0x3FFF)
 		{
-			throw Error("accessing invalid BIOS memory at addr 0x" + memAddr.toString(16) + "!");
+			console.log("accessing invalid BIOS memory at addr 0x" + memAddr.toString(16) + "!");
+			//throw Error("accessing invalid BIOS memory at addr 0x" + memAddr.toString(16) + "!");
 		}
 		this.maskedAddr = memAddr;
 		this.numCycles += 1;
