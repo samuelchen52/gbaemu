@@ -170,14 +170,14 @@ mmu.prototype.updateWAITCNT = function (newWAITCNTVal) {
 //for now, when accessing rom, we'll just treat it as an s-cycle for simplicity
 //timings are not exactly accurate but good enough
 mmu.prototype.accessMemRegion = function (memAddr, dataSize) {
-	if (typeof dataSize !== "number")
-	{
-		console.log(dataSize);
-		alert(typeof dataSize !== "number");
-		throw Error();
-	}
-	if (dataSize < 0 || dataSize > 2)
-		throw Error();
+	// if (typeof dataSize !== "number")
+	// {
+	// 	console.log(dataSize);
+	// 	alert(typeof dataSize !== "number");
+	// 	throw Error();
+	// }
+	// if (dataSize < 0 || dataSize > 2)
+	// 	throw Error();
 	switch (memAddr & 0xFF000000)
 	{
 		case 0: //BIOS (16 KB, not mirrored)
@@ -297,10 +297,10 @@ mmu.prototype.accessMemRegion = function (memAddr, dataSize) {
 
 
 mmu.prototype.read = function (memAddr, numBytes) {
-	if (numBytes === 4 ? memAddr & 3 : (numBytes === 2 ? memAddr & 1 : 0))
-	{
-		throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
-	}
+	// if (numBytes === 4 ? memAddr & 3 : (numBytes === 2 ? memAddr & 1 : 0))
+	// {
+	// 	throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
+	// }
 
 	let memRegion = this.accessMemRegion(memAddr, (numBytes === 4) ? 2 : numBytes - 1);
 	switch(numBytes)
@@ -324,28 +324,28 @@ mmu.prototype.read8 = function(memAddr) {
 };
 
 mmu.prototype.read16 = function(memAddr) {
-	if (memAddr & 1)
-	{
-		throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
-	}
+	// if (memAddr & 1)
+	// {
+	// 	throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
+	// }
 	let memRegion = this.accessMemRegion(memAddr, 1);
 	return memRegion.read16(this.maskedAddr);
 };
 
 mmu.prototype.read32 = function(memAddr) {
-	if (memAddr & 3)
-	{
-		throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
-	}
+	// if (memAddr & 3)
+	// {
+	// 	throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
+	// }
 	let memRegion = this.accessMemRegion(memAddr, 2);
 	return memRegion.read32(this.maskedAddr);
 };
 
 mmu.prototype.write = function(memAddr, val, numBytes) {
-	if (numBytes === 4 ? memAddr & 3 : (numBytes === 2 ? memAddr & 1 : 0))
-	{
-		throw Error("memory address is not aligned!");
-	}
+	// if (numBytes === 4 ? memAddr & 3 : (numBytes === 2 ? memAddr & 1 : 0))
+	// {
+	// 	throw Error("memory address is not aligned!");
+	// }
 	
 	let memRegion = this.accessMemRegion(memAddr, (numBytes === 4) ? 2 : numBytes - 1);
 	switch(numBytes)
@@ -372,19 +372,19 @@ mmu.prototype.write8 = function(memAddr, val) {
 };
 
 mmu.prototype.write16 = function(memAddr, val) {
-	if (memAddr & 1)
-	{
-		throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
-	}
+	// if (memAddr & 1)
+	// {
+	// 	throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
+	// }
 	let memRegion = this.accessMemRegion(memAddr, 1);
 	memRegion.write16(this.maskedAddr, val);
 };
 
 mmu.prototype.write32 = function(memAddr, val) {
-	if (memAddr & 3)
-	{
-		throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
-	}
+	// if (memAddr & 3)
+	// {
+	// 	throw Error("memory address 0x" + memAddr.toString(16) + " is not aligned!");
+	// }
 	let memRegion = this.accessMemRegion(memAddr, 2);
 	memRegion.write32(this.maskedAddr, val);
 };

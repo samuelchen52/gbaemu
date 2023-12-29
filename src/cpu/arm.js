@@ -2483,8 +2483,8 @@ arm.prototype.execute = function (instr, opcode) {
 	if (this.checkCondition(bitSlice(instr, 28, 31)))
 	{
 		let num = this.executeOpcode[opcode](instr);
-		if (num === undefined)
-			throw Error(num);
+		// if (num === undefined)
+		// 	throw Error(num);
 		return num;
 	}
 	return 0;
