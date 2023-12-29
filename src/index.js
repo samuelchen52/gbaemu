@@ -282,7 +282,7 @@ let pauseButton = document.getElementById("pause");
 pauseButton.addEventListener('click', function(e) {
     if (gbaEmu) {
         gbaEmu.togglePause();
-        pauseButton.value = gbaEmu.pauseFlag.pause ? "unpause" : "pause";
+        pauseButton.value = gbaEmu.pause ? "unpause" : "pause";
     }
     
 });
@@ -291,6 +291,16 @@ pauseButton.addEventListener('click', function(e) {
 let darkModeCheckBox = document.getElementById("darkmode");
 
 darkModeCheckBox.addEventListener('change', function(e) {
+    if (e.target.checked)
+		document.body.style = "background-color: black; color: white";
+	else
+		document.body.style = "background-color: Gainsboro;";
+});
+
+//cap fps
+let capFPS = document.getElementById("capfps");
+
+capFPS.addEventListener('change', function(e) {
     if (e.target.checked)
 		document.body.style = "background-color: black; color: white";
 	else
