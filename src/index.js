@@ -283,6 +283,8 @@ pauseButton.addEventListener('click', function(e) {
     if (gbaEmu) {
         gbaEmu.togglePause();
         pauseButton.value = gbaEmu.pause ? "unpause" : "pause";
+
+		pauseButton.blur();
     }
 });
 
@@ -294,6 +296,8 @@ darkModeCheckBox.addEventListener('change', function(e) {
 		document.body.style = "background-color: black; color: white";
 	else
 		document.body.style = "background-color: Gainsboro;";
+
+	darkModeCheckBox.blur();
 });
 
 //cap fps
@@ -497,6 +501,7 @@ createsavestate1Button.addEventListener('click', function(e) {
 	// window.clone = _.cloneDeep(gbaEmu);
 	// gbaEmu.setState(savestate);
 	// deepCompare(window.clone, gbaEmu);
+	createsavestate1Button.blur();
 });
 
 restoresavestate1Button.addEventListener('click', function(e) {
@@ -504,6 +509,8 @@ restoresavestate1Button.addEventListener('click', function(e) {
 		return;
 	
 	gbaEmu.setState(saveState1);
+
+	restoresavestate1Button.blur();
 });
 
 exportsavestate1Button.addEventListener('click', function(e) {
@@ -511,6 +518,8 @@ exportsavestate1Button.addEventListener('click', function(e) {
 		return;
 
 	download(JSON.stringify(saveState1), "savestate1_" + datetime() + ".json");
+
+	exportsavestate1Button.blur();
 });
 
 //SS 2
@@ -521,6 +530,8 @@ createsavestate2Button.addEventListener('click', function(e) {
 	let savestate = gbaEmu.serialize();
 	createButtonUIUpdate(saveState2, savestate, restoresavestate2Button, exportsavestate2Button, 'savestate2screen', restoresavestateoverwrittenButton, exportsavestateoverwrittenButton, 'savestateoverwrittenscreen');
 	saveState2 = savestate;
+
+	createsavestate2Button.blur();
 });
 
 restoresavestate2Button.addEventListener('click', function(e) {
@@ -528,6 +539,8 @@ restoresavestate2Button.addEventListener('click', function(e) {
 		return;
 
 	gbaEmu.setState(saveState2);
+
+	restoresavestate2Button.blur();
 });
 
 exportsavestate2Button.addEventListener('click', function(e) {
@@ -535,6 +548,8 @@ exportsavestate2Button.addEventListener('click', function(e) {
 		return;
 
 	download(JSON.stringify(saveState2), "savestate2_" + datetime() + ".json");
+
+	exportsavestate2Button.blur();
 });
 
 //SS3
@@ -545,6 +560,8 @@ createsavestate3Button.addEventListener('click', function(e) {
 	let savestate = gbaEmu.serialize();
 	createButtonUIUpdate(saveState3, savestate, restoresavestate3Button, exportsavestate3Button, 'savestate3screen', restoresavestateoverwrittenButton, exportsavestateoverwrittenButton, 'savestateoverwrittenscreen');
 	saveState3 = savestate;
+
+	createsavestate3Button.blur();
 });
 
 restoresavestate3Button.addEventListener('click', function(e) {
@@ -552,6 +569,8 @@ restoresavestate3Button.addEventListener('click', function(e) {
 		return;
 
 	gbaEmu.setState(saveState3);
+
+	restoresavestate3Button.blur();
 });
 
 exportsavestate3Button.addEventListener('click', function(e) {
@@ -559,6 +578,8 @@ exportsavestate3Button.addEventListener('click', function(e) {
 		return;
 
 	download(JSON.stringify(saveState3), "savestate3_" + datetime() + ".json");
+
+	exportsavestate3Button.blur();
 });
 
 //overwritten
@@ -567,6 +588,8 @@ restoresavestateoverwrittenButton.addEventListener('click', function(e) {
 		return;
 
 	gbaEmu.setState(saveStateOverwritten);
+
+	restoresavestateoverwrittenButton.blur();
 });
 
 exportsavestateoverwrittenButton.addEventListener('click', function(e) {
@@ -574,6 +597,8 @@ exportsavestateoverwrittenButton.addEventListener('click', function(e) {
 		return;
 
 	download(JSON.stringify(saveStateOverwritten), "overwrittensave_" + datetime() + ".json");
+
+	exportsavestateoverwrittenButton.blur();
 });
 
 
