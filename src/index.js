@@ -297,16 +297,16 @@ darkModeCheckBox.addEventListener('change', function(e) {
 });
 
 //cap fps
-let capFPS = document.getElementById("capfps");
+// let capFPS = document.getElementById("capfps");
 
-capFPS.addEventListener('change', function(e) {
-	if (gbaEmu) {
-		if (e.target.checked)
-			gbaEmu.setFPSCap(60);
-		else
-			gbaEmu.setFPSCap(1000);
-    }
-});
+// capFPS.addEventListener('change', function(e) {
+// 	if (gbaEmu) {
+// 		if (e.target.checked)
+// 			gbaEmu.setFPSCap(60);
+// 		else
+// 			gbaEmu.setFPSCap(1000);
+//     }
+// });
 
 // Undefined	"undefined"
 // Null	"object"
