@@ -300,17 +300,12 @@ darkModeCheckBox.addEventListener('change', function(e) {
 	darkModeCheckBox.blur();
 });
 
-//cap fps
-// let capFPS = document.getElementById("capfps");
+let speedCap = document.getElementById("speed");
 
-// capFPS.addEventListener('change', function(e) {
-// 	if (gbaEmu) {
-// 		if (e.target.checked)
-// 			gbaEmu.setFPSCap(60);
-// 		else
-// 			gbaEmu.setFPSCap(1000);
-//     }
-// });
+speedCap.addEventListener('change', function(e) {
+	if (gbaEmu)
+		gbaEmu.setSpeedCap(Number(speedCap.value));
+});
 
 // Undefined	"undefined"
 // Null	"object"

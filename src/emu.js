@@ -3,7 +3,7 @@ const emulator = function(biosBuffer, romBuffer) {
 	this.frames;
 	this.frameNotComplete;
 	this.pause;
-	this.fpsCap;
+	this.speedCap;
 
 	this.gbaMMU;
 	this.gbaCPU;
@@ -28,8 +28,8 @@ emulator.prototype.togglePause = function() {
 	this.pause = !this.pause;
 }
 
-emulator.prototype.setFPSCap = function(cap) {
-	this.fpsCap = cap;
+emulator.prototype.setSpeedCap = function(cap) {
+	this.speedCap = cap;
 }
 
 
@@ -124,7 +124,7 @@ emulator.prototype.init = function(biosBuffer, romBuffer) {
 	this.frames = 0;
 	this.frameNotComplete = true;
 	this.pause = false;
-	this.fpsCap = 1000;
+	this.speedCap = 100;
 	this.initHardware(biosBuffer, romBuffer);
 	this.initUI();
 };
@@ -133,7 +133,7 @@ emulator.prototype.start = function() {
 	let FPSCounter = document.getElementById("FPS");
 
 	const executeFrame = () => {
-		if (!this.pause && (this.frames < this.fpsCap)) {
+		if (!this.pause) {
 			while (this.frameNotComplete)
 			{
 				this.gbaCPU.run(this.cyclesToRun);
@@ -142,7 +142,7 @@ emulator.prototype.start = function() {
 			this.frames ++;
 			this.frameNotComplete = true;
 		}
-		setTimeout(executeFrame, 10);
+		setTimeout(executeFrame, 1000 / this.speedCap);
 	};
 	executeFrame();
 
