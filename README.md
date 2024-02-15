@@ -11,7 +11,7 @@ The classic GBA BIOS boot screen
 
 Some gameplay from Fire Emblem Sacred Stones
 
-!["Fire Emblem Sacred Stones gameplay."](./resources/fess.png "Fire Emblem Sacred Stones gameplay.")
+!["Fire Emblem Sacred Stones gameplay."](./resources/fess2.jpg "Fire Emblem Sacred Stones gameplay.")
 
 Obligatory screenshot of the Pokemon Emerald start screen
 
