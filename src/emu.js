@@ -3,7 +3,7 @@ const emulator = function(biosBuffer, romBuffer) {
 	this.frames;
 	this.frameNotComplete;
 	this.pause;
-	this.speedCap;
+	this.speedCap; //this is effectively fps
 
 	this.gbaMMU;
 	this.gbaCPU;
@@ -124,7 +124,7 @@ emulator.prototype.init = function(biosBuffer, romBuffer) {
 	this.frames = 0;
 	this.frameNotComplete = true;
 	this.pause = false;
-	this.speedCap = 100;
+	this.speedCap = 60;
 	this.initHardware(biosBuffer, romBuffer);
 	this.initUI();
 };
@@ -132,8 +132,10 @@ emulator.prototype.init = function(biosBuffer, romBuffer) {
 emulator.prototype.start = function() {
 	let FPSCounter = document.getElementById("FPS");
 
+	let timeTakenMS = 0; //time it took for hardware components to update, in ms
 	const executeFrame = () => {
 		if (!this.pause) {
+			let timenow = Date.now();
 			while (this.frameNotComplete)
 			{
 				//run the cpu up to the next "event" that will be triggered, event being defined as some action e.g. timer going off, graphics render
@@ -142,10 +144,24 @@ emulator.prototype.start = function() {
 				this.gbaCPU.run(this.cyclesToRun);
 				this.cyclesToRun = Math.min(this.gbaGPU.update(this.cyclesToRun), this.gbaTimerController.update(this.cyclesToRun));
 			}
+			timeTakenMS += (Date.now() - timenow);
+
 			this.frames ++;
 			this.frameNotComplete = true;
 		}
-		setTimeout(executeFrame, 1000 / this.speedCap);
+		//rudimentary logic to keep framerate consistent. we take into account how long the actual execution of all the hardware components took 
+		//and use that to calculate the delay before executing the next frame. in an ideal world where this execution was instant, the delay would always be
+		//1000 / 60 ms, i.e. 60 fps. since its not, we have to shorten the delay by the execution time (and sometimes get rid of the delay altogether by setting to 0)
+		//also some additional logic to "carry over" lost time if execution is greater than the ideal delay
+		let offset;
+		let ideal = 1000 / this.speedCap;
+		if (timeTakenMS > ideal)
+			offset = ideal;
+		else
+			offset = timeTakenMS;
+		timeTakenMS -= offset;
+
+		setTimeout(executeFrame, ideal - offset);
 	};
 	executeFrame();
 
