@@ -93,6 +93,7 @@ timer.prototype.updateTMCNTHVal = function (newTMCNTHVal) {
 	this.enabled = newTMCNTHVal & this.timerENUMS["TMENABLE"];
 };
 
+//executes numCycles, returns the number of cycles before the next "event" 
 timer.prototype.update = function (numCycles) {
 	if (this.enabled && !this.cascade)
 	{

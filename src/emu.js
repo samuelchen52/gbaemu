@@ -136,6 +136,9 @@ emulator.prototype.start = function() {
 		if (!this.pause) {
 			while (this.frameNotComplete)
 			{
+				//run the cpu up to the next "event" that will be triggered, event being defined as some action e.g. timer going off, graphics render
+				//this is because there is no need to update every component after every cpu instruction (each component only does some action after a certain number of 
+				//cycles), which would be still be correct, but way slower / expensive. 
 				this.gbaCPU.run(this.cyclesToRun);
 				this.cyclesToRun = Math.min(this.gbaGPU.update(this.cyclesToRun), this.gbaTimerController.update(this.cyclesToRun));
 			}

@@ -825,6 +825,7 @@ graphics.prototype.mergeLayersWindow = function (enableScanline, windowCNT, imag
   }
 };
 
+//executes numCycles, returns the number of cycles before the next "event" 
 graphics.prototype.update = function(numCycles) {
   if (this.vblank)
   {
@@ -839,11 +840,14 @@ graphics.prototype.update = function(numCycles) {
         this.vblank = false;
         this.ioregionMem[this.dispstatByte1] &= this.displayENUMS["VBLANKCLEAR"];
         this.setVCount(0);
+        //num cycles before start of hblank, as vblank has ended
         return 960;
       }
       this.setVCount(this.scanline);
+      //num cycles before next vcount increment
       return 1232;
     }
+    //num cycles before next vcount increment
     return 1232 - this.pixel;
   }
   else if (this.hblank)
@@ -860,11 +864,14 @@ graphics.prototype.update = function(numCycles) {
         this.setVCount(160);
         this.setVblank();
         this.finishDraw();
+        //num cycles before next vcount increment
         return 1232;
       }
       this.setVCount(this.scanline);
+      //num cycles before start of hblank (next scanline render)
       return 960;
     }
+    //num cycles before end of hblank
     return 1232 - this.pixel;
   }
   else
@@ -874,8 +881,10 @@ graphics.prototype.update = function(numCycles) {
     {
       this.setHblank();
       this.renderScanline[this.mode](this.scanline, this.scanline * 240, this.imageDataArr, this.convertColor);
+      //num cycles before end of hblank
       return 272;
     }
+    //num cycles before start of hblank
     return 960 - this.pixel;
   }
 };
