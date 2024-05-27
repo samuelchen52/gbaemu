@@ -11,6 +11,7 @@ const emulator = function(biosBuffer, romBuffer) {
 	this.gbaTimerController;
 	this.gbaKeypad;
 	this.gbaDMAController;
+	this.gbaSound;
 	
 	this.init(biosBuffer, romBuffer);
 }
@@ -87,6 +88,7 @@ emulator.prototype.initHardware = function(biosBuffer, romBuffer, saveState) {
 		this.gbaTimerController = new timerController(this.gbaMMU, this.gbaCPU);
 		this.gbaKeypad = new keypad(this.gbaMMU);
 		this.gbaDMAController = new DMAController(this.gbaMMU, this.gbaCPU, this.gbaGPU);
+		this.gbaSound = new sound(this.gbaMMU);
 	}
 
 	//copy BIOS into memory
@@ -142,7 +144,7 @@ emulator.prototype.start = function() {
 				//this is because there is no need to update every component after every cpu instruction (each component only does some action after a certain number of 
 				//cycles), which would be still be correct, but way slower / expensive. 
 				this.gbaCPU.run(this.cyclesToRun);
-				this.cyclesToRun = Math.min(this.gbaGPU.update(this.cyclesToRun), this.gbaTimerController.update(this.cyclesToRun));
+				this.cyclesToRun = Math.min(this.gbaGPU.update(this.cyclesToRun), this.gbaTimerController.update(this.cyclesToRun), this.gbaSound.update(this.cyclesToRun));
 			}
 			timeTakenMS += (Date.now() - timenow);
 

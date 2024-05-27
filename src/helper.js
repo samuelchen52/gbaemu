@@ -172,6 +172,38 @@ function getBytes (instr, state)
 	}
 }
 
+//helper function to get bit mask for bits of registers
+//bits will be a string consisting of '1' / '0'
+function convertStringToBitMask (bits) {
+	bits = bits.replace("x", "");
+
+	let pow = 0;
+	let bitMask = 0;
+
+	bits = bits.split('').reverse();
+
+	for (let i = 0; i < bits.length; i ++)
+	{
+		let char = bits[i];
+
+		if (char !== '1' && char !== '0') {
+			window.alert('passed something in wrong');
+			return;
+		}
+
+		if (char === '1')
+			bitMask += Math.pow(2, pow);
+
+		pow ++;
+	}
+
+	return bitMask;
+}
+
+function numChars (string, char) {
+	return [...string].filter(x => x === char).length;
+}
+
 //returns bits from startBit to endBit from a 32 bit number
 function bitSlice (num, startBit, endBit)
 {
@@ -785,5 +817,6 @@ function decompressBinaryData (arr, size) {
 	return decompressedArr;
 }
 
-
+//constants
+const CYCLES_PER_SECOND = 16777216; //gba cpu runs at ~16.78 Mhz, around 60 fps
 

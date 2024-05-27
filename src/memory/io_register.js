@@ -314,6 +314,94 @@ ioRegDISPSTAT.prototype.write32 = function (memAddr, val) {
 	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
 }
 
+//read write registers
+//we're not going to enforce the write only bits, as i'll assume games won't rely on reading write only bits as the data would be unreliable anyway 
+
+//represents a byte sized register where specific bits are read and/or write
+ioRegByteReadWrite = function (name, ioRegion, regIndex, readOnlyBitMask, writeOnlyBitMask) {
+	ioRegByte.call(this, name, ioRegion, regIndex);
+
+	this.readOnlyBitMask = readOnlyBitMask;
+	this.writeOnlyBitMask = writeOnlyBitMask;
+}
+
+ioRegByteReadWrite.prototype = Object.create(ioRegByte.prototype);
+ioRegByteReadWrite.prototype.constructor = ioRegByteReadWrite;
+
+ioRegByteReadWrite.prototype.write8 = function (memAddr, val) {
+	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] & this.readOnlyBitMask) + (val & ~this.readOnlyBitMask);
+	this.triggerCallbacks();
+}
+
+ioRegByteReadWrite.prototype.write16 = function (memAddr, val) {
+	this.write8(memAddr, val);
+	this.ioRegs[this.regIndex + 1].write8(memAddr + 1, (val & 0xFF00) >>> 8); 
+}
+
+ioRegByteReadWrite.prototype.write32 = function (memAddr, val) {
+	this.write16(memAddr, val);
+	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
+}
+
+//represents a half word sized register where specific bits are read and/or write
+ioRegReadWrite = function (name, ioRegion, regIndex, readOnlyBitMask, writeOnlyBitMask) {
+	ioReg.call(this, name, ioRegion, regIndex);
+
+	this.readOnlyBitMask = readOnlyBitMask;
+	this.writeOnlyBitMask = writeOnlyBitMask;
+}
+
+ioRegReadWrite.prototype = Object.create(ioReg.prototype);
+ioRegReadWrite.prototype.constructor = ioRegReadWrite;
+
+ioRegReadWrite.prototype.write8 = function (memAddr, val) {
+	//if we're writing to an address that is not half-word aligned, we have to shift the mask to the relevant bits
+	let shift = (memAddr - this.regIndex) * 8;
+
+	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] & (this.readOnlyBitMask >>> shift)) + (val & ~(this.readOnlyBitMask >>> shift));
+	this.triggerCallbacks();
+}
+
+ioRegReadWrite.prototype.write16 = function (memAddr, val) {
+	this.ioRegionMemory16[memAddr >>> 1] = (this.ioRegionMemory[memAddr >>> 1] & this.readOnlyBitMask) + (val & ~this.readOnlyBitMask);
+	this.triggerCallbacks();
+}
+
+ioRegReadWrite.prototype.write32 = function (memAddr, val) {
+	this.write16(memAddr, val);
+	this.ioRegs[this.regIndex + 2].write16(memAddr + 2, (val & 0xFFFF0000) >>> 16); 
+}
+
+//represents a word sized register where specific bits are read and/or write
+ioRegWordReadWrite = function (name, ioRegion, regIndex, readOnlyBitMask, writeOnlyBitMask) {
+	ioRegWord.call(this, name, ioRegion, regIndex);
+
+	this.readOnlyBitMask = readOnlyBitMask;
+	this.writeOnlyBitMask = writeOnlyBitMask;
+}
+
+ioRegWordReadWrite.prototype = Object.create(ioRegWord.prototype);
+ioRegWordReadWrite.prototype.constructor = ioRegWordReadWrite;
+
+ioRegWordReadWrite.prototype.write8 = function (memAddr, val) {
+	//if we're writing to an address that is not word aligned, we have to shift the mask to the relevant bits
+	let shift = (memAddr - this.regIndex) * 8;
+	this.ioRegionMemory[memAddr] = (this.ioRegionMemory[memAddr] & (this.readOnlyBitMask >>> shift)) + (val & ~(this.readOnlyBitMask >>> shift));
+	this.triggerCallbacks();
+}
+
+ioRegWordReadWrite.prototype.write16 = function (memAddr, val) {
+	//if we're writing to an address that is not word aligned, we have to shift the mask to the relevant bits
+	let shift = (memAddr - this.regIndex) * 8;
+	this.ioRegionMemory16[memAddr >>> 1] = (this.ioRegionMemory16[memAddr >>> 1] & (this.readOnlyBitMask >>> shift)) + (val & ~(this.readOnlyBitMask >>> shift));
+	this.triggerCallbacks();
+}
+
+ioRegWordReadWrite.prototype.write32 = function (memAddr, val) {
+	this.ioRegionMemory32[memAddr >>> 2] = (this.ioRegionMemory[memAddr >>> 2] & this.readOnlyBitMask) + (val & ~this.readOnlyBitMask);
+	this.triggerCallbacks();
+}
+
 //represents register IOREGTMCNTL
 const ioRegTMCNTL = function (name, ioRegion, regIndex) {
 	ioReg.call(this, name, ioRegion, regIndex);

@@ -1,6 +1,70 @@
+const IORegisterMasks = {
+	//REG_SOUNDCNT_SWEEP
+	REG_SOUNDCNT_SWEEP_SHIFT: convertStringToBitMask("111"),
+	REG_SOUNDCNT_SWEEP_INCREASE: convertStringToBitMask("1000"),
+	REG_SOUNDCNT_SWEEP_SWEEP_TIME: convertStringToBitMask("1110000"),
+	//REG_SOUNDCNT_LEN
+	REG_SOUNDCNT_LEN_LENGTH: convertStringToBitMask("111111"),
+	REG_SOUNDCNT_LEN_WAVE_DUTY: convertStringToBitMask("11000000"),
+	REG_SOUNDCNT_LEN_ENV_STEP_TIME: convertStringToBitMask("11100000000"),
+	REG_SOUNDCNT_LEN_ENV_MODE: convertStringToBitMask("100000000000"),
+	REG_SOUNDCNT_LEN_ENV_INIT: convertStringToBitMask("1111000000000000"),
+	//REG_SOUNDCNT_FREQ
+	REG_SOUNDCNT_FREQ_SOUND_FREQ: convertStringToBitMask("11111111111"),
+	REG_SOUNDCNT_FREQ_TIMED_MODE: convertStringToBitMask("100000000000000"),
+	REG_SOUNDCNT_FREQ_SOUND_RESET: convertStringToBitMask("1000000000000000"),
+	//REG_MASTER_SOUNDCNT
+	
+	//REG_MASTER_SOUNDSTAT
+	REG_MASTER_SOUNDSTAT_1: convertStringToBitMask("1"),
+	REG_MASTER_SOUNDSTAT_2: convertStringToBitMask("10"),
+	REG_MASTER_SOUNDSTAT_3: convertStringToBitMask("100"),
+	REG_MASTER_SOUNDSTAT_4: convertStringToBitMask("1000"),
+	REG_MASTER_SOUNDSTAT_ENABLE: convertStringToBitMask("10000000"),
+};
+
+const IORegisterMaskShifts = {
+	//REG_SOUNDCNT_SWEEP
+	REG_SOUNDCNT_SWEEP_SHIFT: numChars("111", '0'),
+	REG_SOUNDCNT_SWEEP_INCREASE: numChars("1000", '0'),
+	REG_SOUNDCNT_SWEEP_SWEEP_TIME: numChars("1110000", '0'),
+	//REG_SOUNDCNT_LEN
+	REG_SOUNDCNT_LEN_LENGTH: numChars("111111", '0'),
+	REG_SOUNDCNT_LEN_WAVE_DUTY: numChars("11000000", '0'),
+	REG_SOUNDCNT_LEN_ENV_STEP_TIME: numChars("11100000000", '0'),
+	REG_SOUNDCNT_LEN_ENV_MODE: numChars("100000000000", '0'),
+	REG_SOUNDCNT_LEN_ENV_INIT: numChars("1111000000000000", '0'),
+	//REG_SOUNDCNT_FREQ
+	REG_SOUNDCNT_FREQ_SOUND_FREQ: numChars("11111111111", '0'),
+	REG_SOUNDCNT_FREQ_TIMED_MODE: numChars("100000000000000", '0'),
+	REG_SOUNDCNT_FREQ_SOUND_RESET: numChars("1000000000000000", '0'),
+	//REG_MASTER_SOUNDSTAT
+	REG_MASTER_SOUNDSTAT_1: numChars("1", '0'),
+	REG_MASTER_SOUNDSTAT_2: numChars("10", '0'),
+	REG_MASTER_SOUNDSTAT_3: numChars("100", '0'),
+	REG_MASTER_SOUNDSTAT_4: numChars("1000", '0'),
+	REG_MASTER_SOUNDSTAT_ENABLE: numChars("10000000", '0'),
+};
+
 const ioRegion = function() {
 
-	let ioregENUMS = {IOREG : 0, IOREGREADONLY : 1, IOREGWRITEONLY : 2, IOREGBYTE : 3, IOREGBYTEWRITEONLY : 4, IOREGWORD : 5, IOREGWORDWRITEONLY : 6, IOREGIF : 7, IOREGDISPSTAT : 8, IOREGTMCNTL : 9, UNUSED : 10};
+	let ioregENUMS = { 
+		IOREG : 0, 
+		IOREGREADONLY : 1, 
+		IOREGWRITEONLY : 2, 
+		IOREGBYTE : 3, 
+		IOREGBYTEWRITEONLY : 4, 
+		IOREGWORD : 5, 
+		IOREGWORDWRITEONLY : 6, 
+		IOREGIF : 7, 
+		IOREGDISPSTAT : 8, 
+		IOREGTMCNTL : 9, 
+		UNUSED : 10,
+		IOREGBYTEREADWRITE: 11,
+		IOREGREADWRITE: 12,
+		IOREGWORDREADWRITE: 13,
+	};
+
 
 	this.memory = new Uint8Array(1024);
 	this.memory16 = new Uint16Array(this.memory.buffer);
@@ -52,25 +116,25 @@ const ioRegion = function() {
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
 	...(new Array(4)).fill({name: "UNUSED", type: ioregENUMS["UNUSED"]}),
 	//SOUND IO REGISTERS
-	{name: "SOUND1CNT_L", type: ioregENUMS["IOREG"]},
-	{name: "SOUND1CNT_H", type: ioregENUMS["IOREG"]},
-	{name: "SOUND1CNT_X", type: ioregENUMS["IOREG"]},
+	{name: "SOUND1CNT_L", type: ioregENUMS["IOREG"]}, //RW
+	{name: "SOUND1CNT_H", type: ioregENUMS["IOREG"]}, //RW
+	{name: "SOUND1CNT_X", type: ioregENUMS["IOREG"]}, //RW
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
-	{name: "SOUND2CNT_L", type: ioregENUMS["IOREG"]},
+	{name: "SOUND2CNT_L", type: ioregENUMS["IOREG"]}, //RW
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
-	{name: "SOUND2CNT_H", type: ioregENUMS["IOREG"]},
+	{name: "SOUND2CNT_H", type: ioregENUMS["IOREG"]}, //RW
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
-	{name: "SOUND3CNT_L", type: ioregENUMS["IOREG"]},
-	{name: "SOUND3CNT_H", type: ioregENUMS["IOREG"]},
-	{name: "SOUND3CNT_X", type: ioregENUMS["IOREG"]},
+	{name: "SOUND3CNT_L", type: ioregENUMS["IOREG"]}, //RW
+	{name: "SOUND3CNT_H", type: ioregENUMS["IOREG"]}, //RW
+	{name: "SOUND3CNT_X", type: ioregENUMS["IOREG"]}, //RW
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
-	{name: "SOUND4CNT_L", type: ioregENUMS["IOREG"]},
+	{name: "SOUND4CNT_L", type: ioregENUMS["IOREG"]}, //RW
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
-	{name: "SOUND4CNT_H", type: ioregENUMS["IOREG"]},
+	{name: "SOUND4CNT_H", type: ioregENUMS["IOREG"]}, //RW
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
-	{name: "SOUNDCNT_L", type: ioregENUMS["IOREG"]},
-	{name: "SOUNDCNT_H", type: ioregENUMS["IOREG"]},
-	{name: "SOUNDCNT_X", type: ioregENUMS["IOREG"]},
+	{name: "SOUNDCNT_L", type: ioregENUMS["IOREG"]}, //RW
+	{name: "SOUNDCNT_H", type: ioregENUMS["IOREG"]}, //RW
+	{name: "SOUNDCNT_X", type: ioregENUMS["IOREGREADWRITE"], readBits: "0000000000001111"},
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
 	{name: "SOUNDBIAS", type: ioregENUMS["IOREGREADONLY"]}, // type is actually BIOS, implement later
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
@@ -171,19 +235,26 @@ const ioRegion = function() {
 	let size;
 	for (let i = 0; i < ioregInitArr.length; i ++)
 	{
-		switch(ioregInitArr[i]["type"])
+		let type = ioregInitArr[i]["type"];
+		let name = ioregInitArr[i]["name"];
+		let readBits = ioregInitArr[i]["readBits"];
+
+		switch(type)
 		{
-			case ioregENUMS["IOREG"]: newioreg = new ioReg(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGREADONLY"]: newioreg = new ioRegReadOnly(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGWRITEONLY"]: newioreg = new ioRegWriteOnly(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGBYTE"]: newioreg = new ioRegByte(ioregInitArr[i]["name"], this, ioregAddr); size = 1; break;
-			case ioregENUMS["IOREGBYTEWRITEONLY"]: newioreg = new ioRegByteWriteOnly(ioregInitArr[i]["name"], this, ioregAddr); size = 1; break;
-			case ioregENUMS["IOREGWORD"]: newioreg = new ioRegWord(ioregInitArr[i]["name"], this, ioregAddr); size = 4; break;
-			case ioregENUMS["IOREGWORDWRITEONLY"]: newioreg = new ioRegWordWriteOnly(ioregInitArr[i]["name"], this, ioregAddr); size = 4; break;
-			case ioregENUMS["IOREGIF"]: newioreg = new ioRegIF(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGDISPSTAT"]: newioreg = new ioRegDISPSTAT(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
-			case ioregENUMS["IOREGTMCNTL"]: newioreg = new ioRegTMCNTL(ioregInitArr[i]["name"], this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREG"]: newioreg = new ioReg(name, this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGREADONLY"]: newioreg = new ioRegReadOnly(name, this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGWRITEONLY"]: newioreg = new ioRegWriteOnly(name, this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGBYTE"]: newioreg = new ioRegByte(name, this, ioregAddr); size = 1; break;
+			case ioregENUMS["IOREGBYTEWRITEONLY"]: newioreg = new ioRegByteWriteOnly(name, this, ioregAddr); size = 1; break;
+			case ioregENUMS["IOREGWORD"]: newioreg = new ioRegWord(name, this, ioregAddr); size = 4; break;
+			case ioregENUMS["IOREGWORDWRITEONLY"]: newioreg = new ioRegWordWriteOnly(name, this, ioregAddr); size = 4; break;
+			case ioregENUMS["IOREGIF"]: newioreg = new ioRegIF(name, this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGDISPSTAT"]: newioreg = new ioRegDISPSTAT(name, this, ioregAddr); size = 2; break;
+			case ioregENUMS["IOREGTMCNTL"]: newioreg = new ioRegTMCNTL(name, this, ioregAddr); size = 2; break;
 			case ioregENUMS["UNUSED"]: newioreg = unusedreg; size = 2; break;
+			case ioregENUMS["IOREGBYTEREADWRITE"]: newioreg = new ioRegByteReadWrite(name, this, ioregAddr, convertStringToBitMask(readBits)); size = 1; break;
+			case ioregENUMS["IOREGREADWRITE"]: newioreg = new ioRegReadWrite(name, this, ioregAddr, convertStringToBitMask(readBits)); size = 2; break;
+			case ioregENUMS["IOREGWORDREADWRITE"]: newioreg = new ioRegWordReadWrite(name, this, ioregAddr, convertStringToBitMask(readBits)); size = 4; break;
 			default: throw Error("undefined IO register type!");
 		}
 		for (let p = 0; p < size; p ++)
