@@ -1,11 +1,19 @@
-//channel 1 / channel 2
+/*
+    todo, compared to other emulator:
+    frequency cap seems to be lower
+    when changing sweep direction to add, sound stops?
+
+    channel 1 / channel 2
+*/
 const squareChannel = function(REG_SOUNDCNT_LEN, REG_SOUNDCNT_FREQ, REG_SOUNDCNT_SWEEP) {
-    this.soundLength; //the length of time this channel will produce sound
+    this.soundLength; //the length of time this channel will produce sound (in cpu cycles)
     this.wavePattern = 0; //determines the wave pattern of the channel
     this.envelopeStepTime; //delay between envelope increase / decrease
     this.envelopeMode; //bool, if true, increase else decrease
     this.initialEnvelopeValue = 0; //initial volume
 
+    this.minFrequency = 64;
+    this.maxFrequency = 1024; //i think this is supposed to be 131072, but that makes my ears bleed
     this.frequencyVal; //initial frequency val from register
     this.frequency;
     this.timedMode; //bool, if true, will play for a duration of sound length, otherwise forever
@@ -39,6 +47,9 @@ const squareChannel = function(REG_SOUNDCNT_LEN, REG_SOUNDCNT_FREQ, REG_SOUNDCNT
         [1,1,1,1,1,1,0,0],
     ]
 
+    //track length of time sound has been playing, in cpu cycles
+    this.currSoundLength;
+
     REG_SOUNDCNT_LEN.addCallback((REGSOUNDCNTLENVal) => this.updateREGSOUNDCNTLEN(REGSOUNDCNTLENVal) );
     REG_SOUNDCNT_FREQ.addCallback((REGSOUNDCNTFREQVal) => this.updateREGSOUNDCNTFREQ(REGSOUNDCNTFREQVal) );
     if (REG_SOUNDCNT_SWEEP)
@@ -46,7 +57,11 @@ const squareChannel = function(REG_SOUNDCNT_LEN, REG_SOUNDCNT_FREQ, REG_SOUNDCNT
 };
 
 squareChannel.prototype.updateREGSOUNDCNTLEN = function(REGSOUNDCNTLENVal) {
+    //(64-register value)*(1/256) seconds
     this.soundLength = (REGSOUNDCNTLENVal & IORegisterMasks["REG_SOUNDCNT_LEN_LENGTH"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_LEN_LENGTH"];
+    this.soundLength = ((64 - this.soundLength) * (1/256)) * CYCLES_PER_SECOND;
+    this.currSoundLength = 0;
+
     this.wavePattern = (REGSOUNDCNTLENVal & IORegisterMasks["REG_SOUNDCNT_LEN_WAVE_DUTY"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_LEN_WAVE_DUTY"];
     this.envelopeStepTime = (REGSOUNDCNTLENVal & IORegisterMasks["REG_SOUNDCNT_LEN_ENV_STEP_TIME"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_LEN_ENV_STEP_TIME"];
     this.envelopeMode = (REGSOUNDCNTLENVal & IORegisterMasks["REG_SOUNDCNT_LEN_ENV_MODE"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_LEN_ENV_MODE"];
@@ -89,6 +104,7 @@ squareChannel.prototype.update = function(numCycles) {
     this.updateVolume(numCycles);
     this.updateFrequency(numCycles);
     this.updateDutyCycle(numCycles);
+    this.updateDuration(numCycles);
 };
 
 squareChannel.prototype.updateVolume = function(numCycles) {
@@ -107,7 +123,7 @@ squareChannel.prototype.updateVolume = function(numCycles) {
 };
 
 squareChannel.prototype.updateFrequency = function(numCycles) {
-    if (this.cyclesPerSweepStep === 0 || this.sweepShifts === 0 || this.frequency > 131072)
+    if (this.cyclesPerSweepStep === 0 || this.sweepShifts === 0 || this.frequency > this.maxFrequency)
         return;
 
     this.cyclesSinceFrequencyChange += numCycles;
@@ -116,13 +132,13 @@ squareChannel.prototype.updateFrequency = function(numCycles) {
         let tempWavePeriodInSeconds = this.wavePeriodInSeconds + (this.wavePeriodInSeconds / Math.pow(2, this.sweepShifts) * (this.sweepMode ? 1 : -1));
         let tempFrequency = Math.floor(1 / tempWavePeriodInSeconds);
 
-        if (tempFrequency <= 64)
+        if (tempFrequency <= this.minFrequency)
             break;
         else {
             this.wavePeriodInSeconds = tempWavePeriodInSeconds;
             this.frequency = tempFrequency;
 
-            if (this.frequency > 131072)
+            if (this.frequency > this.maxFrequency)
                 break;
         }
     }
@@ -144,24 +160,25 @@ squareChannel.prototype.updateDutyCycle = function(numCycles) {
 };
 
 squareChannel.prototype.updateDuration = function(numCycles) {
-    
-
+    this.currSoundLength += numCycles;
 };
 
 squareChannel.prototype.getSample = function() {
-    
-    if ((this.volume > 0) 
-        && (this.frequency <= 131072) //stop playing sound if frequency exceeds maximum val
+    if (
+        (this.volume <= 0) 
+        || (this.frequency > this.maxFrequency) //stop playing sound if frequency exceeds maximum val
+        || (this.timedMode && (this.currSoundLength > this.soundLength)) //stop playing sound if we've reached the max sound length 
     )
+        return 0;
+    else
         return (this.wavePatternArr[this.wavePattern][this.wavePeriodPos] * (this.volume / this.maxVolume)); //normalize volume with 1 represent max volume val
-
-    return 0;
 };
 
 squareChannel.prototype.init = function() {    
     //init volume
     this.volume = this.initialEnvelopeValue;
     this.cyclesSinceEnvelopeChange = 0;
+    this.currSoundLength = 0;
 
     //init frequency
     if (this.frequencyVal) {
@@ -181,11 +198,165 @@ squareChannel.prototype.init = function() {
     this.wavePeriodPos = 0;
 };
 
+/*
+    channel 3
+*/
+const DACChannel = function(REG_SOUND3CNT_L, REG_SOUND3CNT_H, REG_SOUND3CNT_X, REGS_WAVE_RAM) {
 
-//channel 3
-const DACChannel = function(mmu) {
+    //REG_SOUND3CNT_L
+    this.bankMode = 0; //true -> 1 buffer (32 samples), false -> 2 buffers (64 samples)
+    this.bankSelectedVal = 0; //true -> bank 1 else bank 0
+    this.bankSelected = 0;
+    this.enable = 0;
 
+    //REG_SOUND3CNT_H
+    this.soundLength = 0; //sound length, in cycles
+    this.volumeRatio; //0, 25%, 50%, 75%, 100%
+
+    //REG_SOUND3CNT_X
+    this.sampleRate;
+    this.timedMode; //0 = loop, 1 = timed
+    //soundreset bit
+    
+    this.currSoundLength = 0;
+
+    //wave ram single bank (bank mode = 1)
+    this.sampleBuffer = new Array(32).map(x => 0);
+    //wave ram alternating banks (bank mode = 0)
+    this.sampleBuffer0 = new Array(32).map(x => 0);
+    this.sampleBuffer1 = new Array(32).map(x => 0);
+
+    this.sampleIndex = 0;
+    this.numCycle = 0;
+    this.cyclesPerSample = 0;
+
+    REG_SOUND3CNT_L.addCallback(REGSOUND3CNTLVal => {
+        this.bankMode = (REGSOUND3CNTLVal & IORegisterMasks["REG_SOUND3CNT_L_BANK_MODE"]) >>> IORegisterMaskShifts["REG_SOUND3CNT_L_BANK_MODE"];
+        this.bankSelectedVal = (REGSOUND3CNTLVal & IORegisterMasks["REG_SOUND3CNT_L_BANK_SELECT"]) >>> IORegisterMaskShifts["REG_SOUND3CNT_L_BANK_SELECT"];
+        this.bankSelected = this.bankSelectedVal;
+        this.enable = (REGSOUND3CNTLVal & IORegisterMasks["REG_SOUND3CNT_L_ENABLE"]) >>> IORegisterMaskShifts["REG_SOUND3CNT_L_ENABLE"];
+    });
+    REG_SOUND3CNT_H.addCallback(REGSOUND3CNTLVal => {
+        //(256-n)/256
+        this.soundLength = (REGSOUND3CNTLVal & IORegisterMasks["REG_SOUND3CNT_H_LENGTH"]) >>> IORegisterMaskShifts["REG_SOUND3CNT_H_LENGTH"];
+        this.soundLength = ((256 - this.soundLength) / 256) * CYCLES_PER_SECOND;
+
+        //000=Mute
+        // 001=100%
+        // 100=75%
+        // 010=50%
+        // 011=25%
+        this.volumeRatio = (REGSOUND3CNTLVal & IORegisterMasks["REG_SOUND3CNT_H_VOLUME_RATIO"]) >>> IORegisterMaskShifts["REG_SOUND3CNT_H_VOLUME_RATIO"];
+        switch(this.volumeRatio)
+        {
+            case 0:
+                this.volumeRatio = 0;
+                break;
+            case 1:
+                this.volumeRatio = 1;
+                break;
+            case 4:
+                this.volumeRatio = .75;
+                break;
+            case 2:
+                this.volumeRatio = .5;
+                break;
+            case 3:
+                this.volumeRatio = .25;
+                break;
+        }
+    });
+    REG_SOUND3CNT_X.addCallback(REGSOUND3CNTLVal => {
+        //2097152/(2048-n)
+        this.sampleRate = (REGSOUND3CNTLVal & IORegisterMasks["REG_SOUND3CNT_X_FREQ"]) >>> IORegisterMaskShifts["REG_SOUND3CNT_X_FREQ"];
+        this.sampleRate = 2097152 / (2048 - this.sampleRate);
+        this.cyclesPerSample = (1 / this.sampleRate) * CYCLES_PER_SECOND;
+
+        this.timedMode = (REGSOUND3CNTLVal & IORegisterMasks["REG_SOUND3CNT_X_TIMED_MODE"]) >>> IORegisterMaskShifts["REG_SOUND3CNT_X_TIMED_MODE"];
+        let soundReset = (REGSOUND3CNTLVal & IORegisterMasks["REG_SOUND3CNT_X_SOUND_RESET"]) >>> IORegisterMaskShifts["REG_SOUND3CNT_X_SOUND_RESET"];
+        if (soundReset)
+            this.init();
+    });
+
+
+    //8 wave ram registers, halfword (2 bytes) each, at 4 bits per sample == 32 samples total
+    //samples are extracted from the bytes in order of mem address (MSBs first!)
+    // let REG_WAVE_RAM0_L = REGS_WAVE_RAM[0];
+    // let REG_WAVE_RAM0_H = REGS_WAVE_RAM[1];
+    // let REG_WAVE_RAM1_L = REGS_WAVE_RAM[2];
+    // let REG_WAVE_RAM1_H = REGS_WAVE_RAM[3];
+    // let REG_WAVE_RAM2_L = REGS_WAVE_RAM[4];
+    // let REG_WAVE_RAM2_H = REGS_WAVE_RAM[5];
+    // let REG_WAVE_RAM3_L = REGS_WAVE_RAM[6];
+    // let REG_WAVE_RAM3_H = REGS_WAVE_RAM[7];
+    for (let i = 0; i < REGS_WAVE_RAM.length; i ++)
+    {
+        let REG_WAVE_RAM = REGS_WAVE_RAM[i];
+        REG_WAVE_RAM.addCallback(REGWAVERAMVal => {
+            let bufferOffset = i * 4;
+    
+            let firstByte = REGWAVERAMVal >>> 8; //LS byte
+            let secondByte = REGWAVERAMVal & 0xFF; //MS byte
+    
+            let firstSample = firstByte >>> 4;
+            let secondSample = firstByte & 0xF;
+            let thirdSample = secondByte >>> 4;
+            let fourthSample = secondByte & 0xF;;
+    
+            this.sampleBuffer[bufferOffset] = firstSample;
+            this.sampleBuffer[bufferOffset + 1] = secondSample;
+            this.sampleBuffer[bufferOffset + 2] = thirdSample;
+            this.sampleBuffer[bufferOffset + 3] = fourthSample;
+
+            if (!this.bankMode) {
+                let inactiveSampleBuffer = this.bankSelected ? this.sampleBuffer0 : this.sampleBuffer1;
+                inactiveSampleBuffer[bufferOffset] = firstSample;
+                inactiveSampleBuffer[bufferOffset + 1] = secondSample;
+                inactiveSampleBuffer[bufferOffset + 2] = thirdSample;
+                inactiveSampleBuffer[bufferOffset + 3] = fourthSample;
+            }
+        });
+    };
 }
+
+DACChannel.prototype.init = function() {    
+
+    //this.frequency = frequencyval * whatever;
+    this.currSoundLength = 0;
+    this.sampleIndex = 0;
+    this.numCycle = 0;
+    this.bankSelected = this.bankSelectedVal;
+};
+
+DACChannel.prototype.update = function(numCycles) {    
+    if (this.cyclesPerSample === 0)
+        return;
+
+    this.numCycle += numCycles;
+
+    this.sampleIndex += Math.floor(this.numCycle / this.cyclesPerSample);
+    this.numCycle %= this.cyclesPerSample;
+
+    //this.sampleBuffer.length
+    if (this.sampleIndex === 32) {
+        this.sampleIndex = 0;
+        //switch the bank if we are in two bank mode (i.e. play the other buffer)
+        if (this.bankMode)
+            this.bankSelected = !this.bankSelected;
+    }
+
+    //sound length
+    this.currSoundLength += numCycles;
+};
+
+DACChannel.prototype.getSample = function() {
+    if (!this.enable || (this.timedMode && (this.currSoundLength > this.soundLength)))
+        return 0;
+    else {
+        let sampleBuffer = this.bankSelected ? this.sampleBuffer1 : this.sampleBuffer0;
+        return (sampleBuffer[this.sampleIndex] / 15) * this.volumeRatio; //normalize volume with 1 represent max volume val
+    }
+};
 
 //channel 4
 const noiseChannel = function(mmu) {
