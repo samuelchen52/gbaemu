@@ -47,6 +47,19 @@ const IORegisterMasks = {
 	REG_SOUNDCNT_L_SOUND2_RIGHT: convertStringToBitMask("10000000000000"),
 	REG_SOUNDCNT_L_SOUND3_RIGHT: convertStringToBitMask("100000000000000"),
 	REG_SOUNDCNT_L_SOUND4_RIGHT: convertStringToBitMask("1000000000000000"),
+
+	//REG_SOUNDCNT_H (Direct sound control)
+	REG_SOUNDCNT_H_DMG_SOUND_RATIO: convertStringToBitMask("11"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_RATIO: convertStringToBitMask("100"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_RATIO: convertStringToBitMask("1000"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_RIGHT: convertStringToBitMask("100000000"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_LEFT: convertStringToBitMask("1000000000"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_TIMER: convertStringToBitMask("10000000000"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_RESET: convertStringToBitMask("100000000000"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_RIGHT: convertStringToBitMask("1000000000000"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_LEFT: convertStringToBitMask("10000000000000"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_TIMER: convertStringToBitMask("100000000000000"),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_RESET: convertStringToBitMask("1000000000000000"),
 };
 
 const IORegisterMaskShifts = {
@@ -92,6 +105,18 @@ const IORegisterMaskShifts = {
 	REG_SOUNDCNT_L_SOUND2_RIGHT: numChars("10000000000000", '0'),
 	REG_SOUNDCNT_L_SOUND3_RIGHT: numChars("100000000000000", '0'),
 	REG_SOUNDCNT_L_SOUND4_RIGHT: numChars("1000000000000000", '0'),
+	//REG_SOUNDCNT_H (Direct sound control)
+	REG_SOUNDCNT_H_DMG_SOUND_RATIO: numChars("11", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_RATIO: numChars("100", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_RATIO: numChars("1000", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_RIGHT: numChars("100000000", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_LEFT: numChars("1000000000", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_TIMER: numChars("10000000000", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_A_RESET: numChars("100000000000", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_RIGHT: numChars("1000000000000", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_LEFT: numChars("10000000000000", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_TIMER: numChars("100000000000000", '0'),
+	REG_SOUNDCNT_H_DIRECT_SOUND_B_RESET: numChars("1000000000000000", '0'),
 };
 
 const ioRegion = function() {
@@ -196,10 +221,12 @@ const ioRegion = function() {
 	{name: "REG_WAVE_RAM2_H", type: ioregENUMS["IOREG"]},
 	{name: "REG_WAVE_RAM3_L", type: ioregENUMS["IOREG"]},
 	{name: "REG_WAVE_RAM3_H", type: ioregENUMS["IOREG"]},
-	{name: "REG_FIFO_A_L", type: ioregENUMS["IOREGWRITEONLY"]},
-	{name: "REG_FIFO_A_H", type: ioregENUMS["IOREGWRITEONLY"]},
-	{name: "REG_FIFO_B_L", type: ioregENUMS["IOREGWRITEONLY"]},
-	{name: "REG_FIFO_B_H", type: ioregENUMS["IOREGWRITEONLY"]},
+	{name: "REG_FIFO_A", type: ioregENUMS["IOREGWORDWRITEONLY"]},
+	{name: "REG_FIFO_B", type: ioregENUMS["IOREGWORDWRITEONLY"]},
+	// {name: "REG_FIFO_A_L", type: ioregENUMS["IOREGWRITEONLY"]},
+	// {name: "REG_FIFO_A_H", type: ioregENUMS["IOREGWRITEONLY"]},
+	// {name: "REG_FIFO_B_L", type: ioregENUMS["IOREGWRITEONLY"]},
+	// {name: "REG_FIFO_B_H", type: ioregENUMS["IOREGWRITEONLY"]},
 	{name: "UNUSED", type: ioregENUMS["UNUSED"]},
 	...(new Array(3)).fill({name: "UNUSED", type: ioregENUMS["UNUSED"]}),
 	//DMA IO REGISTERS

@@ -6,10 +6,10 @@ const timerController = function(mmu, cpu) {
 		cascade : false,
 		enabled : false
 	};
-	this.timer3 = new timer(ioregion.getIOReg("TM3CNTL"), ioregion.getIOReg("TM3CNTH"), this.dummyTimer, cpu, ioregion.memory, ifByte1, 64);
-	this.timer2 = new timer(ioregion.getIOReg("TM2CNTL"), ioregion.getIOReg("TM2CNTH"), this.timer3, cpu, ioregion.memory, ifByte1, 32);
-	this.timer1 = new timer(ioregion.getIOReg("TM1CNTL"), ioregion.getIOReg("TM1CNTH"), this.timer2, cpu, ioregion.memory, ifByte1, 16);
-	this.timer0 = new timer(ioregion.getIOReg("TM0CNTL"), ioregion.getIOReg("TM0CNTH"), this.timer1, cpu, ioregion.memory, ifByte1, 8);
+	this.timer3 = new timer(ioregion.getIOReg("TM3CNTL"), ioregion.getIOReg("TM3CNTH"), this.dummyTimer, cpu, ioregion.memory, ifByte1, 64, 3);
+	this.timer2 = new timer(ioregion.getIOReg("TM2CNTL"), ioregion.getIOReg("TM2CNTH"), this.timer3, cpu, ioregion.memory, ifByte1, 32, 2);
+	this.timer1 = new timer(ioregion.getIOReg("TM1CNTL"), ioregion.getIOReg("TM1CNTH"), this.timer2, cpu, ioregion.memory, ifByte1, 16, 1);
+	this.timer0 = new timer(ioregion.getIOReg("TM0CNTL"), ioregion.getIOReg("TM0CNTH"), this.timer1, cpu, ioregion.memory, ifByte1, 8, 0);
 };
 
 timerController.prototype.update = function (numCycles) {
@@ -37,12 +37,13 @@ timerController.prototype.setState = function(saveState) {
 
 //if timer is enabled while scheduler is running to next event, it will NOT inform the scheduler
 //timings are totally inaccurate right now so there wouldnt be a difference fixing this right now anyway
-const timer = function(TMCNTL, TMCNTH, nextTimer, cpu, ioregionMem, ifByte1, interruptFlag) {
+const timer = function(TMCNTL, TMCNTH, nextTimer, cpu, ioregionMem, ifByte1, interruptFlag, timerNum) {
 	this.nextTimer = nextTimer;
 	this.cpu =  cpu;
 	this.ioregionMem = ioregionMem;
 	this.ifByte1 = ifByte1;
 	this.interruptFlag = interruptFlag;
+	this.timerNum = timerNum;
 
 	this.counter = 0;
 	this.reload = 0;
@@ -53,6 +54,8 @@ const timer = function(TMCNTL, TMCNTH, nextTimer, cpu, ioregionMem, ifByte1, int
 	this.enabled = false;
 
 	this.leftoverCycles = 0;
+
+	this.timerOverflowCallbacks = [];
 
 	TMCNTL.addCallback((newTMCNTLVal) => {this.updateTMCNTLVal(newTMCNTLVal)});
 	TMCNTH.addCallback((newTMCNTHVal) => {this.updateTMCNTHVal(newTMCNTHVal)});
@@ -117,6 +120,7 @@ timer.prototype.update = function (numCycles) {
 				this.ioregionMem[this.ifByte1] |= this.interruptFlag;
 		    this.cpu.awake();
 			}
+			this.timerOverflowCallbacks.forEach(callback => callback(this.timerNum));
 		}
 		return (0x10000 - this.counter) << this.freqPow;
 	}
@@ -137,7 +141,12 @@ timer.prototype.increment = function () {
 			this.ioregionMem[this.ifByte1] |= this.interruptFlag;
 	    this.cpu.awake();
 		}
+		this.timerOverflowCallbacks.forEach(callback => callback(this.timerNum));
 	}
+};
+
+timer.prototype.addTimerOverflowCallback = function (callback) {
+	this.timerOverflowCallbacks.push(callback);
 };
 
 //returns JSON of inner state

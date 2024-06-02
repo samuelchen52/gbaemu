@@ -1,5 +1,8 @@
-const DMAController = function(mmu, cpu, graphics) {
+const DMAController = function(mmu, cpu, graphics, sound) {
 	let ioregion = mmu.getMemoryRegion("IOREGISTERS");
+	
+	this.FIFOAAddress = ioregion.getIOReg("REG_FIFO_A").regIndex;
+	this.FIFOBAddress = ioregion.getIOReg("REG_FIFO_B").regIndex;
 
 	this.DMAChannel0 = new DMAChannel0(mmu, cpu, ioregion.getIOReg("DMA0SAD"), ioregion.getIOReg("DMA0DAD"), ioregion.getIOReg("DMA0CNTL"), ioregion.getIOReg("DMA0CNTH"), 0x7FFFFFF, 0x7FFFFFF, 0x3FFF, 1);
 	this.DMAChannel1 = new DMAChannel12(mmu, cpu, ioregion.getIOReg("DMA1SAD"), ioregion.getIOReg("DMA1DAD"), ioregion.getIOReg("DMA1CNTL"), ioregion.getIOReg("DMA1CNTH"), 0xFFFFFFF, 0x7FFFFFF, 0x3FFF, 2);
@@ -7,6 +10,8 @@ const DMAController = function(mmu, cpu, graphics) {
 	this.DMAChannel3 = new DMAChannel3(mmu, cpu, ioregion.getIOReg("DMA3SAD"), ioregion.getIOReg("DMA3DAD"), ioregion.getIOReg("DMA3CNTL"), ioregion.getIOReg("DMA3CNTH"), 0xFFFFFFF, 0xFFFFFFF, 0xFFFF, 8);
 
 	graphics.addCallbacks(this.triggerHblankDMA.bind(this), this.triggerVblankDMA.bind(this));
+	sound.directSoundChannel5.addBufferDrainedCallback(this.triggerFIFOADMA.bind(this));
+	sound.directSoundChannel6.addBufferDrainedCallback(this.triggerFIFOBDMA.bind(this));
 };
 
 DMAController.prototype.triggerVblankDMA = function () {
@@ -22,6 +27,17 @@ DMAController.prototype.triggerHblankDMA = function () {
 	this.DMAChannel2.startTransfer(this.DMAChannel2.enable && (this.DMAChannel2.timingMode === 2));
 	this.DMAChannel3.startTransfer(this.DMAChannel3.enable && (this.DMAChannel3.timingMode === 2));
 };
+
+DMAController.prototype.triggerFIFOADMA = function () {
+	this.DMAChannel1.startTransferSpecial(this.DMAChannel1.enable && (this.DMAChannel1.timingMode === 3) && this.DMAChannel1.destAddr === this.FIFOAAddress);
+	this.DMAChannel2.startTransferSpecial(this.DMAChannel2.enable && (this.DMAChannel2.timingMode === 3) && this.DMAChannel2.destAddr === this.FIFOAAddress);
+};
+
+DMAController.prototype.triggerFIFOBDMA = function () {
+	this.DMAChannel1.startTransferSpecial(this.DMAChannel1.enable && (this.DMAChannel1.timingMode === 3) && this.DMAChannel1.destAddr === this.FIFOBAddress);
+	this.DMAChannel2.startTransferSpecial(this.DMAChannel2.enable && (this.DMAChannel2.timingMode === 3) && this.DMAChannel2.destAddr === this.FIFOBAddress);
+};
+
 
 //returns JSON of inner state
 DMAController.prototype.serialize = function() {
@@ -55,7 +71,10 @@ const DMAChannel = function (mmu, cpu, DMASAD, DMADAD, DMACNTL, DMACNTH, sadMask
 	this.dmacntlMask = dmacntlMask;
 	this.cpu = cpu;
 
+	//keep copies of the original register value, dma channels have their own internal pointer for src / dest addr
+	this.srcAddrReg = 0;
 	this.srcAddr = 0;
+	this.destAddrReg = 0;
 	this.destAddr = 0;
 	this.numTransfers = 0;
 	this.destAdjust = 0;
@@ -116,13 +135,13 @@ DMAChannel.prototype.updateDMASAD = function (newDMASADVal) {
 	if ((memRegionIndex < 0x2) || (memRegionIndex >= 0xA))
 	{
 		//console.log("DMA source addr out of bounds : " + memRegionIndex);
-		this.destAddrInvalid = true;
+		this.srcAddrInvalid = true;
 		return;
 	}
 
 	this.srcMemRegion = this.memRegions[memRegionIndex];
 	this.srcMemRegionMask = this.memRegionMasks[memRegionIndex];
-	this.srcAddr = newDMASADVal & 0x00FFFFFF;
+	this.srcAddrReg = newDMASADVal & 0x00FFFFFF;
 	this.srcMemRegionName = this.memRegionsNames[memRegionIndex];
 	this.srcAddrInvalid = false;
 };
@@ -134,13 +153,13 @@ DMAChannel.prototype.updateDMADAD = function (newDMADADVal) {
 	if ((memRegionIndex < 0x2) || (memRegionIndex >= 0x8))
 	{
 		//console.log("DMA dest addr out of bounds : " + memRegionIndex);
-		this.srcAddrInvalid = true;
+		this.destAddrInvalid = true;
 		return;
 	}
 
 	this.destMemRegion = this.memRegions[memRegionIndex];
 	this.destMemRegionMask = this.memRegionMasks[memRegionIndex];
-	this.destAddr = newDMADADVal & 0x00FFFFFF;
+	this.destAddrReg = newDMADADVal & 0x00FFFFFF;
 	this.destMemRegionName = this.memRegionsNames[memRegionIndex];
 	this.destAddrInvalid = false;
 };
@@ -165,7 +184,15 @@ DMAChannel.prototype.updateDMACNTH = function (newDMACNTHVal) {
 	this.chunkSize = (newDMACNTHVal & this.DMAChannelENUMS["CHUNKSIZE"]) ? 4 : 2;
 	this.timingMode = (newDMACNTHVal & this.DMAChannelENUMS["TIMINGMODE"]) >>> 12;
 	this.irqEnable = newDMACNTHVal & this.DMAChannelENUMS["IRQENABLE"];
-	this.enable = newDMACNTHVal & this.DMAChannelENUMS["ENABLE"];
+	let enable = newDMACNTHVal & this.DMAChannelENUMS["ENABLE"];
+
+	//if dma being enabled, copy over src / dest addres
+	if (enable && !this.enable) {
+		this.srcAddr = this.srcAddrReg;
+		this.destAddr = this.destAddrReg;		
+	}
+	this.enable = enable;
+
 
 	this.destIncrAmount = ((this.destAdjust === 0) || (this.destAdjust === 3)) ? this.chunkSize : ((this.destAdjust === 1) ? (-1 * this.chunkSize) : 0);
 	this.srcIncrAmount = ((this.srcAdjust === 0) || (this.srcAdjust === 3)) ? this.chunkSize : ((this.srcAdjust === 1) ? (-1 * this.chunkSize) : 0);
@@ -227,6 +254,8 @@ DMAChannel.prototype.startTransfer = function (shouldStart) {
 			this.ioRegionMem[this.DMACNTHByte2] &= 127;
 			this.enable = 0;
 		}
+		// else
+		// 	this.destAddr = this.destAddrReg;
 
 		if (this.irqEnable)
 		{	
@@ -320,8 +349,54 @@ const DMAChannel12 = function (mmu, cpu, DMASAD, DMADAD, DMACNTL, DMACNTH, SADMa
 DMAChannel12.prototype = Object.create(DMAChannel.prototype);
 DMAChannel12.constructor = DMAChannel12;
 
-DMAChannel12.prototype.startTransferSpecial = function (memAddr) {
-	throw Error("unimplemented special timing for DMA 1/2");
+DMAChannel12.prototype.startTransferSpecial = function (shouldStart) {
+	if (shouldStart && !this.srcAddrInvalid)
+	{
+		let srcMemRegion = this.srcMemRegion;
+		let srcMemRegionMask = this.srcMemRegionMask;
+		let srcAddr = this.srcAddr & 0xFFFFFC; //(this.chunkSize === 4 ? 0xFFFFFC : 0xFFFFFE);
+		let srcIncrAmount = ((this.srcAdjust === 0) || (this.srcAdjust === 3)) ? 4 : ((this.srcAdjust === 1) ? -4 : 0);
+
+
+		let destMemRegion = this.destMemRegion;
+		let destMemRegionMask = this.destMemRegionMask;
+		let destAddr = this.destAddr & 0xFFFFFC; //(this.chunkSize === 4 ? 0xFFFFFC : 0xFFFFFE);
+		let destIncrAmount = this.destIncrAmount;
+
+		// console.log("starting DMA, src addr: 0x" + srcAddr.toString(16) + " dest addr: 0x" + destAddr.toString(16));
+		// console.log("src mem region: " + this.srcMemRegionName + " dest mem region: " + this.destMemRegionName);
+		// console.log("chunkSize: " + this.chunkSize + " numBytes: " + (this.numTransfers * this.chunkSize).toString(16));
+		// console.log("srcIncrAmount: " + srcIncrAmount + " destIncrAmount: " + destIncrAmount);
+		for (let i = 0; i < 4; i ++)
+		{
+			destMemRegion.write32(destAddr, srcMemRegion.read32(srcAddr));
+			srcAddr += srcIncrAmount;
+			srcAddr = (!srcMemRegionMask) ? ((srcAddr & 0x10000) ? (srcAddr & 0x17FFF) : srcAddr) : (srcAddr & srcMemRegionMask);
+			//destAddr += destIncrAmount;
+			//destAddr = (!destMemRegionMask) ? ((destAddr & 0x10000) ? (destAddr & 0x17FFF) : destAddr) : (destAddr & destMemRegionMask);
+		}
+
+		//will writeback aligned addresses, shouldnt matter since register
+		// if (this.destAdjust !== 3)
+		// {
+		// 	this.destAddr = destAddr;
+		// }
+		this.srcAddr = srcAddr;
+
+		if (!this.repeat)
+		{
+			this.ioRegionMem[this.DMACNTHByte2] &= 127;
+			this.enable = 0;
+		}
+		// else
+		// 	this.destAddr = this.destAddrReg;
+
+		if (this.irqEnable)
+		{	
+			this.ioRegionMem[this.ifByte2] |= this.interruptFlag;
+			this.cpu.awake();
+		}
+	}
 }
 
 const DMAChannel3 = function (mmu, cpu, DMASAD, DMADAD, DMACNTL, DMACNTH, SADMask, DADMask, DMACNTLMask, interruptFlag) {

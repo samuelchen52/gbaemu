@@ -201,6 +201,8 @@ function convertStringToBitMask (bits) {
 }
 
 function numChars (string, char) {
+	if (!char)
+		throw new Error("no char");
 	return [...string].filter(x => x === char).length;
 }
 
@@ -816,6 +818,91 @@ function decompressBinaryData (arr, size) {
 	
 	return decompressedArr;
 }
+
+//direct sound A / B
+const crappyFIFOQueue = function(bufferLen) {
+	this.arr = new Int8Array(bufferLen);
+	this.headIndex = this.arr.length - 1;
+	this.tailIndex = this.headIndex; //next insertion index
+	this.length = 0;
+}
+
+
+crappyFIFOQueue.prototype.push = function(val) {
+	this.tailIndex --;
+
+	this.arr[this.tailIndex] = val;
+	this.length ++;
+
+	//if we've run out of space, move everything to the end of the buffer
+	if (this.tailIndex === 0) {
+		this.reset();
+	}
+};
+
+crappyFIFOQueue.prototype.pop = function() {
+	if (this.length === 0)
+		throw new Error("shouldnt be popping");
+
+	let poppedVal = this.arr[this.headIndex];
+	
+	this.headIndex --;
+	this.length --;
+
+	return poppedVal;
+}
+
+crappyFIFOQueue.prototype.reset = function() {
+	//if we've run out of space, move everything to the end of the buffer
+	for (let i = this.tailIndex; i < (this.tailIndex + this.length); i++)
+	{
+		let endIndex = this.arr.length - 1 - i;
+		this.arr[endIndex] = this.arr[i];
+	}
+	
+	let diff = this.headIndex - this.tailIndex;
+
+	this.headIndex = this.arr.length - 1;
+	this.tailIndex = this.headIndex - diff;
+}
+
+crappyFIFOQueue.prototype.clear = function() {
+	this.reset();
+	this.length = 0;
+	this.tailIndex --;
+	this.headIndex = this.tailIndex;
+}
+
+
+// around ~3x faster?
+
+// let testarr = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16];
+// let fifo1 = new crappyFIFOQueue(1000000);
+// let fifo2 = [...testarr];
+
+// testarr.forEach(x => {
+// 	fifo1.push(x);
+// });
+
+// let now = new Date().getTime();
+// for (let i = 0; i < 2000000; i ++)
+// 	{
+// 		fifo1.pop();
+// 		fifo1.push(5);
+// 	}
+
+// console.log("seconds: ")
+// console.log((new Date().getTime() - now) / 1000);
+
+// now = new Date().getTime();
+// for (let i = 0; i < 2000000; i ++)
+// 	{
+// 		fifo2.pop();
+// 		fifo2.unshift(5);
+// 	}
+
+// console.log("seconds: ")
+// console.log((new Date().getTime() - now) / 1000);
 
 //constants
 const CYCLES_PER_SECOND = 16777216; //gba cpu runs at ~16.78 Mhz, around 60 fps

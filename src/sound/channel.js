@@ -361,4 +361,81 @@ DACChannel.prototype.getSample = function() {
 //channel 4
 const noiseChannel = function(mmu) {
 
+    
 }
+
+//direct sound A / B
+const directSoundChannel = function(timerController, REG_FIFO, REG_SOUNDCNT_H, REG_SOUNDCNT_H_TIMER_MASK, REG_SOUNDCNT_H_TIMER_MASK_SHIFT, REG_SOUNDCNT_H_RESET_MASK, REG_SOUNDCNT_H_RESET_MASK_SHIFT) {
+    //take in the soundcnt h
+    this.timerMask = REG_SOUNDCNT_H_TIMER_MASK;
+    this.timerMaskShift = REG_SOUNDCNT_H_TIMER_MASK_SHIFT;
+    this.resetMask = REG_SOUNDCNT_H_RESET_MASK;
+    this.resetMaskShift = REG_SOUNDCNT_H_RESET_MASK_SHIFT;
+
+    //will pass in the mask
+    //timer callback will pass in timer num of overflow
+    //so if timer num == this.timer num, then set timeroverflow
+    this.selectedTimer = 0; //0 or 1
+
+    //called after buffer is empty -> used by DMA
+    this.bufferDrainedCallbacks = [];
+
+    this.sampleBuffer = new crappyFIFOQueue(100000); //16 signed bytes
+
+    //when triggered, a sample will be "drained"
+    this.timerOverflow = false;
+
+    REG_SOUNDCNT_H.addCallback(REGSOUNDCNTHVal => this.updateREGSOUNDCNTH(REGSOUNDCNTHVal));
+    REG_FIFO.addCallback(REGFIFOVal => this.updateREGFIFO(REGFIFOVal));
+
+    timerController.timer0.addTimerOverflowCallback((timerNum) => this.timerOverflowCallback(timerNum));
+    timerController.timer1.addTimerOverflowCallback((timerNum) => this.timerOverflowCallback(timerNum));
+}
+
+directSoundChannel.prototype.updateREGSOUNDCNTH = function(REGSOUNDCNTHVal) {
+    this.selectedTimer = (REGSOUNDCNTHVal & this.timerMask) >>> this.timerMaskShift;
+    let reset = (REGSOUNDCNTHVal & this.resetMask) >>> this.resetMaskShift;
+    //not sure if this is correct
+    if (reset)
+        this.sampleBuffer.clear();
+};
+
+directSoundChannel.prototype.updateREGFIFO = function(REGFIFOVal) {
+    //the LSBs are played first
+    this.sampleBuffer.push(REGFIFOVal & 0xFF);
+    this.sampleBuffer.push((REGFIFOVal & 0xFF00) >>> 8);
+    this.sampleBuffer.push((REGFIFOVal & 0xFF0000) >>> 16);
+    this.sampleBuffer.push((REGFIFOVal & 0xFF000000) >>> 24);
+
+    //on buffer overflow, i think its supposed to reset??
+    // if (this.sampleBuffer.length > 16)
+    //     this.sampleBuffer.clear();
+};
+
+directSoundChannel.prototype.addBufferDrainedCallback = function(callback) {
+    this.bufferDrainedCallbacks.push(callback);
+};
+
+directSoundChannel.prototype.timerOverflowCallback = function(timerNum) {
+    if (this.selectedTimer !== timerNum)
+        return;
+    
+    this.timerOverflow = true;
+    if (this.sampleBuffer.length <= 4)
+        this.bufferDrainedCallbacks.forEach(bufferDrainedCallback => bufferDrainedCallback());
+};
+
+directSoundChannel.prototype.getSample = function() {
+    let sample = 0;
+    if (this.timerOverflow && this.sampleBuffer.length) {
+        sample = this.sampleBuffer.pop();
+        this.timerOverflow = false;
+    }
+
+    //normalize 8 bit signed samples from [-127, 128] to [-1, 1]
+    return ((sample + 127) / 255) * 2 - 1;
+};
+
+directSoundChannel.prototype.init = function() {
+    this.sampleBuffer.clear();
+};

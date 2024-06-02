@@ -86,9 +86,9 @@ emulator.prototype.initHardware = function(biosBuffer, romBuffer, saveState) {
 		this.gbaCPU = new cpu(0x8000000, this.gbaMMU);
 		this.gbaGPU = new graphics(this.gbaMMU, this.gbaCPU, document.getElementById("backingScreen"), document.getElementById("visibleScreen"), () => { this.frameNotComplete = false; });
 		this.gbaTimerController = new timerController(this.gbaMMU, this.gbaCPU);
+		this.gbaSound = new sound(this.gbaMMU, this.gbaTimerController);
+		this.gbaDMAController = new DMAController(this.gbaMMU, this.gbaCPU, this.gbaGPU, this.gbaSound);
 		this.gbaKeypad = new keypad(this.gbaMMU);
-		this.gbaDMAController = new DMAController(this.gbaMMU, this.gbaCPU, this.gbaGPU);
-		this.gbaSound = new sound(this.gbaMMU);
 	}
 
 	//copy BIOS into memory

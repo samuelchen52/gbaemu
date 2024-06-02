@@ -1,5 +1,5 @@
 
-const sound = function(mmu) {
+const sound = function(mmu, timerController) {
     //sound api stuff
     this.audioContext = new AudioContext();
 
@@ -19,7 +19,13 @@ const sound = function(mmu) {
     this.sound2Enable = 0;
     this.sound3Enable = 0;
     this.sound4Enable = 0;
-    
+    this.sound5Enable = 0;
+    this.sound6Enable = 0;
+
+    this.DMGCHannelOutputRatio = .25 // == 0
+    this.directSoundAOutputRatio = .5 // == 0
+    this.directSoundBOutputRatio = .5 // == 0
+
     this.numChannelsEnabled = 0;
 
     this.enable = false;
@@ -27,47 +33,16 @@ const sound = function(mmu) {
     let ioregion = mmu.getMemoryRegion("IOREGISTERS");
     let soundEnable = ioregion.getIOReg("SOUNDCNT_X");
     let DMGSoundOutputControl = ioregion.getIOReg("SOUNDCNT_L");
+    let directSoundOutputControl = ioregion.getIOReg("SOUNDCNT_H");
 
-    soundEnable.addCallback((soundEnableVal) => { 
-        let enable = (soundEnableVal & IORegisterMasks["REG_MASTER_SOUNDSTAT_ENABLE"]) >>> IORegisterMaskShifts["REG_MASTER_SOUNDSTAT_ENABLE"];
-        if (enable)
-            this.start(this.enable); 
-
-        //todo, have channels set bits 0-3 when sound length reached
-        //also, set the bits on enable
+    soundEnable.addCallback((SOUNDCNTXVal) => { 
+        this.updateREGSOUNDCNTX(SOUNDCNTXVal);
     });
-    DMGSoundOutputControl.addCallback(DMGSoundOutputControl => {
-        let DMGVolumeMultiplierLeft = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_LEFT_VOLUME"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_LEFT_VOLUME"];
-        let DMGVolumeMultiplierRight = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_RIGHT_VOLUME"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_RIGHT_VOLUME"];
-
-        let sound1EnableLeft = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_SOUND1_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND1_LEFT"];
-        let sound1EnableRight = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_SOUND1_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND1_RIGHT"];
-        let sound2EnableLeft = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_SOUND2_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND2_LEFT"];
-        let sound2EnableRight = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_SOUND2_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND2_RIGHT"];
-        let sound3EnableLeft = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_SOUND3_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND3_LEFT"];
-        let sound3EnableRight = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_SOUND3_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND3_RIGHT"];
-        let sound4EnableLeft = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_SOUND4_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND4_LEFT"];
-        let sound4EnableRight = (DMGSoundOutputControl & IORegisterMasks["REG_SOUNDCNT_L_SOUND4_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND4_RIGHT"];
-
-        if (DMGVolumeMultiplierLeft !== DMGVolumeMultiplierRight)
-            console.log("volume multipler left different from right!");
-
-        //just take the avg of the two for now for now
-        this.DMGVolumeMultiplier = ((DMGVolumeMultiplierLeft + DMGVolumeMultiplierRight) / 2) / 7;
-        this.sound1Enable = sound1EnableLeft || sound1EnableRight;
-        this.sound2Enable = sound2EnableLeft || sound2EnableRight;
-        this.sound3Enable = sound3EnableLeft || sound3EnableRight;
-        this.sound4Enable = sound4EnableLeft || sound4EnableRight;
-
-        this.numChannelsEnabled = 0;
-        if (this.sound1Enable)
-            this.numChannelsEnabled ++;
-        if (this.sound2Enable)
-            this.numChannelsEnabled ++;
-        if (this.sound3Enable)
-            this.numChannelsEnabled ++;
-        if (this.sound4Enable)
-            this.numChannelsEnabled ++;
+    DMGSoundOutputControl.addCallback(SOUNDCNTLVal => {
+        this.updateREGSOUNDCNTL(SOUNDCNTLVal);
+    });
+    directSoundOutputControl.addCallback((REGSOUNDCNTHVal) => { 
+        this.updateREGSOUNDCNTH(REGSOUNDCNTHVal);
     });
 
 
@@ -75,7 +50,7 @@ const sound = function(mmu) {
     //channels
     this.squareChannel1 = new squareChannel(ioregion.getIOReg("SOUND1CNT_H"), ioregion.getIOReg("SOUND1CNT_X"), ioregion.getIOReg("SOUND1CNT_L"));
     this.squareChannel2 = new squareChannel(ioregion.getIOReg("SOUND2CNT_L"), ioregion.getIOReg("SOUND2CNT_H"));
-    this.channel3 = new DACChannel(ioregion.getIOReg("SOUND3CNT_L"), ioregion.getIOReg("SOUND3CNT_H"), ioregion.getIOReg("SOUND3CNT_X"), 
+    this.DACChannel3 = new DACChannel(ioregion.getIOReg("SOUND3CNT_L"), ioregion.getIOReg("SOUND3CNT_H"), ioregion.getIOReg("SOUND3CNT_X"), 
         [   
             ioregion.getIOReg("REG_WAVE_RAM0_L"),
             ioregion.getIOReg("REG_WAVE_RAM0_H"),
@@ -87,6 +62,12 @@ const sound = function(mmu) {
             ioregion.getIOReg("REG_WAVE_RAM3_H"),
         ]
     );
+    //direct sound A
+    this.directSoundChannel5 = new directSoundChannel(timerController, ioregion.getIOReg("REG_FIFO_A"), ioregion.getIOReg("SOUNDCNT_H"), 
+        IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_A_TIMER"], IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_A_TIMER"], IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_A_RESET"], IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_A_RESET"]);
+    //direct sound B
+    this.directSoundChannel6 = new directSoundChannel(timerController, ioregion.getIOReg("REG_FIFO_A"), ioregion.getIOReg("SOUNDCNT_H"), 
+        IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_B_TIMER"], IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_B_TIMER"], IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_B_RESET"], IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_B_RESET"]);
 
     //actively playing
     this.currentSource = {
@@ -95,21 +76,102 @@ const sound = function(mmu) {
     this.currentSampleArr = [];
 };
 
-sound.prototype.mix = function(sound1, sound2, sound3, numChannelsEnabled) {
-    return (sound1 + sound2 + sound3) / numChannelsEnabled;
+sound.prototype.updateREGSOUNDCNTX = function(SOUNDCNTXVal) {
+    let enable = (SOUNDCNTXVal & IORegisterMasks["REG_MASTER_SOUNDSTAT_ENABLE"]) >>> IORegisterMaskShifts["REG_MASTER_SOUNDSTAT_ENABLE"];
+    if (enable)
+        this.start(this.enable); 
+};
+
+sound.prototype.updateREGSOUNDCNTL = function(SOUNDCNTLVal) {
+    let DMGVolumeMultiplierLeft = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_LEFT_VOLUME"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_LEFT_VOLUME"];
+    let DMGVolumeMultiplierRight = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_RIGHT_VOLUME"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_RIGHT_VOLUME"];
+
+    let sound1EnableLeft = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_SOUND1_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND1_LEFT"];
+    let sound1EnableRight = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_SOUND1_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND1_RIGHT"];
+    let sound2EnableLeft = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_SOUND2_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND2_LEFT"];
+    let sound2EnableRight = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_SOUND2_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND2_RIGHT"];
+    let sound3EnableLeft = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_SOUND3_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND3_LEFT"];
+    let sound3EnableRight = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_SOUND3_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND3_RIGHT"];
+    let sound4EnableLeft = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_SOUND4_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND4_LEFT"];
+    let sound4EnableRight = (SOUNDCNTLVal & IORegisterMasks["REG_SOUNDCNT_L_SOUND4_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_L_SOUND4_RIGHT"];
+
+    if (DMGVolumeMultiplierLeft !== DMGVolumeMultiplierRight)
+        console.log("volume multipler left different from right!");
+
+    //just take the avg of the two for now for now
+    this.DMGVolumeMultiplier = ((DMGVolumeMultiplierLeft + DMGVolumeMultiplierRight) / 2) / 7;
+    this.sound1Enable = sound1EnableLeft || sound1EnableRight;
+    this.sound2Enable = sound2EnableLeft || sound2EnableRight;
+    this.sound3Enable = sound3EnableLeft || sound3EnableRight;
+    this.sound4Enable = sound4EnableLeft || sound4EnableRight;
+
+    this.updateNumChannelsUpdated();
+}
+
+sound.prototype.updateREGSOUNDCNTH = function(SOUNDCNTHVal) {
+    this.DMGCHannelOutputRatio = (SOUNDCNTHVal & IORegisterMasks["REG_SOUNDCNT_H_DMG_SOUND_RATIO"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_H_DMG_SOUND_RATIO"];
+    this.directSoundAOutputRatio = (SOUNDCNTHVal & IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_A_RATIO"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_A_RATIO"];
+    this.directSoundBOutputRatio = (SOUNDCNTHVal & IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_B_RATIO"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_B_RATIO"];
+
+    let directSoundAEnableLeft = (SOUNDCNTHVal & IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_A_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_A_LEFT"];
+    let directSoundAEnableRight = (SOUNDCNTHVal & IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_A_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_A_RIGHT"];
+
+    let directSoundBEnableLeft = (SOUNDCNTHVal & IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_B_LEFT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_B_LEFT"];
+    let directSoundBEnableRight = (SOUNDCNTHVal & IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_B_RIGHT"]) >>> IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_B_RIGHT"];
+
+    this.sound5Enable = directSoundAEnableLeft || directSoundAEnableRight;
+    this.sound6Enable = directSoundBEnableLeft || directSoundBEnableRight;
+
+    switch (this.DMGCHannelOutputRatio)
+    {
+        case 0:
+        case 3:
+            this.DMGCHannelOutputRatio = .25;
+            break;
+        case 1:
+            this.DMGCHannelOutputRatio = .50;
+            break;
+        case 2:
+            this.DMGCHannelOutputRatio = 1;
+            break;
+    }
+    this.directSoundAOutputRatio = this.directSoundAOutputRatio ? 1 : .50;
+    this.directSoundBOutputRatio = this.directSoundBOutputRatio ? 1 : .50;
+
+    this.updateNumChannelsUpdated();
+}
+
+sound.prototype.updateNumChannelsUpdated = function() {
+    this.numChannelsEnabled = 0;
+    if (this.sound1Enable)
+        this.numChannelsEnabled ++;
+    if (this.sound2Enable)
+        this.numChannelsEnabled ++;
+    if (this.sound3Enable)
+        this.numChannelsEnabled ++;
+    if (this.sound4Enable)
+        this.numChannelsEnabled ++;
+    if (this.sound5Enable)
+        this.numChannelsEnabled ++;
+    if (this.sound6Enable)
+        this.numChannelsEnabled ++;
+}
+
+sound.prototype.mix = function(sound1, sound2, sound3, sound5, sound6, numChannelsEnabled) {
+    return (sound1 + sound2 + sound3 + sound5 + sound6) / numChannelsEnabled;
 }
 
 sound.prototype.getSample = function() {
-    let sound1 = this.sound1Enable ? this.squareChannel1.getSample() : 0;
-    let sound2 = this.sound2Enable ? this.squareChannel2.getSample() : 0;
-    let sound3 = this.sound3Enable ? this.channel3.getSample() : 0;
+    let sound1 = this.sound1Enable ? this.squareChannel1.getSample() * this.DMGCHannelOutputRatio * this.DMGVolumeMultiplier : 0;
+    let sound2 = this.sound2Enable ? this.squareChannel2.getSample() * this.DMGCHannelOutputRatio * this.DMGVolumeMultiplier : 0;
+    let sound3 = this.sound3Enable ? this.DACChannel3.getSample() * this.DMGCHannelOutputRatio * this.DMGVolumeMultiplier : 0;
     // let sound4 = this.channel1.getSample();
-    // let sound5 = this.channel1.getSample();
-    // let sound6 = this.channel1.getSample();
+    let sound5 = this.sound5Enable ? this.directSoundChannel5.getSample() * this.directSoundAOutputRatio : 0;
+    let sound6 = this.sound6Enable ? this.directSoundChannel6.getSample() * this.directSoundBOutputRatio : 0;
 
-    let dmgSample = this.mix(sound1, sound2, sound3, this.numChannelsEnabled) * this.DMGVolumeMultiplier;
+    let sample = this.mix(sound1, sound2, sound3, sound5, sound6, this.numChannelsEnabled);
     
-    return dmgSample;
+    return sample;
 }
 
 //in seconds
@@ -163,7 +225,9 @@ sound.prototype.update = function(numCycles) {
 
     this.squareChannel1.update(numCycles);
     this.squareChannel2.update(numCycles);
-    this.channel3.update(numCycles);
+    this.DACChannel3.update(numCycles);
+    //this.directSoundChannel5.update(numCycles); //driven by timer
+    //this.directSoundChannel6.update(numCycles); //driven by timer
 
     if (this.numCycle === this.cyclesPerSample) {
         this.numCycle = 0;
@@ -189,7 +253,9 @@ sound.prototype.start = function() {
     //for each channel, init
     this.squareChannel1.init();
     this.squareChannel2.init();
-    this.channel3.init();
+    this.DACChannel3.init();
+    this.directSoundChannel5.init();
+    this.directSoundChannel6.init();
 }
 
 sound.prototype.stop = function() {
