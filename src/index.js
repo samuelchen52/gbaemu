@@ -307,6 +307,15 @@ speedCap.addEventListener('change', function(e) {
 		gbaEmu.setSpeedCap(Number(speedCap.value));
 });
 
+let reset = document.getElementById("speed-reset");
+
+reset.addEventListener('click', function(e) {
+	speedCap.value = 60;
+
+	if (gbaEmu)
+		gbaEmu.setSpeedCap(60);
+});
+
 // Undefined	"undefined"
 // Null	"object"
 // Boolean	"boolean"

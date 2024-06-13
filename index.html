@@ -2,6 +2,8 @@
 <html>
 	<head>
 		<title>GBA Emu</title>
+		<!-- COOP and COEP headers -->
+		<script src="coi-serviceworker.min.js"></script>
 		<!-- bootstrap js (w/ jquery)-->
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.7/umd/popper.min.js" integrity="sha384-UO2eT0CpHqdSJQ6hJty5KVphtPhzWj9WO1clHTMGa3JDZwrnQq4sF86dIHNDz0W1" crossorigin="anonymous"></script>
 		<script
@@ -40,6 +42,9 @@
 					<input class="mt-2 d-block" type="button" id="FPS" value="N/A" disabled>
 					<div> Speed: </div>
 					<input type="range" id="speed" name="speed" min="1" max="100" value="60" />
+					<button id="speed-reset">
+						reset
+					</button>
 					<div> darkmode: </div>
 					<input class="mt-2 d-block" type="checkbox" id="darkmode">
 					<!-- <div> cap 60 fps: </div>
