@@ -13,7 +13,7 @@ const squareChannel = function(REG_SOUNDCNT_LEN, REG_SOUNDCNT_FREQ, REG_SOUNDCNT
     this.initialEnvelopeValue = 0; //initial volume
 
     this.minFrequency = 64;
-    this.maxFrequency = 1024; //i think this is supposed to be 131072, but that makes my ears bleed
+    this.maxFrequency = 131072;
     this.frequencyVal; //initial frequency val from register
     this.frequency;
     this.timedMode; //bool, if true, will play for a duration of sound length, otherwise forever

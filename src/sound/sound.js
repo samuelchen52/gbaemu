@@ -1,17 +1,37 @@
 
 const sound = function(mmu, timerController) {
-    //sound api stuff
-    this.audioContext = new AudioContext();
+    this.sampleRate = 32768;
 
+    //sound api stuff
+    this.audioContext = new AudioContext({ sampleRate : this.sampleRate });
+    //this.audioContext = new AudioContext();
+    this.processorNode = {
+        port: { postMessage : () => {}}
+    };
+    this.audioContext.audioWorklet.addModule("src/sound/audio_worklet_node.js")
+        .then(() => { 
+            this.processorNode = new AudioWorkletNode(this.audioContext, "audio_worklet_node"); 
+            this.currentSource = this.audioContext.createBufferSource();
+            this.currentSource.buffer = this.audioContext.createBuffer(1, 128, 32768);
+            this.currentSource.loop = true;
+            this.currentSource.connect(this.processorNode);
+            this.processorNode.connect(this.audioContext.destination);
+            this.currentSource.start();
+        })
+        .catch((e) => { 
+            console.log("error loading worklet node:"); 
+            console.log(e); 
+        });
     this.numCycle = 0;
     this.cyclesPerSample = 512; //gba runs at 16mm hz, this means around 32k sampling rate
     this.sampleIndex = 0;
-    this.sampleArrLength = 4096; //32768 * 2
-    this.sampleRate = 32768;
+    this.sampleArrLength = 2048;
     this.sampleArr = new Array(this.sampleArrLength) //audioBuffer.getChannelData(0);
     this.soundStart = 0;
     this.soundLength = this.sampleArrLength / this.sampleRate; // in seconds, this will basically dictate how much time will pass before we drain the sample buffer i.e. latency
     this.pctSoundFinishedThreshold = .85;
+    this.sampleDebt = 0;
+    this.sampleDebtThreshold = this.sampleArrLength * 2;
 
     //TODO: add left and right. just doing one flag for both channels for now
     this.DMGVolumeMultiplier = 0;
@@ -179,39 +199,72 @@ sound.prototype.soundStartTimeElapsed = function() {
     return this.audioContext.currentTime - this.soundStart;
 }
 
+// sound.prototype.playSound = function() {
+//     //get remaining samples that have yet to be played from the sound buffer being currently being played
+//     let currentSoundTimeLeft = this.soundLength - this.soundStartTimeElapsed();
+//     let samplesRemaining = [];
+//     if (currentSoundTimeLeft > 0) {
+//         let numSamplesRemaining = Math.ceil((this.currentSampleArr.length * (currentSoundTimeLeft / this.soundLength)));
+//         samplesRemaining = this.currentSampleArr.slice(this.currentSampleArr.length - numSamplesRemaining , this.currentSampleArr.length);
+//     }
+
+//     //determine the playback rate, which will either slow down or speed up the next sound being played
+//     //i.e. if emulator is running fast then sound will speed up else slow down
+//     let expectedNumSamples = ((this.soundLength)) * this.sampleRate;
+//     let actualNumSamples = this.sampleIndex + samplesRemaining.length;
+//     let playbackRate = actualNumSamples / expectedNumSamples;
+
+//     //load up new sound buffer with samples (along with the remaining samples above)
+//     this.currentSampleArr = this.sampleArr.slice(0, this.sampleIndex);
+//     var buffer = this.audioContext.createBuffer(1, this.sampleIndex + samplesRemaining.length, this.sampleRate);
+//     var channelData = buffer.getChannelData(0);
+//     channelData.set(samplesRemaining.concat(this.currentSampleArr));
+        
+//     //stop the currently playing sound
+//     //then immediately after, load up the next buffer of samples and play it
+//     this.currentSource.stop();
+
+//     this.currentSource = this.audioContext.createBufferSource();
+//     this.currentSource.buffer = buffer;
+//     this.currentSource.connect(this.audioContext.destination);
+//     this.currentSource.playbackRate.value = playbackRate;
+//     this.currentSource.start();
+
+//     this.soundStart = this.audioContext.currentTime;
+
+//     //reset the sample index cause we drained it
+//     this.sampleIndex = 0;
+// }
+
 sound.prototype.playSound = function() {
-    //get remaining samples that have yet to be played from the sound buffer being currently being played
-    let currentSoundTimeLeft = this.soundLength - this.soundStartTimeElapsed();
-    let samplesRemaining = [];
-    if (currentSoundTimeLeft > 0) {
-        let numSamplesRemaining = Math.ceil((this.currentSampleArr.length * (currentSoundTimeLeft / this.soundLength)));
-        samplesRemaining = this.currentSampleArr.slice(this.currentSampleArr.length - numSamplesRemaining , this.currentSampleArr.length);
+    //cap elapsed time, we don't want to stretch out the buffer to huge lengths if elapsed time is somehow massive (e.g. browser prioritizes another tab)
+    let elapsed = Math.min(this.soundLength * 10, this.soundStartTimeElapsed());
+    let expectedNumSamples = elapsed * this.sampleRate;
+    let actualNumSamples = this.sampleIndex;
+    let adjust = 0;
+    
+    //sample debt, the diff between expected vs actual
+    this.sampleDebt += expectedNumSamples - actualNumSamples;
+
+    //when past the threshold, pay down the debt
+    //this usually indicates emulator is playing abnormally fast / slow
+    if (Math.abs(this.sampleDebt) > this.sampleDebtThreshold) {
+        adjust = this.sampleDebt;
+
+        //cap negative adjustment to -50%, just for safety
+        //if emulator ever achieves faster than 2x speed, raise this cap
+        if (adjust < 0 && Math.abs(adjust) > this.sampleIndex)
+            adjust = this.sampleIndex * -.5;
+
+        this.sampleDebt -= adjust;
     }
 
-    //determine the playback rate, which will either slow down or speed up the next sound being played
-    //i.e. if emulator is running fast then sound will speed up else slow down
-    let expectedNumSamples = ((this.soundLength)) * this.sampleRate;
-    let actualNumSamples = this.sampleIndex + samplesRemaining.length;
-    let playbackRate = actualNumSamples / expectedNumSamples;
-
-    //load up new sound buffer with samples (along with the remaining samples above)
-    this.currentSampleArr = this.sampleArr.slice(0, this.sampleIndex);
-    var buffer = this.audioContext.createBuffer(1, this.sampleIndex + samplesRemaining.length, this.sampleRate);
-    var channelData = buffer.getChannelData(0);
-    channelData.set(samplesRemaining.concat(this.currentSampleArr));
-        
-    //stop the currently playing sound
-    //then immediately after, load up the next buffer of samples and play it
-    this.currentSource.stop();
-
-    this.currentSource = this.audioContext.createBufferSource();
-    this.currentSource.buffer = buffer;
-    this.currentSource.connect(this.audioContext.destination);
-    this.currentSource.playbackRate.value = playbackRate;
-    this.currentSource.start();
+    let samples = this.sampleArr.slice(0, this.sampleIndex);
+    if (adjust !== 0)
+        samples = interpolateArray(samples, samples.length + adjust);
+    this.processorNode.port.postMessage(samples);
 
     this.soundStart = this.audioContext.currentTime;
-
     //reset the sample index cause we drained it
     this.sampleIndex = 0;
 }
@@ -234,9 +287,8 @@ sound.prototype.update = function(numCycles) {
         this.sampleArr[this.sampleIndex] = this.getSample();
         this.sampleIndex ++;
 
-        //drain the buffer if it overflows or we are nearing the end of the samples being currently played
-        if (this.sampleIndex === this.sampleArrLength 
-            || (this.soundStartTimeElapsed() / this.soundLength) > this.pctSoundFinishedThreshold)
+        //drain the buffer once full
+        if (this.sampleIndex === this.sampleArrLength)
             this.playSound();
     }
 

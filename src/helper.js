@@ -829,10 +829,10 @@ const crappyFIFOQueue = function(bufferLen) {
 
 
 crappyFIFOQueue.prototype.push = function(val) {
-	this.tailIndex --;
-
 	this.arr[this.tailIndex] = val;
 	this.length ++;
+	
+	this.tailIndex --;
 
 	//if we've run out of space, move everything to the end of the buffer
 	if (this.tailIndex === 0) {
@@ -851,6 +851,33 @@ crappyFIFOQueue.prototype.pop = function() {
 
 	return poppedVal;
 }
+
+crappyFIFOQueue.prototype.pushMulti = function(vals) {
+	//if we've run out of space, move everything to the end of the buffer
+	if (vals.length >= this.tailIndex) {
+		this.reset();
+	}
+
+	for (let i = 0; i < vals.length; i ++)
+	{
+		this.arr[this.tailIndex] = vals[i];
+		this.length ++;
+		
+		this.tailIndex --;
+	}
+};
+
+crappyFIFOQueue.prototype.popMulti = function(num) {
+	if (num > this.length)
+		throw new Error("shouldnt be popping");
+
+	let poppedVals = this.arr.slice(this.headIndex + 1 - num, this.headIndex + 1);
+	
+	this.headIndex -= num;
+	this.length -= num;
+
+	return poppedVals;
+};
 
 crappyFIFOQueue.prototype.reset = function() {
 	//if we've run out of space, move everything to the end of the buffer
@@ -872,6 +899,25 @@ crappyFIFOQueue.prototype.clear = function() {
 	this.tailIndex --;
 	this.headIndex = this.tailIndex;
 }
+
+//data -> array
+//fitCount -> new size
+//credit to https://github.com/0xfe/vexwarp for this function
+function interpolateArray(data, fitCount) {
+	let newData = new Array(fitCount);
+    var springFactor = new Number((data.length - 1) / (fitCount - 1));
+    newData[0] = data[0]; // for new allocation
+    for ( var i = 1; i < fitCount - 1; i++) {
+      var tmp = i * springFactor;
+      var before = Math.floor(tmp);
+      var after = Math.ceil(tmp);
+      var atPoint = tmp - before;
+      newData[i] = data[before] + (data[after] - data[before]) * atPoint;
+    }
+
+    newData[fitCount - 1] = data[data.length - 1]; // for new allocation
+    return newData;
+  };
 
 
 // around ~3x faster?
