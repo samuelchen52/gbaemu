@@ -23,9 +23,10 @@ So far, only the timers and graphics are in a (near) complete state. There is st
 ## Planned Improvements / Features
 * Semi-accurate CPU timings
 * Optimizations for greater speed
-* Savestates / Savegames
-* Better UI
-* Sound
+* Savestates (✔) / Savegames
+* Better UI 
+* Sound (✔)
+* Sound quality
 * Tests
 
 ## Credit
@@ -36,3 +37,5 @@ So far, only the timers and graphics are in a (near) complete state. There is st
 [No$gba](https://problemkaputt.de/gba.htm) / [mGBA](https://mgba.io/downloads.html) - established GBA emulators that were used for debugging
 
 [Near / Talarubi](https://byuu.net/video/color-emulation/) - color correction
+
+http://belogic.com/gba/ - documentation on gba audio internals

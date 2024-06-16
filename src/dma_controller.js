@@ -270,7 +270,9 @@ DMAChannel.prototype.serialize = function() {
 	let copy = {};
 
 	copy.srcAddr = this.srcAddr;
+	copy.srcAddrReg = this.srcAddrReg;
 	copy.destAddr = this.destAddr;
+	copy.destAddrReg = this.destAddrReg;
 	copy.numTransfers = this.numTransfers;
 	copy.destAdjust = this.destAdjust;
 	copy.srcAdjust = this.srcAdjust;
@@ -297,7 +299,9 @@ DMAChannel.prototype.serialize = function() {
   
 DMAChannel.prototype.setState = function(saveState) {
 	this.srcAddr = saveState.srcAddr;
+	this.srcAddrReg = saveState.srcAddrReg;
 	this.destAddr = saveState.destAddr;
+	this.destAddrReg = saveState.destAddrReg;
 	this.numTransfers = saveState.numTransfers;
 	this.destAdjust = saveState.destAdjust;
 	this.srcAdjust = saveState.srcAdjust;

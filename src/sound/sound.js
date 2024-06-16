@@ -94,7 +94,7 @@ const sound = function(mmu, timerController) {
     this.currentSource = {
         stop : () => {}
     };
-    this.currentSampleArr = [];
+    //this.currentSampleArr = [];
 };
 
 sound.prototype.updateREGSOUNDCNTX = function(SOUNDCNTXVal) {
@@ -240,12 +240,18 @@ sound.prototype.soundStartTimeElapsed = function() {
 sound.prototype.playSound = function() {
     //cap elapsed time, we don't want to stretch out the buffer to huge lengths if elapsed time is somehow massive (e.g. browser prioritizes another tab)
     let elapsed = Math.min(this.soundLength * 10, this.soundStartTimeElapsed());
+    //account for case where audio context current time could be anything when restoring from a save state
+    //just return ideal elapsed time when sound start is greater than current time i.e. elapsed < 0
+    //will recalibrate after current samples are played (potentially resulting in some distortion)
+    if (elapsed < 0)
+        elapsed = this.soundLength;
+
     let expectedNumSamples = elapsed * this.sampleRate;
     let actualNumSamples = this.sampleIndex;
     let adjust = 0;
     
     //sample debt, the diff between expected vs actual
-    this.sampleDebt += expectedNumSamples - actualNumSamples;
+    this.sampleDebt += Math.floor(expectedNumSamples - actualNumSamples);
 
     //when past the threshold, pay down the debt
     //this usually indicates emulator is playing abnormally fast / slow
@@ -255,7 +261,7 @@ sound.prototype.playSound = function() {
         //cap negative adjustment to -50%, just for safety
         //if emulator ever achieves faster than 2x speed, raise this cap
         if (adjust < 0 && Math.abs(adjust) > this.sampleIndex)
-            adjust = this.sampleIndex * -.5;
+            adjust = Math.floor(this.sampleIndex * -.5);
 
         this.sampleDebt -= adjust;
     }
@@ -315,4 +321,70 @@ sound.prototype.start = function() {
 
 sound.prototype.stop = function() {
     this.enable = false;
+}
+
+sound.prototype.serialize = function() {
+    let copy = {};
+
+    copy.numCycle = this.numCycle;
+    copy.sampleIndex = this.sampleIndex;
+    copy.sampleArr = [...this.sampleArr];
+    copy.soundStart = this.soundStart;
+    copy.sampleDebt = this.sampleDebt;
+
+    copy.DMGVolumeMultiplier = this.DMGVolumeMultiplier;
+    copy.sound1Enable = this.sound1Enable;
+    copy.sound2Enable = this.sound2Enable;
+    copy.sound3Enable = this.sound3Enable;
+    copy.sound4Enable = this.sound4Enable;
+    copy.sound5Enable = this.sound5Enable;
+    copy.sound6Enable = this.sound6Enable;
+
+    copy.DMGCHannelOutputRatio = this.DMGCHannelOutputRatio;
+    copy.directSoundAOutputRatio = this.directSoundAOutputRatio;
+    copy.directSoundBOutputRatio = this.directSoundBOutputRatio;
+
+    copy.numChannelsEnabled = this.numChannelsEnabled;
+
+    copy.enable = this.enable;
+
+    copy.squareChannel1 = this.squareChannel1.serialize();
+    copy.squareChannel2 = this.squareChannel2.serialize();
+    copy.DACChannel3 = this.DACChannel3.serialize();
+    copy.noiseChannel4 = this.noiseChannel4.serialize();
+    copy.directSoundChannel5 = this.directSoundChannel5.serialize();
+    copy.directSoundChannel6 = this.directSoundChannel6.serialize();
+
+    return copy;
+}
+
+sound.prototype.setState = function(saveState) {
+    this.numCycle = saveState.numCycle;
+    this.sampleIndex = saveState.sampleIndex;
+    this.sampleArr = [...saveState.sampleArr];
+    this.soundStart = saveState.soundStart;
+    this.sampleDebt = saveState.sampleDebt;
+
+    this.DMGVolumeMultiplier = saveState.DMGVolumeMultiplier;
+    this.sound1Enable = saveState.sound1Enable;
+    this.sound2Enable = saveState.sound2Enable;
+    this.sound3Enable = saveState.sound3Enable;
+    this.sound4Enable = saveState.sound4Enable;
+    this.sound5Enable = saveState.sound5Enable;
+    this.sound6Enable = saveState.sound6Enable;
+
+    this.DMGCHannelOutputRatio = saveState.DMGCHannelOutputRatio;
+    this.directSoundAOutputRatio = saveState.directSoundAOutputRatio;
+    this.directSoundBOutputRatio = saveState.directSoundBOutputRatio;
+
+    this.numChannelsEnabled = saveState.numChannelsEnabled;
+
+    this.enable = saveState.enable;
+
+    this.squareChannel1.setState(saveState.squareChannel1);
+    this.squareChannel2.setState(saveState.squareChannel2);
+    this.DACChannel3.setState(saveState.DACChannel3);
+    this.noiseChannel4.setState(saveState.noiseChannel4);
+    this.directSoundChannel5.setState(saveState.directSoundChannel5);
+    this.directSoundChannel6.setState(saveState.directSoundChannel6);
 }

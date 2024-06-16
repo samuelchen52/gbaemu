@@ -212,7 +212,8 @@ emulator.prototype.serialize = function () {
 		gbaGPU: this.gbaGPU.serialize(), //good
 		gbaTimerController: this.gbaTimerController.serialize(), //good
 		gbaKeypad: this.gbaKeypad.serialize(), //good
-		gbaDMAController: this.gbaDMAController.serialize() //good
+		gbaDMAController: this.gbaDMAController.serialize(), //good
+		gbaSound: this.gbaSound.serialize()
 	};
 
 	//debug save states for non mmu stuff
@@ -249,6 +250,7 @@ emulator.prototype.setState = function (saveState) {
 	this.gbaTimerController.setState(saveState.gbaTimerController);
 	this.gbaKeypad.setState(saveState.gbaKeypad);
 	this.gbaDMAController.setState(saveState.gbaDMAController);
+	this.gbaSound.setState(saveState.gbaSound);
 
 	//debug save states for non mmu stuff
 	// for (let i = 0; i < this.gbaMMU.memRegions.length; i ++)

@@ -198,6 +198,75 @@ squareChannel.prototype.init = function() {
     this.wavePeriodPos = 0;
 };
 
+squareChannel.prototype.serialize = function() {
+    let copy = {};
+
+    copy.soundLength = this.soundLength;
+    copy.wavePattern = this.wavePattern;
+    copy.envelopeStepTime = this.envelopeStepTime;
+    copy.envelopeMode = this.envelopeMode;
+    copy.initialEnvelopeValue = this.initialEnvelopeValue;
+
+    copy.frequencyVal = this.frequencyVal;
+    copy.frequency = this.frequency;
+    copy.timedMode = this.timedMode;
+
+    copy.sweepShifts = this.sweepShifts;
+    copy.sweepMode = this.sweepMode;
+    copy.sweepTime = this.sweepTime;
+
+    copy.cyclesPerSweepStep = this.cyclesPerSweepStep;
+    copy.cyclesPerEnvelopeStep = this.cyclesPerEnvelopeStep;
+
+    //volume
+    copy.volume = this.volume; 
+    copy.cyclesSinceEnvelopeChange = this.cyclesSinceEnvelopeChange;
+
+    //frequency
+    copy.wavePeriodInSeconds = this.wavePeriodInSeconds;
+    copy.wavePeriodInCycles = this.wavePeriodInCycles;
+    copy.cyclesSinceFrequencyChange = this.cyclesSinceFrequencyChange;
+
+    //duty cycle
+    copy.wavePeriodCycle = this.wavePeriodCycle;
+    copy.wavePeriodPos = this.wavePeriodPos;
+
+    copy.currSoundLength = this.currSoundLength;
+
+    return copy;
+};
+
+squareChannel.prototype.setState = function(saveState) {
+    this.soundLength = saveState.soundLength;
+    this.wavePattern = saveState.wavePattern;
+    this.envelopeStepTime = saveState.envelopeStepTime;
+    this.envelopeMode = saveState.envelopeMode;
+    this.initialEnvelopeValue = saveState.initialEnvelopeValue;
+
+    this.frequencyVal = saveState.frequencyVal;
+    this.frequency = saveState.frequency;
+    this.timedMode = saveState.timedMode;
+
+    this.sweepShifts = saveState.sweepShifts;
+    this.sweepMode = saveState.sweepMode;
+    this.sweepTime = saveState.sweepTime;
+
+    this.cyclesPerSweepStep = saveState.cyclesPerSweepStep;
+    this.cyclesPerEnvelopeStep = saveState.cyclesPerEnvelopeStep;
+
+    this.volume = saveState.volume; 
+    this.cyclesSinceEnvelopeChange = saveState.cyclesSinceEnvelopeChange;
+
+    this.wavePeriodInSeconds = saveState.wavePeriodInSeconds;
+    this.wavePeriodInCycles = saveState.wavePeriodInCycles;
+    this.cyclesSinceFrequencyChange = saveState.cyclesSinceFrequencyChange;
+
+    this.wavePeriodCycle = saveState.wavePeriodCycle;
+    this.wavePeriodPos = saveState.wavePeriodPos;
+
+    this.currSoundLength = saveState.currSoundLength;
+};
+
 /*
     channel 3
 */
@@ -358,6 +427,56 @@ DACChannel.prototype.getSample = function() {
     }
 };
 
+DACChannel.prototype.serialize = function() {
+    let copy = {};
+
+    copy.bankMode = this.bankMode;
+    copy.bankSelectedVal = this.bankSelectedVal;
+    copy.bankSelected = this.bankSelected;
+    copy.enable = this.enable;
+
+    copy.soundLength = this.soundLength;
+    copy.volumeRatio = this.volumeRatio;
+
+    copy.sampleRate = this.sampleRate;
+    copy.timedMode = this.timedMode;
+    
+    copy.currSoundLength = this.currSoundLength;
+
+    copy.sampleBuffer = [...this.sampleBuffer];
+    copy.sampleBuffer0 = [...this.sampleBuffer0];
+    copy.sampleBuffer1 = [...this.sampleBuffer1];
+
+    copy.sampleIndex = this.sampleIndex;
+    copy.numCycle = this.numCycle;
+    copy.cyclesPerSample = this.cyclesPerSample;
+
+    return copy;
+};
+
+DACChannel.prototype.setState = function(saveState) {
+    this.bankMode = saveState.bankMode;
+    this.bankSelectedVal = saveState.bankSelectedVal;
+    this.bankSelected = saveState.bankSelected;
+    this.enable = saveState.enable;
+
+    this.soundLength = saveState.soundLength;
+    this.volumeRatio = saveState.volumeRatio;
+
+    this.sampleRate = saveState.sampleRate;
+    this.timedMode = saveState.timedMode;
+    
+    this.currSoundLength = saveState.currSoundLength;
+
+    this.sampleBuffer = [...saveState.sampleBuffer];
+    this.sampleBuffer0 = [...saveState.sampleBuffer0];
+    this.sampleBuffer1 = [...saveState.sampleBuffer1];
+
+    this.sampleIndex = saveState.sampleIndex;
+    this.numCycle = saveState.numCycle;
+    this.cyclesPerSample = saveState.cyclesPerSample;
+};
+
 //channel 4
 const noiseChannel = function(REGSOUNDCNTL, REGSOUNDCNTH) {
     this.soundLength = 0; //the length of time this channel will produce sound (in cpu cycles)
@@ -500,6 +619,64 @@ noiseChannel.prototype.getSample = function() {
     }
 };
 
+noiseChannel.prototype.serialize = function() {
+    let copy = {};
+
+    copy.soundLength = this.soundLength;
+    copy.timedMode = this.timedMode;
+
+    copy.envelopeStepTime = this.envelopeStepTime;
+    copy.envelopeMode = this.envelopeMode;
+    copy.initialEnvelopeValue = this.initialEnvelopeValue;
+
+    copy.mode = this.mode;
+
+    copy.clockDivisor = this.clockDivisor;
+    copy.preScaler = this.preScaler;
+    copy.frequency = this.frequency;
+
+    copy.cyclesPerStep = this.cyclesPerStep;
+    copy.cyclesSinceStep = this.cyclesSinceStep;
+
+    copy.volume = this.volume; 
+    copy.cyclesSinceEnvelopeChange = this.cyclesSinceEnvelopeChange;
+    copy.cyclesPerEnvelopeStep = this.cyclesPerEnvelopeStep;
+
+    copy.currSoundLength = this.currSoundLength;
+
+    copy.shiftRegisterVal = this.shiftRegisterVal;
+    copy.output = this.output;
+
+    return copy;
+};
+
+noiseChannel.prototype.setState = function(saveState) {
+    this.soundLength = saveState.soundLength;
+    this.timedMode = saveState.timedMode;
+
+    this.envelopeStepTime = saveState.envelopeStepTime;
+    this.envelopeMode = saveState.envelopeMode;
+    this.initialEnvelopeValue = saveState.initialEnvelopeValue;
+
+    this.mode = saveState.mode;
+
+    this.clockDivisor = saveState.clockDivisor;
+    this.preScaler = saveState.preScaler;
+    this.frequency = saveState.frequency;
+
+    this.cyclesPerStep = saveState.cyclesPerStep;
+    this.cyclesSinceStep = saveState.cyclesSinceStep;
+
+    this.volume = saveState.volume; 
+    this.cyclesSinceEnvelopeChange = saveState.cyclesSinceEnvelopeChange;
+    this.cyclesPerEnvelopeStep = saveState.cyclesPerEnvelopeStep;
+
+    this.currSoundLength = saveState.currSoundLength;
+
+    this.shiftRegisterVal = saveState.shiftRegisterVal;
+    this.output = saveState.output;
+};
+
 //direct sound A / B
 const directSoundChannel = function(timerController, REG_FIFO, REG_SOUNDCNT_H, REG_SOUNDCNT_H_TIMER_MASK, REG_SOUNDCNT_H_TIMER_MASK_SHIFT, REG_SOUNDCNT_H_RESET_MASK, REG_SOUNDCNT_H_RESET_MASK_SHIFT) {
     //take in the soundcnt h
@@ -574,4 +751,29 @@ directSoundChannel.prototype.getSample = function() {
 
 directSoundChannel.prototype.init = function() {
     this.sampleBuffer.clear();
+};
+
+directSoundChannel.prototype.serialize = function() {
+    let copy = {};
+
+    copy.selectedTimer = this.selectedTimer;
+
+    //take the samples out, serialize, then shove em back in
+    let samples = this.sampleBuffer.popMulti(this.sampleBuffer.length);
+    copy.sampleBuffer = [...samples];
+    this.sampleBuffer.pushMulti(samples);
+
+    copy.timerOverflow = this.timerOverflow;
+
+    return copy;
+};
+
+directSoundChannel.prototype.setState = function(saveState) {
+    this.selectedTimer = saveState.selectedTimer;
+
+    //take the samples out, put the saved ones in
+    this.sampleBuffer.popMulti(this.sampleBuffer.length);
+    this.sampleBuffer.pushMulti(saveState.sampleBuffer);
+
+    this.timerOverflow = saveState.timerOverflow;
 };
