@@ -2,7 +2,7 @@
 A Game Boy Advance emulator, written in javascript.
 
 ## Usage
-This project is hosted on Github at [https://samuelchen52.github.io/gbaemu/](https://samuelchen52.github.io/gbaemu/). To use, just select your desired GBA rom. You can also select a BIOS file beforehand, though this is optional and if not provided the [BIOS](https://github.com/Nebuleon/ReGBA/blob/master/bios/gba_bios.bin) file by [Normatt](https://github.com/Normmatt/gba_bios) will be used, or play around with a demo rom from [TONC](https://www.coranac.com/projects/#tonc) by clicking on the demo button.
+This project is hosted on Github at [https://samuelchen52.github.io/gbaemu/](https://samuelchen52.github.io/gbaemu/). To use, just select your desired GBA rom. You can also select a BIOS file beforehand, though this is optional and if not provided the [BIOS](https://github.com/Nebuleon/ReGBA/blob/master/bios/gba_bios.bin) file by [Normatt](https://github.com/Normmatt/gba_bios) will be used, or play around with a demo rom from [TONC](https://www.coranac.com/projects/#tonc) by clicking on the demo button. To save the current state of your game, create a save state, then export it. For the best experience, use the Chrome browser (other browsers may work, but no guarantee).
 
 ## Screenshots
 The classic GBA BIOS boot screen
@@ -16,9 +16,6 @@ Some gameplay from Fire Emblem Sacred Stones
 Obligatory screenshot of the Pokemon Emerald start screen
 
 !["Pokemon Emerald start screen."](./resources/pokemss.png "Pokemon Emerald start screen.")
-
-## Current State
-So far, only the timers and graphics are in a (near) complete state. There is still quite a bit of work to be done with the other GBA components (outlined in the next section). However, the games I have tried are booting up and running just fine (Pokemon Ruby/Sapphire/Emerald/Leafgreen/Firered, Fire Emblem Sacred Stones, Kirby NMD, and Mega Man Battle Network 6). 
 
 ## Planned Improvements / Features
 * Semi-accurate CPU timings
