@@ -359,10 +359,146 @@ DACChannel.prototype.getSample = function() {
 };
 
 //channel 4
-const noiseChannel = function(mmu) {
+const noiseChannel = function(REGSOUNDCNTL, REGSOUNDCNTH) {
+    this.soundLength = 0; //the length of time this channel will produce sound (in cpu cycles)
+    this.timedMode = 0; //0 -> loop, 1 -> play up to length
 
-    
+    this.envelopeStepTime; //delay between envelope increase / decrease
+    this.envelopeMode; //bool, if true, increase else decrease
+    this.initialEnvelopeValue = 0; //initial volume
+
+    this.mode = 0; //0 -> 15 stages, 1 -> 7 stages
+
+    this.clockDivisor = 2;  //000: f*2
+                            //001: f
+                            //010: f/2
+                            //011: f/3
+                            //100: f/4
+                            //101: f/5
+                            //110: f/6
+                            //111: f/7       
+    this.preScaler = 0;
+    this.frequency = 4194304 / 8 / this.clockDivisor / Math.pow(2, this.preScaler + 1); //in cycles ->  524288 Hz / r / 2^(s+1), where r = clockdivisor, s = pre scaler
+
+    //freq
+    this.cyclesPerStep = CYCLES_PER_SECOND / this.frequency;
+    this.cyclesSinceStep = 0;
+
+    //volume
+    this.maxVolume = Math.pow(2, 4) - 1;
+    this.volume; 
+    this.cyclesSinceEnvelopeChange;
+    this.cyclesPerEnvelopeStep = 0; //change volume every cyclesPerEnvelopeStep
+
+    //track length of time sound has been playing, in cpu cycles
+    this.currSoundLength = 0;
+
+    this.shiftRegisterVal = this.mode ? 0x40 : 0x4000; // X=40h (7bit) or X=4000h (15bit)
+    this.output = 0; //will be "drained" whenever get sample is called
+
+    REGSOUNDCNTL.addCallback((REGSOUNDCNTLVal) => this.updateREGSOUNDCNTL(REGSOUNDCNTLVal));
+    REGSOUNDCNTH.addCallback((REGSOUNDCNTHVal) => this.updateREGSOUNDCNTH(REGSOUNDCNTHVal));
 }
+
+noiseChannel.prototype.init = function() {    
+    this.cyclesSinceStep = 0;
+    this.volume = this.initialEnvelopeValue;
+    this.cyclesSinceEnvelopeChange = 0;
+    this.currSoundLength = 0;
+    this.shiftRegisterVal = this.mode ? 0x40 : 0x4000; // X=40h (7bit) or X=4000h (15bit)
+    this.output = 0;
+};
+
+noiseChannel.prototype.updateREGSOUNDCNTL = function(REGSOUNDCNTLVal) {
+    this.soundLength = (REGSOUNDCNTLVal & IORegisterMasks["REG_SOUND4CNT_L_LENGTH"]) >>> IORegisterMaskShifts["REG_SOUND4CNT_L_LENGTH"];
+    this.soundLength = ((64 - this.soundLength) * (1/256)) * CYCLES_PER_SECOND;
+
+    this.envelopeStepTime = (REGSOUNDCNTLVal & IORegisterMasks["REG_SOUND4CNT_L_ENV_STEP_TIME"]) >>> IORegisterMaskShifts["REG_SOUND4CNT_L_ENV_STEP_TIME"];
+    this.envelopeMode = (REGSOUNDCNTLVal & IORegisterMasks["REG_SOUND4CNT_L_ENV_MODE"]) >>> IORegisterMaskShifts["REG_SOUND4CNT_L_ENV_MODE"];
+    this.initialEnvelopeValue = (REGSOUNDCNTLVal & IORegisterMasks["REG_SOUND4CNT_L_ENV_INIT"]) >>> IORegisterMaskShifts["REG_SOUND4CNT_L_ENV_INIT"];
+
+    //step time in seconds = 1/64 seconds * envelopeStepTime -> 1/64 seconds * 16777216 cycles per second * envelopeStepTime ->  262144 cycles * envelopeStepTime 
+    this.cyclesPerEnvelopeStep = 262144 * this.envelopeStepTime;
+};
+
+noiseChannel.prototype.updateREGSOUNDCNTH = function(REGSOUNDCNTHVal) {
+    this.clockDivisor = (REGSOUNDCNTHVal & IORegisterMasks["REG_SOUND4CNT_H_CLOCK_DIVISOR"]) >>> IORegisterMaskShifts["REG_SOUND4CNT_H_CLOCK_DIVISOR"];
+    if (this.clockDivisor === 0)
+        this.clockDivisor = .5;
+    
+    this.mode = (REGSOUNDCNTHVal & IORegisterMasks["REG_SOUND4CNT_H_MODE"]) >>> IORegisterMaskShifts["REG_SOUND4CNT_H_MODE"];
+    this.preScaler = (REGSOUNDCNTHVal & IORegisterMasks["REG_SOUND4CNT_H_PRE_SCALER"]) >>> IORegisterMaskShifts["REG_SOUND4CNT_H_PRE_SCALER"];
+    this.timedMode = (REGSOUNDCNTHVal & IORegisterMasks["REG_SOUND4CNT_H_TIMED_MODE"]) >>> IORegisterMaskShifts["REG_SOUND4CNT_H_TIMED_MODE"];
+
+    this.frequency = 524288 / this.clockDivisor / Math.pow(2, this.preScaler + 1); //in cycles ->  524288 Hz / r / 2^(s+1), where r = clockdivisor, s = pre scaler
+    this.shiftRegisterVal = this.mode ? 0x40 : 0x4000; // X=40h (7bit) or X=4000h (15bit)
+    this.cyclesPerStep = CYCLES_PER_SECOND / this.frequency;
+
+    //note that the belogic sound 4 demo sets the reset bit to 1 (which is a write only bit) when writing to this register
+    //in my implementation, when the demo reads back the value set in this register, I return 1 for the reset bit
+    //however, in mgba, it seems to always return 0
+    //this results in different behavior in the demo (when changing any cnt_h parameters, the sound replays on mine, not the case on mgba)
+    //reading from write only bits is supposed to be undefined behavior, so hopefully games don't rely on reading zeroes from write only bits...
+
+    let reset = (REGSOUNDCNTHVal & IORegisterMasks["REG_SOUND4CNT_H_RESET"]) >>> IORegisterMaskShifts["REG_SOUND4CNT_H_RESET"];
+    if (reset)
+        this.init();
+};
+
+noiseChannel.prototype.update = function(numCycles) {
+    this.updateVolume(numCycles);
+    this.updateDuration(numCycles);
+    this.updateOutput(numCycles);
+};
+
+//identical to psg
+noiseChannel.prototype.updateVolume = function(numCycles) {
+    if (this.cyclesPerEnvelopeStep === 0)
+        return;
+
+    this.cyclesSinceEnvelopeChange += numCycles;
+    this.volume += Math.floor(this.cyclesSinceEnvelopeChange / this.cyclesPerEnvelopeStep) * (this.envelopeMode ? 1 : -1);
+    this.cyclesSinceEnvelopeChange %= this.cyclesPerEnvelopeStep;
+
+    //cut off volume
+    if (this.volume < 0)
+        this.volume = 0;
+    else if (this.volume > this.maxVolume)
+        this.volume = this.maxVolume;
+};
+
+noiseChannel.prototype.updateDuration = function(numCycles) {
+    this.currSoundLength += numCycles;
+};
+
+// 7bit:  X=X SHR 1, IF carry THEN Out=HIGH, X=X XOR 60h ELSE Out=LOW
+// 15bit: X=X SHR 1, IF carry THEN Out=HIGH, X=X XOR 6000h ELSE Out=LOW
+noiseChannel.prototype.updateOutput = function(numCycles) {
+    // if (this.cyclesPerStep === 0)
+    //     return;
+
+    this.cyclesSinceStep += numCycles;
+
+    for (let i = 0; i < Math.floor(this.cyclesSinceStep / this.cyclesPerStep); i ++) {
+        this.output = this.shiftRegisterVal & 0x1;
+        this.shiftRegisterVal = this.shiftRegisterVal >>> 1;
+
+        if (this.output)
+            this.shiftRegisterVal = this.shiftRegisterVal ^ (this.mode ? 0x60 : 0x6000);
+    }
+    this.cyclesSinceStep %= this.cyclesPerStep;
+};
+
+noiseChannel.prototype.getSample = function() {
+    if ((this.volume <= 0) 
+        || (this.timedMode && this.currSoundLength > this.soundLength)
+        || !this.output)
+        return 0;
+    else {
+        //return this.output * (this.volume / this.maxVolume);
+        return (this.volume / this.maxVolume);
+    }
+};
 
 //direct sound A / B
 const directSoundChannel = function(timerController, REG_FIFO, REG_SOUNDCNT_H, REG_SOUNDCNT_H_TIMER_MASK, REG_SOUNDCNT_H_TIMER_MASK_SHIFT, REG_SOUNDCNT_H_RESET_MASK, REG_SOUNDCNT_H_RESET_MASK_SHIFT) {

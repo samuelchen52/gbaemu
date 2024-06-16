@@ -82,6 +82,7 @@ const sound = function(mmu, timerController) {
             ioregion.getIOReg("REG_WAVE_RAM3_H"),
         ]
     );
+    this.noiseChannel4 = new noiseChannel(ioregion.getIOReg("SOUND4CNT_L"), ioregion.getIOReg("SOUND4CNT_H"));
     //direct sound A
     this.directSoundChannel5 = new directSoundChannel(timerController, ioregion.getIOReg("REG_FIFO_A"), ioregion.getIOReg("SOUNDCNT_H"), 
         IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_A_TIMER"], IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_A_TIMER"], IORegisterMasks["REG_SOUNDCNT_H_DIRECT_SOUND_A_RESET"], IORegisterMaskShifts["REG_SOUNDCNT_H_DIRECT_SOUND_A_RESET"]);
@@ -177,19 +178,19 @@ sound.prototype.updateNumChannelsUpdated = function() {
         this.numChannelsEnabled ++;
 }
 
-sound.prototype.mix = function(sound1, sound2, sound3, sound5, sound6, numChannelsEnabled) {
-    return (sound1 + sound2 + sound3 + sound5 + sound6) / numChannelsEnabled;
+sound.prototype.mix = function(sound1, sound2, sound3, sound4, sound5, sound6, numChannelsEnabled) {
+    return (sound1 + sound2 + sound3 + sound4 + sound5 + sound6) / numChannelsEnabled;
 }
 
 sound.prototype.getSample = function() {
     let sound1 = this.sound1Enable ? this.squareChannel1.getSample() * this.DMGCHannelOutputRatio * this.DMGVolumeMultiplier : 0;
     let sound2 = this.sound2Enable ? this.squareChannel2.getSample() * this.DMGCHannelOutputRatio * this.DMGVolumeMultiplier : 0;
     let sound3 = this.sound3Enable ? this.DACChannel3.getSample() * this.DMGCHannelOutputRatio * this.DMGVolumeMultiplier : 0;
-    // let sound4 = this.channel1.getSample();
+    let sound4 = this.sound4Enable ? this.noiseChannel4.getSample() * this.DMGCHannelOutputRatio * this.DMGVolumeMultiplier : 0;
     let sound5 = this.sound5Enable ? this.directSoundChannel5.getSample() * this.directSoundAOutputRatio : 0;
     let sound6 = this.sound6Enable ? this.directSoundChannel6.getSample() * this.directSoundBOutputRatio : 0;
 
-    let sample = this.mix(sound1, sound2, sound3, sound5, sound6, this.numChannelsEnabled);
+    let sample = this.mix(sound1, sound2, sound3, sound4, sound5, sound6, this.numChannelsEnabled);
     
     return sample;
 }
@@ -279,6 +280,7 @@ sound.prototype.update = function(numCycles) {
     this.squareChannel1.update(numCycles);
     this.squareChannel2.update(numCycles);
     this.DACChannel3.update(numCycles);
+    this.noiseChannel4.update(numCycles);
     //this.directSoundChannel5.update(numCycles); //driven by timer
     //this.directSoundChannel6.update(numCycles); //driven by timer
 
@@ -306,6 +308,7 @@ sound.prototype.start = function() {
     this.squareChannel1.init();
     this.squareChannel2.init();
     this.DACChannel3.init();
+    this.noiseChannel4.init();
     this.directSoundChannel5.init();
     this.directSoundChannel6.init();
 }
